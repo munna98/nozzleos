@@ -38,14 +38,15 @@ export function AddEmployeeDialog({
     userToEdit
 }: AddEmployeeDialogProps) {
     const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState<CreateUserDto>({
+    const [formData, setFormData] = useState<CreateUserDto & { isActive: boolean }>({
         username: "",
         name: "",
         password: "",
         code: "",
         mobile: "",
         address: "",
-        roleId: 0
+        roleId: 0,
+        isActive: true
     })
 
     useEffect(() => {
@@ -57,16 +58,19 @@ export function AddEmployeeDialog({
                 code: userToEdit.code || "",
                 mobile: userToEdit.mobile || "",
                 address: userToEdit.address || "",
-                roleId: userToEdit.roleId
+                roleId: userToEdit.roleId,
+                isActive: userToEdit.isActive
             })
         } else {
             setFormData({
                 username: "",
+                name: "",
                 password: "",
                 code: "",
                 mobile: "",
                 address: "",
-                roleId: roles.length > 0 ? roles[0].id : 0
+                roleId: roles.length > 0 ? roles[0].id : 0,
+                isActive: true
             })
         }
     }, [userToEdit, roles, open])
@@ -80,7 +84,8 @@ export function AddEmployeeDialog({
             if (userToEdit) {
                 const updateData: UpdateUserDto = {
                     ...formData,
-                    password: formData.password || undefined // Only send password if updated
+                    password: formData.password || undefined, // Only send password if updated
+                    isActive: formData.isActive
                 }
                 await UserService.update(userToEdit.id, updateData)
             } else {
@@ -107,8 +112,8 @@ export function AddEmployeeDialog({
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="name" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-left md:text-right">
                                 Name
                             </Label>
                             <Input
@@ -118,8 +123,8 @@ export function AddEmployeeDialog({
                                 className="col-span-3"
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="username" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="username" className="text-left md:text-right">
                                 Username
                             </Label>
                             <Input
@@ -130,8 +135,8 @@ export function AddEmployeeDialog({
                                 required
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="password" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="password" className="text-left md:text-right">
                                 Password
                             </Label>
                             <Input
@@ -144,8 +149,8 @@ export function AddEmployeeDialog({
                                 placeholder={userToEdit ? "Leave blank to keep current" : ""}
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="role" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="role" className="text-left md:text-right">
                                 Role
                             </Label>
                             <Select
@@ -164,8 +169,8 @@ export function AddEmployeeDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="code" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="code" className="text-left md:text-right">
                                 Code
                             </Label>
                             <Input
@@ -175,8 +180,8 @@ export function AddEmployeeDialog({
                                 className="col-span-3"
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="mobile" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="mobile" className="text-left md:text-right">
                                 Mobile
                             </Label>
                             <Input
@@ -186,8 +191,8 @@ export function AddEmployeeDialog({
                                 className="col-span-3"
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="address" className="text-right">
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="address" className="text-left md:text-right">
                                 Address
                             </Label>
                             <Input
@@ -197,6 +202,25 @@ export function AddEmployeeDialog({
                                 className="col-span-3"
                             />
                         </div>
+                        {userToEdit && (
+                            <div className="grid md:grid-cols-4 items-center gap-4">
+                                <Label htmlFor="status" className="text-left md:text-right">
+                                    Status
+                                </Label>
+                                <Select
+                                    value={formData.isActive ? "true" : "false"}
+                                    onValueChange={(val) => setFormData({ ...formData, isActive: val === "true" })}
+                                >
+                                    <SelectTrigger className="col-span-3">
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="true">Active</SelectItem>
+                                        <SelectItem value="false">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>

@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 
+// Get all roles - MUST be before /:id routes
+router.get('/roles', async (req, res) => {
+    try {
+        const roles = await prisma.userRole.findMany();
+        res.json(roles);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get all users (employees)
 router.get('/', async (req, res) => {
     try {
@@ -88,16 +98,6 @@ router.delete('/:id', async (req, res) => {
             data: { deletedAt: new Date(), isActive: false }
         });
         res.json(user);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Get all roles
-router.get('/roles', async (req, res) => {
-    try {
-        const roles = await prisma.userRole.findMany();
-        res.json(roles);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -49,6 +49,29 @@ export interface UpdateUserDto {
     isActive?: boolean;
 }
 
+export interface Customer {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateCustomerDto {
+    name: string;
+    email: string;
+    phone?: string;
+}
+
+export interface UpdateCustomerDto {
+    name?: string;
+    email?: string;
+    phone?: string;
+    isActive?: boolean;
+}
+
 export const UserService = {
     getAll: async () => {
         const response = await api.get<User[]>('/users');
@@ -72,6 +95,28 @@ export const UserService = {
 
     getRoles: async () => {
         const response = await api.get<UserRole[]>('/users/roles');
+        return response.data;
+    }
+};
+
+export const CustomerService = {
+    getAll: async () => {
+        const response = await api.get<Customer[]>('/customers');
+        return response.data;
+    },
+
+    create: async (data: CreateCustomerDto) => {
+        const response = await api.post<Customer>('/customers', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: UpdateCustomerDto) => {
+        const response = await api.put<Customer>(`/customers/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number) => {
+        const response = await api.delete<Customer>(`/customers/${id}`);
         return response.data;
     }
 };

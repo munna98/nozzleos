@@ -14,7 +14,9 @@ app.use(cors());
 app.use(express.json());
 
 const userRoutes = require('./routes/user.routes');
+const customerRoutes = require('./routes/customer.routes.js');
 app.use('/users', userRoutes);
+app.use('/customers', customerRoutes);
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);

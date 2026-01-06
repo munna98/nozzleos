@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { UserService, User, UserRole } from "@/lib/api"
+import { CustomerService, Customer } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import {
     Table,
@@ -13,29 +13,24 @@ import {
 } from "@/components/ui/table"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PlusSignIcon, SettingsIcon, Delete02Icon } from "@hugeicons/core-free-icons"
-import { AddEmployeeDialog } from "@/components/add-employee-dialog"
+import { AddCustomerDialog } from "@/components/add-customer-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 
 
-export default function EmployeesPage() {
-    const [users, setUsers] = useState<User[]>([])
-    const [roles, setRoles] = useState<UserRole[]>([])
+export default function CustomersPage() {
+    const [customers, setCustomers] = useState<Customer[]>([])
     const [loading, setLoading] = useState(true)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined)
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
 
     const fetchData = async () => {
         setLoading(true)
         try {
-            const [usersData, rolesData] = await Promise.all([
-                UserService.getAll(),
-                UserService.getRoles()
-            ])
-            setUsers(usersData)
-            setRoles(rolesData)
+            const data = await CustomerService.getAll()
+            setCustomers(data)
         } catch (error) {
-            console.error("Failed to fetch data:", error)
+            console.error("Failed to fetch customers:", error)
         } finally {
             setLoading(false)
         }
@@ -46,22 +41,22 @@ export default function EmployeesPage() {
     }, [])
 
     const handleAddClick = () => {
-        setSelectedUser(undefined)
+        setSelectedCustomer(undefined)
         setIsDialogOpen(true)
     }
 
-    const handleEditClick = (user: User) => {
-        setSelectedUser(user)
+    const handleEditClick = (customer: Customer) => {
+        setSelectedCustomer(customer)
         setIsDialogOpen(true)
     }
 
     const handleDeleteClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this employee?")) {
+        if (confirm("Are you sure you want to delete this customer?")) {
             try {
-                await UserService.delete(id)
+                await CustomerService.delete(id)
                 fetchData()
             } catch (error) {
-                console.error("Failed to delete user", error)
+                console.error("Failed to delete customer", error)
             }
         }
     }
@@ -75,10 +70,10 @@ export default function EmployeesPage() {
         <div className="container mx-auto py-10 space-y-8 px-4">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
                 </div>
                 <Button onClick={handleAddClick}>
-                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Employee
+                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Customer
                 </Button>
             </div>
 
@@ -88,9 +83,8 @@ export default function EmployeesPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Mobile</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Phone</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -98,32 +92,30 @@ export default function EmployeesPage() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10">Loading...</TableCell>
+                                    <TableCell colSpan={5} className="text-center py-10">Loading...</TableCell>
                                 </TableRow>
-                            ) : users.length === 0 ? (
+                            ) : customers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10">No employees found.</TableCell>
+                                    <TableCell colSpan={5} className="text-center py-10">No customers found.</TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user) => (
-                                    <TableRow key={user.id}>
+                                customers.map((customer) => (
+                                    <TableRow key={customer.id}>
                                         <TableCell className="font-medium">
-                                            {user.name || user.username}
-                                            {user.name && <span className="block text-xs text-muted-foreground">@{user.username}</span>}
+                                            {customer.name}
                                         </TableCell>
-                                        <TableCell>{user.role?.name || user.roleId}</TableCell>
-                                        <TableCell>{user.code || '-'}</TableCell>
-                                        <TableCell>{user.mobile || '-'}</TableCell>
+                                        <TableCell>{customer.email}</TableCell>
+                                        <TableCell>{customer.phone || '-'}</TableCell>
                                         <TableCell>
-                                            <Badge variant={user.isActive ? "default" : "secondary"}>
-                                                {user.isActive ? "Active" : "Inactive"}
+                                            <Badge variant={customer.isActive ? "default" : "secondary"}>
+                                                {customer.isActive ? "Active" : "Inactive"}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right space-x-2">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(customer)}>
                                                 <HugeiconsIcon icon={SettingsIcon} className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClick(user.id)}>
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClick(customer.id)}>
                                                 <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -139,38 +131,32 @@ export default function EmployeesPage() {
             <div className="space-y-4 md:hidden">
                 {loading ? (
                     <div className="text-center py-10">Loading...</div>
-                ) : users.length === 0 ? (
-                    <div className="text-center py-10">No employees found.</div>
+                ) : customers.length === 0 ? (
+                    <div className="text-center py-10">No customers found.</div>
                 ) : (
-                    users.map((user) => (
-                        <Card key={user.id}>
+                    customers.map((customer) => (
+                        <Card key={customer.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="font-semibold">{user.name || user.username}</div>
-                                        {user.name && <div className="text-xs text-muted-foreground">@{user.username}</div>}
-                                    </div>
-                                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                                        {user.isActive ? "Active" : "Inactive"}
+                                    <div className="font-semibold">{customer.name}</div>
+                                    <Badge variant={customer.isActive ? "default" : "secondary"}>
+                                        {customer.isActive ? "Active" : "Inactive"}
                                     </Badge>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div className="text-muted-foreground">Role:</div>
-                                    <div>{user.role?.name || user.roleId}</div>
+                                    <div className="text-muted-foreground">Email:</div>
+                                    <div className="truncate">{customer.email}</div>
 
-                                    <div className="text-muted-foreground">Code:</div>
-                                    <div>{user.code || '-'}</div>
-
-                                    <div className="text-muted-foreground">Mobile:</div>
-                                    <div>{user.mobile || '-'}</div>
+                                    <div className="text-muted-foreground">Phone:</div>
+                                    <div>{customer.phone || '-'}</div>
                                 </div>
 
                                 <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(user)}>
+                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(customer)}>
                                         <HugeiconsIcon icon={SettingsIcon} className="h-4 w-4 mr-2" /> Edit
                                     </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(user.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(customer.id)}>
                                         <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4 mr-2" /> Delete
                                     </Button>
                                 </div>
@@ -180,12 +166,11 @@ export default function EmployeesPage() {
                 )}
             </div>
 
-            <AddEmployeeDialog
+            <AddCustomerDialog
                 open={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
                 onSuccess={handleSuccess}
-                roles={roles}
-                userToEdit={selectedUser}
+                customerToEdit={selectedCustomer}
             />
         </div>
     )
