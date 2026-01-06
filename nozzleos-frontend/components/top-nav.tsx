@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/co
 import { Button } from "@/components/ui/button"
 import { Menu01Icon } from "@hugeicons/core-free-icons" // Or any menu icon
 import { HugeiconsIcon } from "@hugeicons/react"
+import { ModeToggle } from "@/components/mode-toggle"
 
 export function TopNav() {
     const pathname = usePathname()
@@ -91,6 +92,7 @@ export function TopNav() {
                 </div>
                 {/* Helper for potential future user menu or other right-aligned items */}
                 <div className="ml-auto flex items-center space-x-4">
+                    <ModeToggle />
                 </div>
             </div>
         </nav>
