@@ -16,6 +16,17 @@ import { PlusSignIcon, SettingsIcon, Delete02Icon } from "@hugeicons/core-free-i
 import { AddCustomerDialog } from "@/components/add-customer-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .filter(n => n)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+}
 
 
 export default function CustomersPage() {
@@ -102,7 +113,12 @@ export default function CustomersPage() {
                                 customers.map((customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell className="font-medium">
-                                            {customer.name}
+                                            <div className="flex items-center gap-3">
+                                                <Avatar size="sm">
+                                                    <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
+                                                </Avatar>
+                                                {customer.name}
+                                            </div>
                                         </TableCell>
                                         <TableCell>{customer.email}</TableCell>
                                         <TableCell>{customer.phone || '-'}</TableCell>
@@ -138,7 +154,12 @@ export default function CustomersPage() {
                         <Card key={customer.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
-                                    <div className="font-semibold">{customer.name}</div>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar>
+                                            <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="font-semibold">{customer.name}</div>
+                                    </div>
                                     <Badge variant={customer.isActive ? "default" : "secondary"}>
                                         {customer.isActive ? "Active" : "Inactive"}
                                     </Badge>

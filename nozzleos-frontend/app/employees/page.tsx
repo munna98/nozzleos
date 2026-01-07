@@ -16,6 +16,17 @@ import { PlusSignIcon, SettingsIcon, Delete02Icon } from "@hugeicons/core-free-i
 import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .filter(n => n)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+}
 
 
 export default function EmployeesPage() {
@@ -108,8 +119,15 @@ export default function EmployeesPage() {
                                 users.map((user) => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
-                                            {user.name || user.username}
-                                            {user.name && <span className="block text-xs text-muted-foreground">@{user.username}</span>}
+                                            <div className="flex items-center gap-3">
+                                                <Avatar size="sm">
+                                                    <AvatarFallback>{getInitials(user.name || user.username)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    {user.name || user.username}
+                                                    {user.name && <span className="block text-xs text-muted-foreground">@{user.username}</span>}
+                                                </div>
+                                            </div>
                                         </TableCell>
                                         <TableCell>{user.role?.name || user.roleId}</TableCell>
                                         <TableCell>{user.code || '-'}</TableCell>
@@ -146,9 +164,14 @@ export default function EmployeesPage() {
                         <Card key={user.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="font-semibold">{user.name || user.username}</div>
-                                        {user.name && <div className="text-xs text-muted-foreground">@{user.username}</div>}
+                                    <div className="flex items-center gap-3">
+                                        <Avatar>
+                                            <AvatarFallback>{getInitials(user.name || user.username)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="font-semibold">{user.name || user.username}</div>
+                                            {user.name && <div className="text-xs text-muted-foreground">@{user.username}</div>}
+                                        </div>
                                     </div>
                                     <Badge variant={user.isActive ? "default" : "secondary"}>
                                         {user.isActive ? "Active" : "Inactive"}
