@@ -32,6 +32,16 @@ export function TopNav() {
             active: pathname.startsWith("/customers"),
         },
         {
+            href: "/fuels",
+            label: "Fuels",
+            active: pathname.startsWith("/fuels"),
+        },
+        {
+            href: "/dispensers",
+            label: "Dispensers",
+            active: pathname.startsWith("/dispensers"),
+        },
+        {
             href: "/payment-methods",
             label: "Payment Methods",
             active: pathname.startsWith("/payment-methods"),

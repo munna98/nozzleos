@@ -160,4 +160,131 @@ export const PaymentMethodService = {
     }
 };
 
+// Fuel interfaces and service
+export interface Fuel {
+    id: number;
+    name: string;
+    price: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface FuelDto {
+    name: string;
+    price: number;
+    isActive?: boolean;
+}
+
+export const FuelService = {
+    getAll: async () => {
+        const response = await api.get<Fuel[]>('/fuels');
+        return response.data;
+    },
+
+    create: async (data: FuelDto) => {
+        const response = await api.post<Fuel>('/fuels', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: FuelDto) => {
+        const response = await api.put<Fuel>(`/fuels/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number) => {
+        const response = await api.delete<Fuel>(`/fuels/${id}`);
+        return response.data;
+    }
+};
+
+// Dispenser interfaces and service
+export interface Nozzle {
+    id: number;
+    code: string;
+    dispenserId: number;
+    dispenser?: Dispenser;
+    fuelId: number;
+    fuel?: Fuel;
+    price: number;
+    isActive: boolean;
+    isAvailable: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Dispenser {
+    id: number;
+    code: string;
+    name: string;
+    isActive: boolean;
+    nozzles?: Nozzle[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface DispenserDto {
+    code: string;
+    name: string;
+    isActive?: boolean;
+}
+
+export const DispenserService = {
+    getAll: async () => {
+        const response = await api.get<Dispenser[]>('/dispensers');
+        return response.data;
+    },
+
+    create: async (data: DispenserDto) => {
+        const response = await api.post<Dispenser>('/dispensers', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: DispenserDto) => {
+        const response = await api.put<Dispenser>(`/dispensers/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number) => {
+        const response = await api.delete<Dispenser>(`/dispensers/${id}`);
+        return response.data;
+    }
+};
+
+// Nozzle interfaces and service
+export interface NozzleDto {
+    code: string;
+    dispenserId: number;
+    fuelId: number;
+    price: number;
+    isActive?: boolean;
+}
+
+export const NozzleService = {
+    getAll: async () => {
+        const response = await api.get<Nozzle[]>('/nozzles');
+        return response.data;
+    },
+
+    create: async (data: NozzleDto) => {
+        const response = await api.post<Nozzle>('/nozzles', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: NozzleDto) => {
+        const response = await api.put<Nozzle>(`/nozzles/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number) => {
+        const response = await api.delete<Nozzle>(`/nozzles/${id}`);
+        return response.data;
+    },
+
+    setAvailability: async (id: number, isAvailable: boolean) => {
+        const response = await api.patch<Nozzle>(`/nozzles/${id}/availability`, { isAvailable });
+        return response.data;
+    }
+};
+
 export default api;

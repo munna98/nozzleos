@@ -56,3 +56,40 @@ model PaymentMethod {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
+
+model Fuel {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  price     Float     @default(0)
+  isActive  Boolean   @default(true)
+  nozzles   Nozzle[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model Dispenser {
+  id        Int       @id @default(autoincrement())
+  code      String    @unique
+  name      String
+  isActive  Boolean   @default(true)
+  nozzles   Nozzle[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model Nozzle {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  dispenserId Int
+  dispenser   Dispenser @relation(fields: [dispenserId], references: [id])
+  fuelId      Int
+  fuel        Fuel      @relation(fields: [fuelId], references: [id])
+  price       Float     @default(0)
+  isActive    Boolean   @default(true)
+  isAvailable Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}

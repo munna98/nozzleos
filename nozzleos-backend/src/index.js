@@ -17,10 +17,16 @@ app.use(express.json());
 const userRoutes = require('./routes/user.routes');
 const customerRoutes = require('./routes/customer.routes.js');
 const paymentMethodRoutes = require('./routes/payment-method.routes.js');
+const fuelRoutes = require('./routes/fuel.routes.js');
+const dispenserRoutes = require('./routes/dispenser.routes.js');
+const nozzleRoutes = require('./routes/nozzle.routes.js');
 
 app.use('/users', userRoutes);
 app.use('/customers', customerRoutes);
 app.use('/payment-methods', paymentMethodRoutes);
+app.use('/fuels', fuelRoutes);
+app.use('/dispensers', dispenserRoutes);
+app.use('/nozzles', nozzleRoutes);
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
