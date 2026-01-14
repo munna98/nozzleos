@@ -48,7 +48,7 @@ export function AddCustomerDialog({
         if (customerToEdit) {
             setFormData({
                 name: customerToEdit.name,
-                email: customerToEdit.email,
+                email: customerToEdit.email || "",
                 phone: customerToEdit.phone || "",
                 isActive: customerToEdit.isActive,
                 createPaymentMethod: !!customerToEdit.paymentMethod
@@ -81,7 +81,8 @@ export function AddCustomerDialog({
                 await CustomerService.create({
                     name: formData.name,
                     email: formData.email,
-                    phone: formData.phone
+                    phone: formData.phone,
+                    createPaymentMethod: formData.createPaymentMethod
                 })
             }
             onSuccess()
@@ -124,10 +125,9 @@ export function AddCustomerDialog({
                             <Input
                                 id="email"
                                 type="email"
-                                value={formData.email}
+                                value={formData.email || ""}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="col-span-3"
-                                required
                             />
                         </div>
                         <div className="grid md:grid-cols-4 items-center gap-4">

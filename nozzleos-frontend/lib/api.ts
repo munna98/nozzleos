@@ -52,7 +52,7 @@ export interface UpdateUserDto {
 export interface Customer {
     id: number;
     name: string;
-    email: string;
+    email?: string;
     phone?: string;
     isActive: boolean;
     paymentMethod?: PaymentMethod | null;
@@ -62,7 +62,7 @@ export interface Customer {
 
 export interface CreateCustomerDto {
     name: string;
-    email: string;
+    email?: string;
     phone?: string;
     createPaymentMethod?: boolean;
 }

@@ -28,15 +28,16 @@ router.post('/', async (req, res) => {
         const { name, email, phone, createPaymentMethod = true } = req.body;
 
         // Basic validation
-        if (!name || !email) {
-            return res.status(400).json({ error: 'Name and email are required' });
+        // Basic validation
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
         }
 
         const result = await prisma.$transaction(async (tx) => {
             const customer = await tx.customer.create({
                 data: {
                     name,
-                    email,
+                    email: email || null,
                     phone,
                     isActive: true
                 }
@@ -57,11 +58,19 @@ router.post('/', async (req, res) => {
 
         res.json(result);
     } catch (error) {
-        // Handle unique constraint violation for email
+        console.error('Error creating customer:', error);
+        // Handle unique constraint violation
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Email already exists' });
+            const target = error.meta?.target;
+            if (target && (target.includes('email') || target === 'Customer_email_key')) {
+                return res.status(400).json({ error: 'Email already exists' });
+            }
+            if (target && (target.includes('name') || target === 'PaymentMethod_name_key')) {
+                return res.status(400).json({ error: 'A Payment Method with this name already exists. Please choose a different name.' });
+            }
+            return res.status(400).json({ error: 'Unique constraint violation: ' + target });
         }
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, code: error.code, meta: error.meta });
     }
 });
 
@@ -76,7 +85,7 @@ router.put('/:id', async (req, res) => {
                 where: { id: parseInt(id) },
                 data: {
                     name,
-                    email,
+                    email: email || null,
                     phone,
                     isActive
                 },
