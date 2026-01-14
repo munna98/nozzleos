@@ -20,6 +20,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { Checkbox as RequestCheckbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 
 interface AddCustomerDialogProps {
@@ -49,14 +50,16 @@ export function AddCustomerDialog({
                 name: customerToEdit.name,
                 email: customerToEdit.email,
                 phone: customerToEdit.phone || "",
-                isActive: customerToEdit.isActive
+                isActive: customerToEdit.isActive,
+                createPaymentMethod: !!customerToEdit.paymentMethod
             })
         } else {
             setFormData({
                 name: "",
                 email: "",
                 phone: "",
-                isActive: true
+                isActive: true,
+                createPaymentMethod: true
             })
         }
     }, [customerToEdit, open])
@@ -70,7 +73,8 @@ export function AddCustomerDialog({
             if (customerToEdit) {
                 const updateData: UpdateCustomerDto = {
                     ...formData,
-                    isActive: formData.isActive
+                    isActive: formData.isActive,
+                    createPaymentMethod: formData.createPaymentMethod
                 }
                 await CustomerService.update(customerToEdit.id, updateData)
             } else {
@@ -137,6 +141,22 @@ export function AddCustomerDialog({
                                 className="col-span-3"
                             />
                         </div>
+
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <div className="md:col-start-2 flex items-center space-x-2 col-span-3">
+                                <RequestCheckbox
+                                    id="createPaymentMethod"
+                                    checked={formData.createPaymentMethod !== false}
+                                    onCheckedChange={(checked: boolean) =>
+                                        setFormData({ ...formData, createPaymentMethod: checked === true })
+                                    }
+                                />
+                                <Label htmlFor="createPaymentMethod" className="font-normal cursor-pointer">
+                                    {customerToEdit ? "Use as Payment Method" : "Add as Payment Method"}
+                                </Label>
+                            </div>
+                        </div>
+
                         {customerToEdit && (
                             <div className="grid md:grid-cols-4 items-center gap-4">
                                 <Label htmlFor="status" className="text-left md:text-right">

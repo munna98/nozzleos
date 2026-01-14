@@ -10,13 +10,17 @@ const io = new Server(httpServer, {
   cors: { origin: process.env.FRONTEND_URL || 'http://localhost:3000' }
 });
 
+// Trigger restart
 app.use(cors());
 app.use(express.json());
 
 const userRoutes = require('./routes/user.routes');
 const customerRoutes = require('./routes/customer.routes.js');
+const paymentMethodRoutes = require('./routes/payment-method.routes.js');
+
 app.use('/users', userRoutes);
 app.use('/customers', customerRoutes);
+app.use('/payment-methods', paymentMethodRoutes);
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);

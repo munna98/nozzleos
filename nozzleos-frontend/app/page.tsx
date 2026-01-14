@@ -1,11 +1,10 @@
 export default function Page() {
     return (
-        <div className="container mx-auto py-10">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">
-                    Welcome to NozzleOS. Manage your operations here.
-                </p>
+        <div className="container mx-auto py-10 space-y-8 px-4">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

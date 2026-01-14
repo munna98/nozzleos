@@ -55,6 +55,7 @@ export interface Customer {
     email: string;
     phone?: string;
     isActive: boolean;
+    paymentMethod?: PaymentMethod | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -63,6 +64,7 @@ export interface CreateCustomerDto {
     name: string;
     email: string;
     phone?: string;
+    createPaymentMethod?: boolean;
 }
 
 export interface UpdateCustomerDto {
@@ -70,6 +72,7 @@ export interface UpdateCustomerDto {
     email?: string;
     phone?: string;
     isActive?: boolean;
+    createPaymentMethod?: boolean;
 }
 
 export const UserService = {
@@ -117,6 +120,42 @@ export const CustomerService = {
 
     delete: async (id: number) => {
         const response = await api.delete<Customer>(`/customers/${id}`);
+        return response.data;
+    }
+};
+
+export interface PaymentMethod {
+    id: number;
+    name: string;
+    isActive: boolean;
+    customerId?: number | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PaymentMethodDto {
+    name: string;
+    isActive?: boolean;
+}
+
+export const PaymentMethodService = {
+    getAll: async () => {
+        const response = await api.get<PaymentMethod[]>('/payment-methods');
+        return response.data;
+    },
+
+    create: async (data: PaymentMethodDto) => {
+        const response = await api.post<PaymentMethod>('/payment-methods', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: PaymentMethodDto) => {
+        const response = await api.put<PaymentMethod>(`/payment-methods/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number) => {
+        const response = await api.delete<PaymentMethod>(`/payment-methods/${id}`);
         return response.data;
     }
 };

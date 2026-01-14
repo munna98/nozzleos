@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon, SettingsIcon, Delete02Icon } from "@hugeicons/core-free-icons"
+import { PlusSignIcon, SettingsIcon, Delete02Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -139,7 +139,7 @@ export default function EmployeesPage() {
                                         </TableCell>
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
-                                                <HugeiconsIcon icon={SettingsIcon} className="h-4 w-4" />
+                                                <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
                                             </Button>
                                             <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClick(user.id)}>
                                                 <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
@@ -191,7 +191,7 @@ export default function EmployeesPage() {
 
                                 <div className="flex justify-end gap-2 pt-2 border-t mt-2">
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(user)}>
-                                        <HugeiconsIcon icon={SettingsIcon} className="h-4 w-4 mr-2" /> Edit
+                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4 mr-2" /> Edit
                                     </Button>
                                     <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(user.id)}>
                                         <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4 mr-2" /> Delete
