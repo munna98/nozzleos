@@ -88,14 +88,7 @@ export default function DispensersPage() {
         }
     }
 
-    const handleToggleAvailability = async (nozzle: Nozzle) => {
-        try {
-            await NozzleService.setAvailability(nozzle.id, !nozzle.isAvailable)
-            fetchData()
-        } catch (error) {
-            console.error("Failed to toggle availability", error)
-        }
-    }
+
 
     const handleSuccess = () => {
         setIsDispenserDialogOpen(false)
@@ -214,13 +207,9 @@ export default function DispensersPage() {
                                                                                 </Badge>
                                                                             </TableCell>
                                                                             <TableCell>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant={nozzle.isAvailable ? "outline" : "destructive"}
-                                                                                    onClick={() => handleToggleAvailability(nozzle)}
-                                                                                >
+                                                                                <Badge variant={nozzle.isAvailable ? "outline" : "destructive"}>
                                                                                     {nozzle.isAvailable ? "Available" : "In Use"}
-                                                                                </Button>
+                                                                                </Badge>
                                                                             </TableCell>
                                                                             <TableCell className="text-right space-x-2">
                                                                                 <Button variant="ghost" size="icon" onClick={() => handleEditNozzleClick(nozzle)}>
@@ -313,14 +302,12 @@ export default function DispensersPage() {
                                                             <div>₹{nozzle.price.toFixed(2)}</div>
                                                         </div>
                                                         <div className="flex gap-2 pt-2">
-                                                            <Button
-                                                                size="sm"
+                                                            <Badge
                                                                 variant={nozzle.isAvailable ? "outline" : "destructive"}
-                                                                className="flex-1"
-                                                                onClick={() => handleToggleAvailability(nozzle)}
+                                                                className="flex-1 justify-center rounded-md py-1.5"
                                                             >
                                                                 {nozzle.isAvailable ? "Available" : "In Use"}
-                                                            </Button>
+                                                            </Badge>
                                                             <Button variant="outline" size="sm" onClick={() => handleEditNozzleClick(nozzle)}>
                                                                 <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
                                                             </Button>
