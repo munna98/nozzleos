@@ -45,6 +45,7 @@ export function AddNozzleDialog({
         dispenserId: dispenserId || 0,
         fuelId: 0,
         price: 0,
+        currentreading: 0,
         isActive: true
     })
 
@@ -61,6 +62,7 @@ export function AddNozzleDialog({
                 dispenserId: nozzleToEdit.dispenserId,
                 fuelId: nozzleToEdit.fuelId,
                 price: nozzleToEdit.price,
+                currentreading: nozzleToEdit.currentreading || 0,
                 isActive: nozzleToEdit.isActive
             })
         } else {
@@ -69,6 +71,7 @@ export function AddNozzleDialog({
                 dispenserId: dispenserId || 0,
                 fuelId: 0,
                 price: 0,
+                currentreading: 0,
                 isActive: true
             })
         }
@@ -137,6 +140,7 @@ export function AddNozzleDialog({
                             <Select
                                 value={formData.dispenserId.toString()}
                                 onValueChange={(val) => setFormData({ ...formData, dispenserId: parseInt(val) })}
+                                disabled={!!dispenserId || !!nozzleToEdit}
                             >
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Select dispenser" />
@@ -159,10 +163,11 @@ export function AddNozzleDialog({
                                 onValueChange={(val) => {
                                     const fuelId = parseInt(val)
                                     const selectedFuel = fuels.find(f => f.id === fuelId)
+                                    const newPrice = selectedFuel ? selectedFuel.price : formData.price
                                     setFormData({
                                         ...formData,
                                         fuelId,
-                                        price: selectedFuel ? selectedFuel.price : formData.price
+                                        price: newPrice
                                     })
                                 }}
                             >
@@ -188,6 +193,20 @@ export function AddNozzleDialog({
                                 step="0.01"
                                 value={formData.price}
                                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                                className="col-span-3"
+                                required
+                            />
+                        </div>
+                        <div className="grid md:grid-cols-4 items-center gap-4">
+                            <Label htmlFor="currentreading" className="text-left md:text-right">
+                                Current Reading
+                            </Label>
+                            <Input
+                                id="currentreading"
+                                type="number"
+                                step="0.01"
+                                value={formData.currentreading}
+                                onChange={(e) => setFormData({ ...formData, currentreading: parseFloat(e.target.value) || 0 })}
                                 className="col-span-3"
                                 required
                             />

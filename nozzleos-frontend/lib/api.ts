@@ -207,6 +207,7 @@ export interface Nozzle {
     fuelId: number;
     fuel?: Fuel;
     price: number;
+    currentreading: number;
     isActive: boolean;
     isAvailable: boolean;
     createdAt: string;
@@ -257,6 +258,7 @@ export interface NozzleDto {
     dispenserId: number;
     fuelId: number;
     price: number;
+    currentreading: number;
     isActive?: boolean;
 }
 

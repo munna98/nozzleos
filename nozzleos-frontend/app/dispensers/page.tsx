@@ -190,6 +190,7 @@ export default function DispensersPage() {
                                                                         <TableHead>Code</TableHead>
                                                                         <TableHead>Fuel</TableHead>
                                                                         <TableHead>Price</TableHead>
+                                                                        <TableHead>Current Reading</TableHead>
                                                                         <TableHead>Status</TableHead>
                                                                         <TableHead>Availability</TableHead>
                                                                         <TableHead className="text-right">Actions</TableHead>
@@ -201,13 +202,14 @@ export default function DispensersPage() {
                                                                             <TableCell className="font-medium">{nozzle.code}</TableCell>
                                                                             <TableCell>{nozzle.fuel?.name}</TableCell>
                                                                             <TableCell>₹{nozzle.price.toFixed(2)}</TableCell>
+                                                                            <TableCell>{(nozzle.currentreading || 0).toFixed(2)}</TableCell>
                                                                             <TableCell>
                                                                                 <Badge variant={nozzle.isActive ? "default" : "secondary"} className="text-xs">
                                                                                     {nozzle.isActive ? "Active" : "Inactive"}
                                                                                 </Badge>
                                                                             </TableCell>
                                                                             <TableCell>
-                                                                                <Badge variant={nozzle.isAvailable ? "outline" : "destructive"}>
+                                                                                <Badge variant={nozzle.isAvailable ? "success" : "destructive"}>
                                                                                     {nozzle.isAvailable ? "Available" : "In Use"}
                                                                                 </Badge>
                                                                             </TableCell>
@@ -300,10 +302,12 @@ export default function DispensersPage() {
                                                             <div>{nozzle.fuel?.name}</div>
                                                             <div className="text-muted-foreground">Price:</div>
                                                             <div>₹{nozzle.price.toFixed(2)}</div>
+                                                            <div className="text-muted-foreground">Current Reading:</div>
+                                                            <div>{(nozzle.currentreading || 0).toFixed(2)}</div>
                                                         </div>
                                                         <div className="flex gap-2 pt-2">
                                                             <Badge
-                                                                variant={nozzle.isAvailable ? "outline" : "destructive"}
+                                                                variant={nozzle.isAvailable ? "success" : "destructive"}
                                                                 className="flex-1 justify-center rounded-md py-1.5"
                                                             >
                                                                 {nozzle.isAvailable ? "Available" : "In Use"}

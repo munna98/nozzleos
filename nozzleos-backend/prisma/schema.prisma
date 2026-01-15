@@ -87,6 +87,7 @@ model Nozzle {
   fuelId      Int
   fuel        Fuel      @relation(fields: [fuelId], references: [id])
   price       Float     @default(0)
+  currentreading Float    @default(0)
   isActive    Boolean   @default(true)
   isAvailable Boolean   @default(true)
   createdAt   DateTime  @default(now())

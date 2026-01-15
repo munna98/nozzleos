@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
 // Create nozzle
 router.post('/', async (req, res) => {
     try {
-        const { code, dispenserId, fuelId, price } = req.body;
+        const { code, dispenserId, fuelId, price, currentreading } = req.body;
 
         // Basic validation
         if (!code || !dispenserId || !fuelId || price === undefined) {
@@ -36,9 +36,10 @@ router.post('/', async (req, res) => {
         const nozzle = await prisma.nozzle.create({
             data: {
                 code,
-                dispenserId: parseInt(dispenserId),
-                fuelId: parseInt(fuelId),
+                dispenser: { connect: { id: parseInt(dispenserId) } },
+                fuel: { connect: { id: parseInt(fuelId) } },
                 price: parseFloat(price),
+                currentreading: currentreading !== undefined ? parseFloat(currentreading) : 0,
                 isActive: true,
                 isAvailable: true
             },
@@ -62,17 +63,26 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { code, dispenserId, fuelId, price, isActive } = req.body;
+        const { code, dispenserId, fuelId, price, currentreading, isActive } = req.body;
+
+        const updateData = {
+            code,
+            price: price !== undefined ? parseFloat(price) : undefined,
+            currentreading: currentreading !== undefined ? parseFloat(currentreading) : undefined,
+            isActive
+        };
+
+        if (dispenserId !== undefined) {
+            updateData.dispenser = { connect: { id: parseInt(dispenserId) } };
+        }
+
+        if (fuelId !== undefined) {
+            updateData.fuel = { connect: { id: parseInt(fuelId) } };
+        }
 
         const nozzle = await prisma.nozzle.update({
             where: { id: parseInt(id) },
-            data: {
-                code,
-                dispenserId: dispenserId !== undefined ? parseInt(dispenserId) : undefined,
-                fuelId: fuelId !== undefined ? parseInt(fuelId) : undefined,
-                price: price !== undefined ? parseFloat(price) : undefined,
-                isActive
-            },
+            data: updateData,
             include: {
                 fuel: true,
                 dispenser: true
