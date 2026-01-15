@@ -1,8 +1,9 @@
-const { PrismaClient } = require('@prisma/client')
 const bcrypt = require('bcryptjs')
-const prisma = new PrismaClient()
+require('dotenv').config()
+const prisma = require('./src/lib/prisma')
 
 async function main() {
+    console.log('Seeding database...')
     const roles = ['Admin', 'Manager', 'Filling Attendant']
     const roleMap = {}
 
@@ -26,7 +27,8 @@ async function main() {
         where: { username: 'admin' },
         update: {
             passwordHash: hashedPassword,
-            roleId: roleMap['Admin']
+            roleId: roleMap['Admin'],
+            isActive: true
         },
         create: {
             username: 'admin',
@@ -37,11 +39,13 @@ async function main() {
         }
     })
     console.log(`Admin user created: ${adminUser.username}`)
+    console.log(`Password: ${adminPassword}`)
 }
 
 main()
     .then(async () => {
         await prisma.$disconnect()
+        console.log('Seeding complete.')
     })
     .catch(async (e) => {
         console.error(e)

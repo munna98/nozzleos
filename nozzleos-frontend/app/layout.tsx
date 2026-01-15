@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
-import { TopNav } from "@/components/top-nav"
+import { NavWrapper } from "@/components/nav-wrapper"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from '@/lib/auth-context'
+import { AuthGuard } from '@/components/auth-guard'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -38,11 +40,15 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TopNav />
-          <div className="flex-1">
-            {children}
-          </div>
-          <Toaster />
+          <AuthProvider>
+            <AuthGuard>
+              <NavWrapper />
+              <div className="flex-1">
+                {children}
+              </div>
+            </AuthGuard>
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

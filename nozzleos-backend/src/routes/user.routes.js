@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
+const authService = require('../services/auth.service');
 
 // Get all roles - MUST be before /:id routes
 router.get('/roles', async (req, res) => {
@@ -42,19 +43,30 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Username, password and role are required' });
         }
 
+        const passwordHash = await authService.hashPassword(password);
+
         const user = await prisma.user.create({
             data: {
                 username,
                 name,
-                password, // In a production app, this should be hashed
+                passwordHash,
                 code,
                 mobile,
                 address,
                 roleId: parseInt(roleId)
             }
         });
-        res.json(user);
+
+        res.json({
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            roleId: user.roleId
+        });
     } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
         res.status(500).json({ error: error.message });
     }
 });
@@ -76,7 +88,7 @@ router.put('/:id', async (req, res) => {
         };
 
         if (password) {
-            data.password = password;
+            data.passwordHash = await authService.hashPassword(password);
         }
 
         const user = await prisma.user.update({

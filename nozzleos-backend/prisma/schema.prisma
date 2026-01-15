@@ -23,7 +23,7 @@ model User {
   id         Int      @id @default(autoincrement())
   username   String   @unique
   name       String?
-  password   String
+  passwordHash String  // Changed from 'password'
   code       String?
   mobile     String?
   isActive   Boolean  @default(true)
@@ -33,6 +33,10 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   deletedAt DateTime?
+  
+  // Auth tokens (for refresh token strategy)
+  refreshTokens RefreshToken[]
+  // dutySessions  DutySession[]  // Link to upcoming duty sessions
 }
 
 model Customer {
@@ -93,4 +97,13 @@ model Nozzle {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+}
+
+model RefreshToken {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String  @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
