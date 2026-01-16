@@ -9,6 +9,29 @@ const api = axios.create({
     },
 });
 
+// Add request interceptor to include the token in headers
+api.interceptors.request.use(
+    (config) => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('auth');
+            if (stored) {
+                try {
+                    const { accessToken } = JSON.parse(stored);
+                    if (accessToken) {
+                        config.headers.Authorization = `Bearer ${accessToken}`;
+                    }
+                } catch (error) {
+                    console.error('Error parsing auth storage', error);
+                }
+            }
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 export interface UserRole {
     id: number;
     name: string;

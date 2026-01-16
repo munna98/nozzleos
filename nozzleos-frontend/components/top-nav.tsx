@@ -1,13 +1,23 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useAuth } from '@/lib/auth-context'
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 // import { Button } from "@/components/ui/button" // Removed unused import
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu01Icon } from "@hugeicons/core-free-icons" // Or any menu icon
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ModeToggle } from "@/components/mode-toggle"
 
@@ -48,6 +58,14 @@ export function TopNav() {
         },
     ]
 
+    const { logout, user } = useAuth()
+    const router = useRouter()
+
+    const handleLogout = async () => {
+        await logout()
+        router.push('/login')
+    }
+
     return (
         <nav className="border-b bg-background">
             <div className="container mx-auto flex h-16 items-center px-4">
@@ -80,6 +98,9 @@ export function TopNav() {
                                         {route.label}
                                     </Link>
                                 ))}
+                                <Button variant="ghost" className="justify-start px-0 text-muted-foreground hover:text-primary" onClick={() => { setOpen(false); handleLogout(); }}>
+                                    Logout
+                                </Button>
                             </div>
                         </SheetContent>
                     </Sheet>
@@ -108,6 +129,29 @@ export function TopNav() {
                 {/* Helper for potential future user menu or other right-aligned items */}
                 <div className="ml-auto flex items-center space-x-4">
                     <ModeToggle />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarFallback>{user?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56" align="end" forceMount>
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                    <p className="text-xs leading-none text-muted-foreground">
+                                        {user?.role}
+                                    </p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleLogout}>
+                                Log out
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
         </nav>
