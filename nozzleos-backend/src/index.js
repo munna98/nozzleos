@@ -16,6 +16,14 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+// Disable caching for all routes
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Auth routes (public)
 const authRoutes = require('./routes/auth.routes');
 app.use('/auth', authRoutes);
@@ -28,6 +36,7 @@ const paymentMethodRoutes = require('./routes/payment-method.routes.js');
 const fuelRoutes = require('./routes/fuel.routes.js');
 const dispenserRoutes = require('./routes/dispenser.routes.js');
 const nozzleRoutes = require('./routes/nozzle.routes.js');
+const shiftRoutes = require('./routes/shift.routes.js');
 
 // Apply authentication to all routes except /auth
 app.use(authenticate);
@@ -36,10 +45,11 @@ app.use(authenticate);
 
 app.use('/users', authorize('Admin', 'Manager'), userRoutes);
 app.use('/customers', authorize('Admin', 'Manager'), customerRoutes);
-app.use('/payment-methods', authorize('Admin', 'Manager'), paymentMethodRoutes);
+app.use('/payment-methods', authorize('Admin', 'Manager', 'Filling Attendant'), paymentMethodRoutes);
 app.use('/fuels', authorize('Admin', 'Manager'), fuelRoutes);
 app.use('/dispensers', authorize('Admin', 'Manager'), dispenserRoutes);
-app.use('/nozzles', authorize('Admin', 'Manager'), nozzleRoutes);
+app.use('/nozzles', authorize('Admin', 'Manager', 'Filling Attendant'), nozzleRoutes);
+app.use('/shifts', authorize('Admin', 'Manager', 'Filling Attendant'), shiftRoutes);
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;

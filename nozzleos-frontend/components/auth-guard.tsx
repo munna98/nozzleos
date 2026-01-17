@@ -17,14 +17,14 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         } else if (isAuthenticated && pathname === '/login') {
             // Role-based routing after login
             if (user?.role === 'Filling Attendant') {
-                router.push('/filling-attendants')
+                router.push('/shift')
             } else {
                 router.push('/')
             }
         } else if (isAuthenticated && user?.role === 'Filling Attendant') {
-            // Filling attendants can only access their page
-            if (pathname !== '/filling-attendants') {
-                router.push('/filling-attendants')
+            // Filling attendants can only access the shift page
+            if (pathname !== '/shift') {
+                router.push('/shift')
             }
         }
     }, [isAuthenticated, isLoading, user, router, pathname])
