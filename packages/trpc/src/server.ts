@@ -1,0 +1,74 @@
+import { initTRPC, TRPCError } from '@trpc/server'
+import superjson from 'superjson'
+import { ZodError } from 'zod'
+
+/**
+ * Context type - to be extended by the API app
+ */
+export interface Context {
+    user: {
+        id: number
+        username: string
+        role: string
+    } | null
+}
+
+/**
+ * Initialize tRPC with context and error formatting
+ */
+const t = initTRPC.context<Context>().create({
+    transformer: superjson,
+    errorFormatter({ shape, error }) {
+        return {
+            ...shape,
+            data: {
+                ...shape.data,
+                zodError:
+                    error.cause instanceof ZodError ? error.cause.flatten() : null,
+            },
+        }
+    },
+})
+
+/**
+ * Export reusable router and procedure helpers
+ */
+export const router = t.router
+export const middleware = t.middleware
+export const createCallerFactory = t.createCallerFactory
+
+/**
+ * Public procedure - no authentication required
+ */
+export const publicProcedure = t.procedure
+
+/**
+ * Protected procedure - requires authentication
+ */
+export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+    if (!ctx.user) {
+        throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'You must be logged in to access this resource',
+        })
+    }
+    return next({
+        ctx: {
+            ...ctx,
+            user: ctx.user,
+        },
+    })
+})
+
+/**
+ * Admin procedure - requires admin role
+ */
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+    if (ctx.user.role !== 'Admin') {
+        throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You must be an admin to access this resource',
+        })
+    }
+    return next({ ctx })
+})

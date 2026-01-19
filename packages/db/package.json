@@ -1,0 +1,36 @@
+{
+    "name": "@nozzleos/db",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "db:generate": "prisma generate",
+        "db:push": "prisma db push",
+        "db:migrate": "prisma migrate dev",
+        "db:studio": "prisma studio",
+        "typecheck": "tsc --noEmit"
+    },
+    "prisma": {
+        "seed": "tsx prisma/seed.ts"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.1.0"
+    },
+    "devDependencies": {
+        "@types/bcryptjs": "^3.0.0",
+        "@types/node": "^25.0.9",
+        "bcryptjs": "^3.0.3",
+        "prisma": "^6.1.0",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.3"
+    }
+}
