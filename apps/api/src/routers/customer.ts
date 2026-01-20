@@ -36,7 +36,7 @@ export const customerRouter = router({
     create: protectedProcedure
         .input(createCustomerSchema)
         .mutation(async ({ input }) => {
-            return prisma.$transaction(async (tx) => {
+            return prisma.$transaction(async (tx: any) => {
                 const customer = await tx.customer.create({
                     data: {
                         name: input.name,
@@ -69,7 +69,7 @@ export const customerRouter = router({
     update: protectedProcedure
         .input(z.object({ id: z.number(), data: updateCustomerSchema }))
         .mutation(async ({ input }) => {
-            return prisma.$transaction(async (tx) => {
+            return prisma.$transaction(async (tx: any) => {
                 const customer = await tx.customer.update({
                     where: { id: input.id },
                     data: {

@@ -126,9 +126,9 @@ export class ShiftService {
             });
         }
 
-        const inUseNozzles = nozzles.filter((n) => !n.isAvailable);
+        const inUseNozzles = nozzles.filter((n: any) => !n.isAvailable);
         if (inUseNozzles.length > 0) {
-            const inUseCodes = inUseNozzles.map((n) => n.code).join(', ');
+            const inUseCodes = inUseNozzles.map((n: any) => n.code).join(', ');
             throw new TRPCError({
                 code: 'BAD_REQUEST',
                 message: `The following nozzles are already in use: ${inUseCodes}`,
@@ -136,7 +136,7 @@ export class ShiftService {
         }
 
         // Create shift and update nozzle availability
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async (tx: any) => {
             // Mark nozzles as unavailable
             await tx.nozzle.updateMany({
                 where: { id: { in: nozzleIds } },
@@ -149,7 +149,7 @@ export class ShiftService {
                     userId,
                     shiftName,
                     nozzleReadings: {
-                        create: nozzles.map((nozzle) => ({
+                        create: nozzles.map((nozzle: any) => ({
                             nozzleId: nozzle.id,
                             openingReading: nozzle.currentreading,
                         })),
@@ -294,7 +294,7 @@ export class ShiftService {
 
         let totalFuelSales = 0;
 
-        const readingsWithAmount = session.nozzleReadings.map(reading => {
+        const readingsWithAmount = session.nozzleReadings.map((reading: any) => {
             const consumed = Number(reading.fuelDispensed);
             const price = Number(reading.nozzle.price);
             const amount = consumed * price;
@@ -325,9 +325,9 @@ export class ShiftService {
     async completeShift(shiftId: number, userId: number, notes?: string) {
         const session = await this.getActiveShift(shiftId, userId);
 
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async (tx: any) => {
             // Mark nozzles as available again
-            const nozzleIds = session.nozzleReadings.map((r) => r.nozzleId);
+            const nozzleIds = session.nozzleReadings.map((r: any) => r.nozzleId);
             await tx.nozzle.updateMany({
                 where: { id: { in: nozzleIds } },
                 data: { isAvailable: true },

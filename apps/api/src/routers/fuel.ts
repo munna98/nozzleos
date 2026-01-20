@@ -50,7 +50,7 @@ export const fuelRouter = router({
     update: protectedProcedure
         .input(z.object({ id: z.number(), data: updateFuelSchema }))
         .mutation(async ({ input }) => {
-            return prisma.$transaction(async (tx) => {
+            return prisma.$transaction(async (tx: any) => {
                 const fuel = await tx.fuel.update({
                     where: { id: input.id },
                     data: {
