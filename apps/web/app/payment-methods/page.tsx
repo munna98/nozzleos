@@ -95,7 +95,7 @@ export default function PaymentMethodsPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                paymentMethods.map((method) => (
+                                paymentMethods.map((method: PaymentMethod) => (
                                     <TableRow key={method.id}>
                                         <TableCell className="font-medium">{method.name}</TableCell>
                                         <TableCell>
@@ -146,7 +146,7 @@ export default function PaymentMethodsPage() {
                 ) : paymentMethods.length === 0 ? (
                     <div className="text-center py-10">No payment methods found.</div>
                 ) : (
-                    paymentMethods.map((method) => (
+                    paymentMethods.map((method: PaymentMethod) => (
                         <Card key={method.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">

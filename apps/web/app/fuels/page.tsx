@@ -86,7 +86,7 @@ export default function FuelsPage() {
                                     <TableCell colSpan={4} className="text-center py-10">No fuels found.</TableCell>
                                 </TableRow>
                             ) : (
-                                fuels.map((fuel) => (
+                                fuels.map((fuel: Fuel) => (
                                     <TableRow key={fuel.id}>
                                         <TableCell className="font-medium">{fuel.name}</TableCell>
                                         <TableCell>₹{fuel.price.toFixed(2)}</TableCell>
@@ -118,7 +118,7 @@ export default function FuelsPage() {
                 ) : fuels.length === 0 ? (
                     <div className="text-center py-10">No fuels found.</div>
                 ) : (
-                    fuels.map((fuel) => (
+                    fuels.map((fuel: Fuel) => (
                         <Card key={fuel.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">

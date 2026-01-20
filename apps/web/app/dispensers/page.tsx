@@ -133,7 +133,7 @@ export default function DispensersPage() {
                                     <TableCell colSpan={6} className="text-center py-10">No dispensers found.</TableCell>
                                 </TableRow>
                             ) : (
-                                dispensers.map((dispenser) => (
+                                dispensers.map((dispenser: Dispenser) => (
                                     <React.Fragment key={dispenser.id}>
                                         <TableRow>
                                             <TableCell>
@@ -190,7 +190,7 @@ export default function DispensersPage() {
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
-                                                                    {dispenser.nozzles.map((nozzle) => (
+                                                                    {dispenser.nozzles.map((nozzle: Nozzle) => (
                                                                         <TableRow key={nozzle.id}>
                                                                             <TableCell className="font-medium">{nozzle.code}</TableCell>
                                                                             <TableCell>{nozzle.fuel?.name}</TableCell>
@@ -242,7 +242,7 @@ export default function DispensersPage() {
                 ) : dispensers.length === 0 ? (
                     <div className="text-center py-10">No dispensers found.</div>
                 ) : (
-                    dispensers.map((dispenser) => (
+                    dispensers.map((dispenser: Dispenser) => (
                         <Card key={dispenser.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
@@ -281,7 +281,7 @@ export default function DispensersPage() {
                                             Add Nozzle
                                         </Button>
                                         {dispenser.nozzles && dispenser.nozzles.length > 0 ? (
-                                            dispenser.nozzles.map((nozzle) => (
+                                            dispenser.nozzles.map((nozzle: Nozzle) => (
                                                 <Card key={nozzle.id} className="bg-muted/50">
                                                     <CardContent className="p-3 space-y-2">
                                                         <div className="flex justify-between">

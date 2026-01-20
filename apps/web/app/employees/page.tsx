@@ -103,7 +103,7 @@ export default function EmployeesPage() {
                                     <TableCell colSpan={6} className="text-center py-10">No employees found.</TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user) => (
+                                users.map((user: User) => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
@@ -147,7 +147,7 @@ export default function EmployeesPage() {
                 ) : users.length === 0 ? (
                     <div className="text-center py-10">No employees found.</div>
                 ) : (
-                    users.map((user) => (
+                    users.map((user: User) => (
                         <Card key={user.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
