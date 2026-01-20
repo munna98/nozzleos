@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { CheckmarkCircle02Icon, Alert02Icon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
+import { Nozzle } from "@/lib/api"
 
 interface ShiftStartStepProps {
     shiftName: string
@@ -38,7 +39,7 @@ export function ShiftStartStep({
         }
     }, [suggestedNameQuery.data, shiftName, setShiftName])
 
-    const availableNozzles = nozzlesQuery.data?.filter(n => n.isActive) || []
+    const availableNozzles = nozzlesQuery.data?.filter((n: Nozzle) => n.isActive) || []
 
     const toggleNozzleSelection = (nozzleId: number) => {
         const newIds = selectedNozzleIds.includes(nozzleId)
@@ -79,7 +80,7 @@ export function ShiftStartStep({
                             <div>Loading nozzles...</div>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {availableNozzles.map((nozzle) => {
+                                {availableNozzles.map((nozzle: Nozzle) => {
                                     const isUnavailable = !nozzle.isAvailable
                                     const isSelected = selectedNozzleIds.includes(nozzle.id)
                                     return (
