@@ -61,14 +61,22 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 })
 
 /**
- * Admin procedure - requires admin role
+ * Admin procedure - requires admin or manager role
  */
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-    if (ctx.user.role !== 'Admin') {
+    const allowedRoles = ['Admin', 'Manager']
+    if (!allowedRoles.includes(ctx.user.role)) {
         throw new TRPCError({
             code: 'FORBIDDEN',
-            message: 'You must be an admin to access this resource',
+            message: 'You do not have permission to access this resource',
         })
     }
     return next({ ctx })
 })
+
+/**
+ * Attendant procedure - for shift operations
+ * Currently same as protectedProcedure but semantically different
+ */
+export const attendantProcedure = protectedProcedure
+

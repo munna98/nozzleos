@@ -5,6 +5,7 @@ export {
     publicProcedure,
     protectedProcedure,
     adminProcedure,
+    attendantProcedure,
     createCallerFactory,
     type Context,
 } from './server.js'
