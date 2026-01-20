@@ -391,4 +391,243 @@ export class ShiftService {
 
         return { success: true };
     }
+
+    // ==================== ADMIN METHODS ====================
+
+    /**
+     * Get shift by ID with access control
+     */
+    async getShiftById(shiftId: number, userId: number, isAdmin: boolean) {
+        const session = await prisma.dutySession.findFirst({
+            where: { id: shiftId },
+            include: {
+                user: { select: { id: true, name: true, username: true } },
+                nozzleReadings: {
+                    include: {
+                        nozzle: { include: { fuel: true, dispenser: true } }
+                    }
+                },
+                sessionPayments: { include: { paymentMethod: true } }
+            }
+        });
+
+        if (!session) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Shift not found',
+            });
+        }
+
+        if (!isAdmin && session.userId !== userId) {
+            throw new TRPCError({
+                code: 'FORBIDDEN',
+                message: 'You do not have permission to view this shift',
+            });
+        }
+
+        // Calculate summary values
+        let totalFuelSales = 0;
+        const readingsWithAmount = session.nozzleReadings.map((reading: any) => {
+            const consumed = Number(reading.fuelDispensed);
+            const price = Number(reading.nozzle.price);
+            const amount = consumed * price;
+            totalFuelSales += amount;
+
+            return {
+                ...reading,
+                amount,
+                price
+            };
+        });
+
+        const totalCollected = Number(session.totalPaymentCollected);
+        const shortage = totalCollected - totalFuelSales;
+
+        return {
+            ...session,
+            totalFuelSales,
+            totalCollected,
+            shortage,
+            nozzleReadings: readingsWithAmount
+        };
+    }
+
+    /**
+     * Admin: Update entire shift details
+     */
+    async adminUpdateShift(shiftId: number, data: {
+        shiftName?: string;
+        startTime?: Date;
+        endTime?: Date;
+        notes?: string;
+        status?: 'in_progress' | 'completed' | 'archived';
+    }) {
+        const session = await prisma.dutySession.findUnique({
+            where: { id: shiftId }
+        });
+
+        if (!session) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Shift not found',
+            });
+        }
+
+        return prisma.dutySession.update({
+            where: { id: shiftId },
+            data: {
+                shiftName: data.shiftName,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                notes: data.notes,
+                status: data.status,
+            },
+            include: {
+                user: { select: { id: true, name: true, username: true } },
+                nozzleReadings: {
+                    include: {
+                        nozzle: { include: { fuel: true, dispenser: true } }
+                    }
+                },
+                sessionPayments: { include: { paymentMethod: true } }
+            }
+        });
+    }
+
+    /**
+     * Admin: Update any nozzle reading (opening, closing, test qty)
+     */
+    async adminUpdateNozzleReading(shiftId: number, readingId: number, data: {
+        openingReading?: number;
+        closingReading?: number;
+        testQty?: number;
+    }) {
+        const reading = await prisma.nozzleSessionReading.findFirst({
+            where: { id: readingId, dutySessionId: shiftId }
+        });
+
+        if (!reading) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Nozzle reading not found',
+            });
+        }
+
+        const updateData: Record<string, unknown> = {};
+
+        if (data.openingReading !== undefined) {
+            updateData.openingReading = data.openingReading;
+        }
+        if (data.testQty !== undefined) {
+            updateData.testQty = data.testQty;
+        }
+        if (data.closingReading !== undefined) {
+            updateData.closingReading = data.closingReading;
+        }
+
+        // Recalculate fuel dispensed if we have both readings
+        const opening = new Decimal(data.openingReading ?? reading.openingReading.toString());
+        const closing = new Decimal(data.closingReading ?? (reading.closingReading?.toString() ?? '0'));
+        const testQty = new Decimal(data.testQty ?? reading.testQty.toString());
+
+        if (closing.gt(0)) {
+            updateData.fuelDispensed = closing.minus(opening).minus(testQty).toNumber();
+        }
+
+        return prisma.nozzleSessionReading.update({
+            where: { id: readingId },
+            data: updateData,
+            include: { nozzle: { include: { fuel: true, dispenser: true } } },
+        });
+    }
+
+    /**
+     * Admin: Add payment to any shift
+     */
+    async adminAddPayment(shiftId: number, data: {
+        paymentMethodId: number;
+        amount: number;
+        quantity?: number;
+    }) {
+        const session = await prisma.dutySession.findUnique({
+            where: { id: shiftId }
+        });
+
+        if (!session) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Shift not found',
+            });
+        }
+
+        await prisma.sessionPayment.create({
+            data: {
+                dutySessionId: shiftId,
+                paymentMethodId: data.paymentMethodId,
+                amount: data.amount,
+                quantity: data.quantity,
+            },
+        });
+
+        await this.updateShiftTotalCollected(shiftId);
+
+        return this.getShiftById(shiftId, 0, true);
+    }
+
+    /**
+     * Admin: Update payment on any shift
+     */
+    async adminUpdatePayment(shiftId: number, paymentId: number, data: {
+        paymentMethodId?: number;
+        amount?: number;
+        quantity?: number;
+    }) {
+        const payment = await prisma.sessionPayment.findFirst({
+            where: { id: paymentId, dutySessionId: shiftId }
+        });
+
+        if (!payment) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Payment not found',
+            });
+        }
+
+        await prisma.sessionPayment.update({
+            where: { id: paymentId },
+            data: {
+                paymentMethodId: data.paymentMethodId,
+                amount: data.amount,
+                quantity: data.quantity,
+            },
+        });
+
+        await this.updateShiftTotalCollected(shiftId);
+
+        return this.getShiftById(shiftId, 0, true);
+    }
+
+    /**
+     * Admin: Delete payment from any shift
+     */
+    async adminDeletePayment(shiftId: number, paymentId: number) {
+        const payment = await prisma.sessionPayment.findFirst({
+            where: { id: paymentId, dutySessionId: shiftId }
+        });
+
+        if (!payment) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Payment not found',
+            });
+        }
+
+        await prisma.sessionPayment.delete({
+            where: { id: paymentId },
+        });
+
+        await this.updateShiftTotalCollected(shiftId);
+
+        return this.getShiftById(shiftId, 0, true);
+    }
 }

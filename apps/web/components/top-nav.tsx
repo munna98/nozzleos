@@ -25,41 +25,58 @@ export function TopNav() {
     const pathname = usePathname()
     const [open, setOpen] = useState(false)
 
-    const routes = [
+    const { logout, user } = useAuth()
+    const router = useRouter()
+    const isAdmin = user?.role === 'Admin'
+
+    const allRoutes = [
         {
-            href: "/",
+            href: isAdmin ? "/" : "/dashboard",
             label: "Dashboard",
-            active: pathname === "/",
+            active: pathname === (isAdmin ? "/" : "/dashboard"),
+            roles: ['Admin', 'Filling Attendant', 'Manager']
+        },
+        {
+            href: "/shift-history",
+            label: "Shift History",
+            active: pathname.startsWith("/shift-history"),
+            roles: ['Admin', 'Filling Attendant', 'Manager']
         },
         {
             href: "/employees",
             label: "Employees",
             active: pathname.startsWith("/employees"),
+            roles: ['Admin', 'Manager']
         },
         {
             href: "/customers",
             label: "Customers",
             active: pathname.startsWith("/customers"),
+            roles: ['Admin', 'Manager']
         },
         {
             href: "/fuels",
             label: "Fuels",
             active: pathname.startsWith("/fuels"),
+            roles: ['Admin']
         },
         {
             href: "/dispensers",
             label: "Dispensers",
             active: pathname.startsWith("/dispensers"),
+            roles: ['Admin']
         },
         {
             href: "/payment-methods",
             label: "Payment Methods",
             active: pathname.startsWith("/payment-methods"),
+            roles: ['Admin']
         },
     ]
 
-    const { logout, user } = useAuth()
-    const router = useRouter()
+    const routes = allRoutes.filter(route =>
+        !route.roles || (user?.role && route.roles.includes(user.role))
+    )
 
     const handleLogout = async () => {
         await logout()

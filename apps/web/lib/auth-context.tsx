@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
-import { trpc, setAuthToken } from '@/lib/trpc'
+import { trpc, setAuthTokens, setLogoutCallback, setTokenRefreshCallback } from '@/lib/trpc'
 
 interface User {
     id: number
@@ -16,7 +16,7 @@ interface AuthContextType {
     user: User | null
     accessToken: string | null
     isLoading: boolean
-    login: (username: string, password: string) => Promise<void>
+    login: (username: string, password: string) => Promise<User | undefined>
     logout: () => Promise<void>
     isAuthenticated: boolean
 }
@@ -35,6 +35,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Load from localStorage on mount
     useEffect(() => {
+        // Register tRPC callbacks
+        setLogoutCallback(() => {
+            logout()
+        })
+
+        setTokenRefreshCallback((newAccess, newRefresh) => {
+            setAccessToken(newAccess)
+            setRefreshToken(newRefresh)
+
+            // Update user in local storage with new tokens
+            // We need to keep the user object but update tokens
+            const stored = localStorage.getItem('auth')
+            if (stored) {
+                const data = JSON.parse(stored)
+                localStorage.setItem('auth', JSON.stringify({
+                    ...data,
+                    accessToken: newAccess,
+                    refreshToken: newRefresh
+                }))
+            }
+        })
+
         const stored = localStorage.getItem('auth')
         if (stored) {
             try {
@@ -42,8 +64,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setAccessToken(accessToken)
                 setRefreshToken(refreshToken)
                 setUser(user)
-                // Sync token with tRPC
-                setAuthToken(accessToken)
+                // Sync tokens with tRPC
+                setAuthTokens(accessToken, refreshToken)
             } catch (e) {
                 console.error('Failed to parse auth from local storage', e)
                 localStorage.removeItem('auth')
@@ -116,8 +138,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setRefreshToken(refreshToken)
             setUser(user)
 
-            // Sync token with tRPC
-            setAuthToken(accessToken)
+            // Sync tokens with tRPC
+            setAuthTokens(accessToken, refreshToken)
 
             localStorage.setItem(
                 'auth',
@@ -126,6 +148,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             // Invalidate queries
             utils.invalidate()
+
+            return user
         } catch (error) {
             throw error
         }
@@ -145,8 +169,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null)
         localStorage.removeItem('auth')
 
-        // Clear token from tRPC
-        setAuthToken(null)
+        // Clear tokens from tRPC
+        setAuthTokens(null, null)
         utils.invalidate()
     }
 

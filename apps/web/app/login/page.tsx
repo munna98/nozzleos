@@ -20,9 +20,14 @@ export default function LoginPage() {
         setLoading(true)
 
         try {
-            await login(username, password)
+            const user = await login(username, password)
             toast.success('Logged in successfully')
-            router.push('/')
+
+            if (user?.role === 'Filling Attendant') {
+                router.push('/dashboard')
+            } else {
+                router.push('/')
+            }
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Login failed')
         } finally {

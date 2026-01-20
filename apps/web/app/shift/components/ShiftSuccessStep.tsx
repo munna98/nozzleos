@@ -3,13 +3,16 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon, TimeQuarterPassIcon } from "@hugeicons/core-free-icons"
+import { useRouter } from "next/navigation"
 
 interface ShiftSuccessStepProps {
     onHome: () => void
 }
 
 export function ShiftSuccessStep({ onHome }: ShiftSuccessStepProps) {
+    const router = useRouter()
+
     return (
         <div className="max-w-md mx-auto py-10 text-center space-y-4">
             <div className="flex justify-center">
@@ -22,11 +25,20 @@ export function ShiftSuccessStep({ onHome }: ShiftSuccessStepProps) {
                 Your shift has been successfully recorded and closed.
                 You can view the details in your history.
             </p>
-            <div className="pt-4">
+            <div className="pt-4 space-y-3">
                 <Button onClick={onHome} className="w-full">
                     Return to Dashboard
+                </Button>
+                <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/shift-history')}
+                >
+                    <HugeiconsIcon icon={TimeQuarterPassIcon} className="h-4 w-4 mr-2" />
+                    View Shift History
                 </Button>
             </div>
         </div>
     )
 }
+

@@ -117,4 +117,102 @@ export const shiftRouter = router({
         .mutation(async ({ input, ctx }) => {
             return shiftService.completeShift(input.shiftId, ctx.user.id, input.data.notes)
         }),
+
+    // ==================== ADMIN ENDPOINTS ====================
+
+    /**
+     * Get shift by ID with full details
+     */
+    getById: protectedProcedure
+        .input(z.object({ shiftId: z.number() }))
+        .query(async ({ input, ctx }) => {
+            return shiftService.getShiftById(input.shiftId, ctx.user.id, ctx.user.role === 'Admin')
+        }),
+
+    /**
+     * Admin: Update entire shift details
+     */
+    adminUpdateShift: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            data: z.object({
+                shiftName: z.string().optional(),
+                startTime: z.string().datetime().optional(),
+                endTime: z.string().datetime().optional(),
+                notes: z.string().optional(),
+                status: z.enum(['in_progress', 'completed', 'archived']).optional(),
+            })
+        }))
+        .mutation(async ({ input }) => {
+            return shiftService.adminUpdateShift(input.shiftId, {
+                shiftName: input.data.shiftName,
+                startTime: input.data.startTime ? new Date(input.data.startTime) : undefined,
+                endTime: input.data.endTime ? new Date(input.data.endTime) : undefined,
+                notes: input.data.notes,
+                status: input.data.status,
+            })
+        }),
+
+    /**
+     * Admin: Update any nozzle reading
+     */
+    adminUpdateNozzleReading: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            readingId: z.number(),
+            data: z.object({
+                openingReading: z.number().optional(),
+                closingReading: z.number().optional(),
+                testQty: z.number().optional(),
+            })
+        }))
+        .mutation(async ({ input }) => {
+            return shiftService.adminUpdateNozzleReading(input.shiftId, input.readingId, input.data)
+        }),
+
+    /**
+     * Admin: Add payment to any shift
+     */
+    adminAddPayment: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            data: z.object({
+                paymentMethodId: z.number(),
+                amount: z.number(),
+                quantity: z.number().optional(),
+            })
+        }))
+        .mutation(async ({ input }) => {
+            return shiftService.adminAddPayment(input.shiftId, input.data)
+        }),
+
+    /**
+     * Admin: Update payment on any shift
+     */
+    adminUpdatePayment: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            paymentId: z.number(),
+            data: z.object({
+                paymentMethodId: z.number().optional(),
+                amount: z.number().optional(),
+                quantity: z.number().optional(),
+            })
+        }))
+        .mutation(async ({ input }) => {
+            return shiftService.adminUpdatePayment(input.shiftId, input.paymentId, input.data)
+        }),
+
+    /**
+     * Admin: Delete payment from any shift
+     */
+    adminDeletePayment: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            paymentId: z.number(),
+        }))
+        .mutation(async ({ input }) => {
+            return shiftService.adminDeletePayment(input.shiftId, input.paymentId)
+        }),
 })
+

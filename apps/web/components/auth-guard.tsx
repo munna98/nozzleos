@@ -17,14 +17,30 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         } else if (isAuthenticated && pathname === '/login') {
             // Role-based routing after login
             if (user?.role === 'Filling Attendant') {
-                router.push('/shift')
+                router.push('/dashboard')
             } else {
                 router.push('/')
             }
-        } else if (isAuthenticated && user?.role === 'Filling Attendant') {
-            // Filling attendants can only access the shift page
-            if (pathname !== '/shift') {
-                router.push('/shift')
+        } else if (isAuthenticated) {
+            // Role-based access control
+            if (user?.role === 'Filling Attendant') {
+                // Filling attendants allowed routes
+                const allowedRoutes = ['/dashboard', '/shift', '/shift-history', '/profile']
+                const isAllowed = allowedRoutes.some(route => pathname.startsWith(route))
+
+                if (!isAllowed && pathname !== '/') {
+                    // Redirect unauthorized pages to dashboard
+                    router.push('/dashboard')
+                } else if (pathname === '/') {
+                    // Redirect root to dashboard
+                    router.push('/dashboard')
+                }
+            } else {
+                // Admin / Other roles
+                // Admin does not need user dashboard
+                if (pathname.startsWith('/dashboard')) {
+                    router.push('/')
+                }
             }
         }
     }, [isAuthenticated, isLoading, user, router, pathname])
