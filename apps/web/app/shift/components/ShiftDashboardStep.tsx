@@ -264,7 +264,7 @@ export function ShiftDashboardStep({
                     <Card className="bg-primary/5 border-primary/20">
                         <CardContent className="p-6">
                             <p className="text-3xl font-bold text-primary text-center">
-                                ₹{(session.sessionPayments?.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0) || 0).toFixed(2)}
+                                ₹{(session.sessionPayments?.reduce((sum: number, p: SessionPayment) => sum + parseFloat(p.amount.toString()), 0) || 0).toFixed(2)}
                             </p>
                         </CardContent>
                     </Card>
