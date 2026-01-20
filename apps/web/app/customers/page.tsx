@@ -98,7 +98,7 @@ export default function CustomersPage() {
                                     <TableCell colSpan={5} className="text-center py-10">No customers found.</TableCell>
                                 </TableRow>
                             ) : (
-                                customers.map((customer) => (
+                                customers.map((customer: Customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
@@ -138,7 +138,7 @@ export default function CustomersPage() {
                 ) : customers.length === 0 ? (
                     <div className="text-center py-10">No customers found.</div>
                 ) : (
-                    customers.map((customer) => (
+                    customers.map((customer: Customer) => (
                         <Card key={customer.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
