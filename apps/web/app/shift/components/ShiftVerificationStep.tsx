@@ -12,6 +12,7 @@ import type { AppRouter } from "@nozzleos/api"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSession = NonNullable<RouterOutputs['shift']['getActive']>
+type NozzleReading = ShiftSession['nozzleReadings'][number]
 
 interface ShiftVerificationStepProps {
     session: ShiftSession;
@@ -34,7 +35,7 @@ export function ShiftVerificationStep({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {session.nozzleReadings.map((reading) => (
+                    {session.nozzleReadings.map((reading: NozzleReading) => (
                         <Card key={reading.id} className="bg-muted/50">
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-center justify-between">

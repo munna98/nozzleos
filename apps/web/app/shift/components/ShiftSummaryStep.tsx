@@ -14,6 +14,8 @@ import type { AppRouter } from "@nozzleos/api"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSummary = NonNullable<RouterOutputs['shift']['getSummary']>
+type SummaryNozzleReading = ShiftSummary['nozzleReadings'][number]
+type SummaryPayment = ShiftSummary['sessionPayments'][number]
 
 interface ShiftSummaryStepProps {
     summary: ShiftSummary
@@ -82,7 +84,7 @@ export function ShiftSummaryStep({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {summary.nozzleReadings.map((reading) => (
+                                    {summary.nozzleReadings.map((reading: SummaryNozzleReading) => (
                                         <tr key={reading.id} className="border-t">
                                             <td className="p-3">
                                                 <Badge variant="outline">{reading.nozzle.code}</Badge>
@@ -123,7 +125,7 @@ export function ShiftSummaryStep({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {summary.sessionPayments.map((payment) => (
+                                    {summary.sessionPayments.map((payment: SummaryPayment) => (
                                         <tr key={payment.id} className="border-t">
                                             <td className="p-3">{payment.paymentMethod.name}</td>
                                             <td className="p-3 text-right font-medium">₹{parseFloat(payment.amount.toString()).toFixed(2)}</td>

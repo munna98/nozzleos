@@ -21,6 +21,8 @@ import type { AppRouter } from "@nozzleos/api"
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSession = NonNullable<RouterOutputs['shift']['getActive']>
 type PaymentMethod = RouterOutputs['paymentMethod']['getAll'][number]
+type NozzleReading = ShiftSession['nozzleReadings'][number]
+type SessionPayment = NonNullable<ShiftSession['sessionPayments']>[number]
 
 interface ShiftDashboardStepProps {
     session: ShiftSession
@@ -62,7 +64,7 @@ export function ShiftDashboardStep({
         setEditingPaymentId(null)
     }
 
-    const handleEditPayment = (payment: any) => {
+    const handleEditPayment = (payment: SessionPayment) => {
         setNewPayment({
             methodId: payment.paymentMethodId.toString(),
             amount: payment.amount.toString()
@@ -103,7 +105,7 @@ export function ShiftDashboardStep({
                         <HugeiconsIcon icon={FuelStationIcon} />
                         Nozzle Readings
                     </h3>
-                    {session.nozzleReadings.map((reading) => (
+                    {session.nozzleReadings.map((reading: NozzleReading) => (
                         <Card key={reading.id}>
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-center justify-between">
@@ -198,7 +200,7 @@ export function ShiftDashboardStep({
                                         onChange={(e) => setNewPayment({ ...newPayment, methodId: e.target.value })}
                                     >
                                         <option value="">Select Method</option>
-                                        {paymentMethods.map(pm => (
+                                        {paymentMethods.map((pm: PaymentMethod) => (
                                             <option key={pm.id} value={pm.id}>{pm.name}</option>
                                         ))}
                                     </select>
@@ -227,7 +229,7 @@ export function ShiftDashboardStep({
 
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Payment History</p>
-                            {session.sessionPayments?.map((payment) => (
+                            {session.sessionPayments?.map((payment: SessionPayment) => (
                                 <Card key={payment.id} className="relative overflow-hidden">
                                     <CardContent className="py-0 px-3 flex items-center justify-between">
                                         <div>
