@@ -37,11 +37,12 @@ export function AddCustomerDialog({
     onSuccess,
     customerToEdit
 }: AddCustomerDialogProps) {
-    const [formData, setFormData] = useState<CreateCustomerDto & { isActive: boolean }>({
+    const [formData, setFormData] = useState<CreateCustomerDto & { isActive: boolean; createPaymentMethod?: boolean }>({
         name: "",
         email: "",
         phone: "",
-        isActive: true
+        isActive: true,
+        createPaymentMethod: true
     })
 
     const utils = trpc.useUtils()
@@ -99,7 +100,9 @@ export function AddCustomerDialog({
             updateCustomerMutation.mutate({
                 id: customerToEdit.id,
                 data: {
-                    ...formData,
+                    name: formData.name,
+                    email: formData.email || undefined,
+                    phone: formData.phone || undefined,
                     isActive: formData.isActive,
                     createPaymentMethod: formData.createPaymentMethod
                 }
@@ -107,8 +110,8 @@ export function AddCustomerDialog({
         } else {
             createCustomerMutation.mutate({
                 name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
+                email: formData.email || undefined,
+                phone: formData.phone || undefined,
                 createPaymentMethod: formData.createPaymentMethod
             })
         }
@@ -155,7 +158,7 @@ export function AddCustomerDialog({
                             </Label>
                             <Input
                                 id="phone"
-                                value={formData.phone}
+                                value={formData.phone || ""}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 className="col-span-3"
                             />
