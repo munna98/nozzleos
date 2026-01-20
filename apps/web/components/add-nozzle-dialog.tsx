@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { trpc } from "@/lib/trpc"
-import { Nozzle, NozzleDto } from "@/lib/api"
+import { Nozzle, NozzleDto, Fuel, Dispenser } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -102,8 +102,8 @@ export function AddNozzleDialog({
     }, [nozzleToEdit, dispenserId, open])
 
     // Derived state
-    const fuels = fuelsQuery.data?.filter(f => f.isActive) || []
-    const dispensers = dispensersQuery.data?.filter(d => d.isActive) || []
+    const fuels = fuelsQuery.data?.filter((f: Fuel) => f.isActive) || []
+    const dispensers = dispensersQuery.data?.filter((d: Dispenser) => d.isActive) || []
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -157,7 +157,7 @@ export function AddNozzleDialog({
                                     <SelectValue placeholder="Select dispenser" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {dispensers.map(d => (
+                                    {dispensers.map((d: Dispenser) => (
                                         <SelectItem key={d.id} value={d.id.toString()}>
                                             {d.code} - {d.name}
                                         </SelectItem>
@@ -173,7 +173,7 @@ export function AddNozzleDialog({
                                 value={formData.fuelId.toString()}
                                 onValueChange={(val) => {
                                     const fuelId = parseInt(val)
-                                    const selectedFuel = fuels.find(f => f.id === fuelId)
+                                    const selectedFuel = fuels.find((f: Fuel) => f.id === fuelId)
                                     const newPrice = selectedFuel ? selectedFuel.price : formData.price
                                     setFormData({
                                         ...formData,
@@ -186,7 +186,7 @@ export function AddNozzleDialog({
                                     <SelectValue placeholder="Select fuel" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {fuels.map(f => (
+                                    {fuels.map((f: Fuel) => (
                                         <SelectItem key={f.id} value={f.id.toString()}>
                                             {f.name}
                                         </SelectItem>
