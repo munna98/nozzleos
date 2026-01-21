@@ -229,7 +229,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
 
                     {/* Nozzle Readings Tab */}
                     <TabsContent value="readings" className="space-y-4 mt-4">
-                        {shift.nozzleReadings.map((reading) => (
+                        {shift.nozzleReadings.map((reading: any) => (
                             <Card key={reading.id}>
                                 <CardHeader className="py-3">
                                     <CardTitle className="text-sm flex items-center gap-2">
