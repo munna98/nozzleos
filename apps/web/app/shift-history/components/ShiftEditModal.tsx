@@ -277,7 +277,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
                     {/* Payments Tab */}
                     <TabsContent value="payments" className="space-y-4 mt-4">
                         {/* Existing Payments */}
-                        {shift.sessionPayments.map((payment) => (
+                        {shift.sessionPayments.map((payment: any) => (
                             <div key={payment.id} className="flex items-center gap-3 p-3 border rounded-lg">
                                 <div className="flex-1">
                                     <p className="font-medium text-sm">{payment.paymentMethod.name}</p>
@@ -317,7 +317,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
                                                 <SelectValue placeholder="Select method" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {paymentMethodsQuery.data?.map((method) => (
+                                                {paymentMethodsQuery.data?.map((method: any) => (
                                                     <SelectItem key={method.id} value={String(method.id)}>
                                                         {method.name}
                                                     </SelectItem>

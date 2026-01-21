@@ -153,7 +153,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                                 </tr>
                             </thead>
                             <tbody>
-                                {shift.nozzleReadings.map((reading) => (
+                                {shift.nozzleReadings.map((reading: any) => (
                                     <tr key={reading.id} className="border-t">
                                         <td className="p-3">
                                             <Badge variant="outline">{reading.nozzle.code}</Badge>
@@ -210,7 +210,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                                         </td>
                                     </tr>
                                 ) : (
-                                    shift.sessionPayments.map((payment) => (
+                                    shift.sessionPayments.map((payment: any) => (
                                         <tr key={payment.id} className="border-t">
                                             <td className="p-3">{payment.paymentMethod.name}</td>
                                             <td className="p-3 text-right font-medium">
