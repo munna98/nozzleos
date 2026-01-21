@@ -1,0 +1,6 @@
+/* shadcn tailwind 4 placeholder */
+@layer base {
+    :root {
+        /* Shadcn variables are already defined in globals.css */
+    }
+}
