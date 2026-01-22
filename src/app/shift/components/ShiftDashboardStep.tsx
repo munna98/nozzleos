@@ -84,7 +84,9 @@ export function ShiftDashboardStep({
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div>
-                            <CardTitle>{session.shiftName}</CardTitle>
+                            <CardTitle>
+                                {session.type ? (session.type.charAt(0) + session.type.slice(1).toLowerCase() + ' Shift') : 'Shift'}
+                            </CardTitle>
                             <CardDescription className="flex items-center gap-2 mt-1">
                                 <HugeiconsIcon icon={TimeQuarterPassIcon} className="h-4 w-4" />
                                 {Math.floor(elapsedTime / 3600).toString().padStart(2, '0')}:{Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0')} elapsed

@@ -1,20 +1,20 @@
 "use client"
 
-import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CheckmarkCircle02Icon, Alert02Icon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon, Alert02Icon, Sun03Icon, Moon02Icon, SunsetIcon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { Nozzle } from "@/lib/api"
+import { ShiftType } from "@prisma/client"
 
 interface ShiftStartStepProps {
-    shiftName: string
-    setShiftName: (name: string) => void
+    shiftType: ShiftType
+    setShiftType: (type: ShiftType) => void
     selectedNozzleIds: number[]
     setSelectedNozzleIds: (ids: number[]) => void
     onStart: () => void
@@ -22,22 +22,14 @@ interface ShiftStartStepProps {
 }
 
 export function ShiftStartStep({
-    shiftName,
-    setShiftName,
+    shiftType,
+    setShiftType,
     selectedNozzleIds,
     setSelectedNozzleIds,
     onStart,
     isStarting
 }: ShiftStartStepProps) {
     const nozzlesQuery = trpc.nozzle.getAll.useQuery()
-    const suggestedNameQuery = trpc.shift.generateShiftName.useQuery()
-
-    // Set initial shift name
-    useEffect(() => {
-        if (suggestedNameQuery.data && !shiftName) {
-            setShiftName(suggestedNameQuery.data)
-        }
-    }, [suggestedNameQuery.data, shiftName, setShiftName])
 
     const availableNozzles = nozzlesQuery.data?.filter((n: Nozzle) => n.isActive) || []
 
@@ -61,17 +53,28 @@ export function ShiftStartStep({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="shiftName">Shift Name</Label>
-                        <Input
-                            id="shiftName"
-                            value={shiftName}
-                            onChange={(e) => setShiftName(e.target.value)}
-                            placeholder="Enter shift name"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                            Enter a shift name or use the suggested one
-                        </p>
+                    <div className="space-y-3">
+                        <Label>Shift Type</Label>
+                        <Tabs
+                            defaultValue={shiftType}
+                            onValueChange={(val) => setShiftType(val as ShiftType)}
+                            className="w-full"
+                        >
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value={ShiftType.MORNING} className="flex gap-2">
+                                    <HugeiconsIcon icon={Sun03Icon} className="h-4 w-4" />
+                                    Morning
+                                </TabsTrigger>
+                                <TabsTrigger value={ShiftType.EVENING} className="flex gap-2">
+                                    <HugeiconsIcon icon={SunsetIcon} className="h-4 w-4" />
+                                    Evening
+                                </TabsTrigger>
+                                <TabsTrigger value={ShiftType.NIGHT} className="flex gap-2">
+                                    <HugeiconsIcon icon={Moon02Icon} className="h-4 w-4" />
+                                    Night
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
                     </div>
 
                     <div className="space-y-3">
@@ -144,7 +147,7 @@ export function ShiftStartStep({
             <Button
                 onClick={onStart}
                 className="w-full md:w-auto"
-                disabled={isStarting || selectedNozzleIds.length === 0 || !shiftName.trim()}
+                disabled={isStarting || selectedNozzleIds.length === 0}
             >
                 {isStarting ? "Starting..." : "Start Shift"}
             </Button>

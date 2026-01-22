@@ -98,12 +98,18 @@ model Nozzle {
   nozzleSessionReadings NozzleSessionReading[]
 }
 
+enum ShiftType {
+  MORNING
+  EVENING
+  NIGHT
+}
+
 // Shift Management Models
 model DutySession {
   id                    Int                    @id @default(autoincrement())
   userId                Int
   user                  User                   @relation(fields: [userId], references: [id])
-  shiftName             String
+  type                  ShiftType              @default(MORNING)
   startTime             DateTime               @default(now())
   endTime               DateTime?
   status                String                 @default("in_progress")

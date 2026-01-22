@@ -3,10 +3,12 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon } from "@hugeicons/core-free-icons"
+import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon, FuelStationIcon } from "@hugeicons/core-free-icons"
 
 import { inferRouterOutputs } from '@trpc/server'
 import { AppRouter } from '@/server/trpc/router'
+
+import { ShiftType } from "@prisma/client"
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 type ShiftSession = RouterOutput['shift']['getAll']['sessions'][number]
@@ -54,7 +56,7 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryL
     }
 
     return (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {shifts.map((shift) => {
                 const totalSales = calculateTotalSales(shift.nozzleReadings)
                 const totalCollected = Number(shift.totalPaymentCollected)
@@ -71,7 +73,9 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryL
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <h3 className="font-semibold text-base">{shift.shiftName}</h3>
+                                        <h3 className="font-semibold text-base">
+                                            {shift.type ? (shift.type.charAt(0) + shift.type.slice(1).toLowerCase() + ' Shift') : 'Shift'}
+                                        </h3>
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                             <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5" />
                                             <span>{formatDate(shift.startTime)}</span>
@@ -94,6 +98,14 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryL
                                         <span>{shift.user.name || shift.user.username}</span>
                                     </div>
                                 )}
+
+                                {/* Nozzles Row */}
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <HugeiconsIcon icon={FuelStationIcon} className="h-4 w-4" />
+                                    <span>
+                                        {shift.nozzleReadings.map(r => r.nozzle.code).join(', ')}
+                                    </span>
+                                </div>
 
                                 {/* Stats Row */}
                                 <div className="grid grid-cols-3 gap-4 pt-2 border-t">

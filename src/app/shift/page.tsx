@@ -12,12 +12,13 @@ import { ShiftVerificationStep } from "./components/ShiftVerificationStep"
 import { ShiftDashboardStep } from "./components/ShiftDashboardStep"
 import { ShiftSummaryStep } from "./components/ShiftSummaryStep"
 import { ShiftSuccessStep } from "./components/ShiftSuccessStep"
+import { ShiftType } from "@prisma/client"
 
 export default function ShiftPage() {
     const { user } = useAuth()
     const router = useRouter()
     const [step, setStep] = useState(1)
-    const [shiftName, setShiftName] = useState("")
+    const [shiftType, setShiftType] = useState<ShiftType>(ShiftType.MORNING)
     const [selectedNozzleIds, setSelectedNozzleIds] = useState<number[]>([])
     const [elapsedTime, setElapsedTime] = useState(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -119,11 +120,10 @@ export default function ShiftPage() {
 
     // Handlers
     const handleStartShift = () => {
-        if (!shiftName.trim()) return toast.error("Shift name required")
         if (selectedNozzleIds.length === 0) return toast.error("Select at least one nozzle")
 
         startShiftMutation.mutate({
-            shiftName,
+            shiftType,
             nozzleIds: selectedNozzleIds
         })
     }
@@ -217,8 +217,8 @@ export default function ShiftPage() {
 
             {step === 1 && !currentSession && (
                 <ShiftStartStep
-                    shiftName={shiftName}
-                    setShiftName={setShiftName}
+                    shiftType={shiftType}
+                    setShiftType={setShiftType}
                     selectedNozzleIds={selectedNozzleIds}
                     setSelectedNozzleIds={setSelectedNozzleIds}
                     onStart={handleStartShift}

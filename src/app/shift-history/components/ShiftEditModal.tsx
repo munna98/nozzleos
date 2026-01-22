@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Tick01Icon, Delete02Icon, Add01Icon } from "@hugeicons/core-free-icons"
+import { ShiftType } from "@prisma/client"
 
 interface ShiftEditModalProps {
     shiftId: number
@@ -77,7 +78,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
 
     // Local state for editing
     const [shiftDetails, setShiftDetails] = useState({
-        shiftName: '',
+        shiftType: ShiftType.MORNING,
         notes: '',
         status: '' as 'in_progress' | 'completed' | 'archived'
     })
@@ -91,7 +92,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
     useEffect(() => {
         if (shiftQuery.data) {
             setShiftDetails({
-                shiftName: shiftQuery.data.shiftName,
+                shiftType: shiftQuery.data.type || ShiftType.MORNING,
                 notes: shiftQuery.data.notes || '',
                 status: shiftQuery.data.status as 'in_progress' | 'completed' | 'archived'
             })
@@ -102,7 +103,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
         updateShiftMutation.mutate({
             shiftId,
             data: {
-                shiftName: shiftDetails.shiftName,
+                shiftType: shiftDetails.shiftType,
                 notes: shiftDetails.notes || undefined,
                 status: shiftDetails.status
             }
@@ -187,11 +188,20 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
                     <TabsContent value="details" className="space-y-4 mt-4">
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Shift Name</Label>
-                                <Input
-                                    value={shiftDetails.shiftName}
-                                    onChange={(e) => setShiftDetails(prev => ({ ...prev, shiftName: e.target.value }))}
-                                />
+                                <Label>Shift Type</Label>
+                                <Select
+                                    value={shiftDetails.shiftType}
+                                    onValueChange={(v) => setShiftDetails(prev => ({ ...prev, shiftType: v as ShiftType }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={ShiftType.MORNING}>Morning</SelectItem>
+                                        <SelectItem value={ShiftType.EVENING}>Evening</SelectItem>
+                                        <SelectItem value={ShiftType.NIGHT}>Night</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="space-y-2">

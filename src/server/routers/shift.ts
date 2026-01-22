@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
+import { Prisma, ShiftType } from '@prisma/client'
 import { router, protectedProcedure, adminProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
@@ -32,9 +32,12 @@ export const shiftRouter = router({
     /**
      * Start a new shift
      */
+    /**
+     * Start a new shift
+     */
     start: protectedProcedure
         .input(z.object({
-            shiftName: z.string().min(1),
+            shiftType: z.nativeEnum(ShiftType),
             nozzleIds: z.array(z.number()).min(1),
         }))
         .mutation(async ({ ctx, input }) => {
@@ -55,7 +58,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.create({
                 data: {
                     userId: ctx.user.id,
-                    shiftName: input.shiftName,
+                    type: input.shiftType,
                     nozzleReadings: {
                         create: nozzles.map((nozzle: { id: number; currentreading: number }) => ({
                             nozzleId: nozzle.id,
@@ -306,14 +309,6 @@ export const shiftRouter = router({
             return { success: true }
         }),
 
-    /**
-     * Generate shift name
-     */
-    generateShiftName: protectedProcedure
-        .query(async () => {
-            const count = await prisma.dutySession.count()
-            return `Shift #${count + 1}`
-        }),
 
     /**
      * Get shift summary
@@ -510,11 +505,14 @@ export const shiftRouter = router({
     /**
      * Admin: Update shift details
      */
+    /**
+     * Admin: Update shift details
+     */
     adminUpdateShift: adminProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
-                shiftName: z.string().optional(),
+                shiftType: z.nativeEnum(ShiftType).optional(),
                 status: z.string().optional(),
                 notes: z.string().optional(),
             })
@@ -523,7 +521,7 @@ export const shiftRouter = router({
             return prisma.dutySession.update({
                 where: { id: input.shiftId },
                 data: {
-                    shiftName: input.data.shiftName,
+                    type: input.data.shiftType,
                     status: input.data.status,
                     notes: input.data.notes,
                 }

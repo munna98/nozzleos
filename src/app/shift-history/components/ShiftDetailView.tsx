@@ -52,7 +52,9 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                     </Button>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight">{shift.shiftName}</h1>
+                            <h1 className="text-2xl font-bold tracking-tight">
+                                {shift.type ? (shift.type.charAt(0) + shift.type.slice(1).toLowerCase() + ' Shift') : 'Shift'}
+                            </h1>
                             <Badge variant={shift.status === 'completed' ? 'default' : 'secondary'}>
                                 {shift.status}
                             </Badge>
