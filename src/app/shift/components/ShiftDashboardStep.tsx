@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,13 +23,30 @@ type ShiftSession = NonNullable<RouterOutputs['shift']['getActive']>
 type PaymentMethod = RouterOutputs['paymentMethod']['getAll'][number]
 type NozzleReading = ShiftSession['nozzleReadings'][number]
 type SessionPayment = NonNullable<ShiftSession['sessionPayments']>[number]
+type Denomination = RouterOutputs['denomination']['getAll'][number]
+type Settings = RouterOutputs['settings']['get']
+
+interface DenominationCount {
+    denominationId: number
+    count: number
+}
+
+interface PaymentData {
+    methodId: number
+    amount: number
+    paymentId?: number
+    denominations?: DenominationCount[]
+    coinsAmount?: number
+}
 
 interface ShiftDashboardStepProps {
     session: ShiftSession
     elapsedTime: number
     paymentMethods: PaymentMethod[]
+    denominations?: Denomination[]
+    settings?: Settings | null
     onUpdateClosingReading: (readingId: number, closingReading: number) => void
-    onAddPayment: (data: { methodId: number; amount: number; paymentId?: number }) => void
+    onAddPayment: (data: PaymentData) => void
     onDeletePayment: (paymentId: number) => void
     onFinishShift: () => void
     isSubmitting?: boolean
@@ -39,41 +56,117 @@ export function ShiftDashboardStep({
     session,
     elapsedTime,
     paymentMethods,
+    denominations = [],
+    settings,
     onUpdateClosingReading,
     onAddPayment,
     onDeletePayment,
     onFinishShift,
     isSubmitting
 }: ShiftDashboardStepProps) {
-    const [newPayment, setNewPayment] = useState({ methodId: "", amount: "" })
+    const [selectedMethodId, setSelectedMethodId] = useState("")
+    const [manualAmount, setManualAmount] = useState("")
+    const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({})
+    const [coinsAmount, setCoinsAmount] = useState("")
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
 
+    // Check if selected method is Cash and denomination entry is enabled
+    const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
+    const isCashPayment = selectedMethod?.name?.toLowerCase() === 'cash'
+    const showDenominations = isCashPayment && settings?.enableDenominationEntry && denominations.length > 0
+    const showCoins = showDenominations && settings?.enableCoinEntry
+
+    // Calculate total from denominations + coins
+    const calculatedTotal = useMemo(() => {
+        if (!showDenominations) return 0
+
+        let total = 0
+        for (const denom of denominations) {
+            const count = denominationCounts[denom.id] || 0
+            total += denom.value * count
+        }
+        total += parseFloat(coinsAmount) || 0
+        return total
+    }, [showDenominations, denominations, denominationCounts, coinsAmount])
+
+    // Reset denomination counts when method changes
+    useEffect(() => {
+        if (!showDenominations) {
+            setDenominationCounts({})
+            setCoinsAmount("")
+        }
+    }, [showDenominations])
+
+    const handleDenominationChange = (denomId: number, count: string) => {
+        const numCount = parseInt(count) || 0
+        setDenominationCounts(prev => ({
+            ...prev,
+            [denomId]: Math.max(0, numCount)
+        }))
+    }
+
     const handleAddPayment = () => {
-        if (!newPayment.methodId || !newPayment.amount) return
+        if (!selectedMethodId) return
+
+        let amount: number
+        let denomsToSend: DenominationCount[] | undefined
+        let coinsToSend: number | undefined
+
+        if (showDenominations) {
+            amount = calculatedTotal
+            if (amount <= 0) return
+
+            denomsToSend = Object.entries(denominationCounts)
+                .filter(([, count]) => count > 0)
+                .map(([denomId, count]) => ({
+                    denominationId: parseInt(denomId),
+                    count
+                }))
+            coinsToSend = parseFloat(coinsAmount) || undefined
+        } else {
+            amount = parseFloat(manualAmount)
+            if (!amount || amount <= 0) return
+        }
 
         onAddPayment({
-            methodId: parseInt(newPayment.methodId),
-            amount: parseFloat(newPayment.amount),
-            paymentId: editingPaymentId || undefined
+            methodId: parseInt(selectedMethodId),
+            amount,
+            paymentId: editingPaymentId || undefined,
+            denominations: denomsToSend,
+            coinsAmount: coinsToSend
         })
 
-        // Reset form if not handling error internally here (assuming parent handles error toast)
-        // Ideally we reset only on success, but for now we reset here or parent needs to expose success.
-        // To keep it simple, we reset.
-        setNewPayment({ methodId: "", amount: "" })
+        // Reset form
+        setSelectedMethodId("")
+        setManualAmount("")
+        setDenominationCounts({})
+        setCoinsAmount("")
         setEditingPaymentId(null)
     }
 
     const handleEditPayment = (payment: SessionPayment) => {
-        setNewPayment({
-            methodId: payment.paymentMethodId.toString(),
-            amount: payment.amount.toString()
-        })
+        setSelectedMethodId(payment.paymentMethodId.toString())
+        setManualAmount(payment.amount.toString())
         setEditingPaymentId(payment.id)
+
+        // Restore denomination counts
+        const counts: Record<number, number> = {}
+        if (payment.denominations) {
+            payment.denominations.forEach((d: { denominationId: number; count: number }) => {
+                counts[d.denominationId] = d.count
+            })
+        }
+        setDenominationCounts(counts)
+
+        // Restore coins
+        setCoinsAmount(payment.coinsAmount ? payment.coinsAmount.toString() : "")
     }
 
     const handleCancelEdit = () => {
-        setNewPayment({ methodId: "", amount: "" })
+        setSelectedMethodId("")
+        setManualAmount("")
+        setDenominationCounts({})
+        setCoinsAmount("")
         setEditingPaymentId(null)
     }
 
@@ -198,8 +291,8 @@ export function ShiftDashboardStep({
                                     <Label>Payment Method</Label>
                                     <select
                                         className="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        value={newPayment.methodId}
-                                        onChange={(e) => setNewPayment({ ...newPayment, methodId: e.target.value })}
+                                        value={selectedMethodId}
+                                        onChange={(e) => setSelectedMethodId(e.target.value)}
                                     >
                                         <option value="">Select Method</option>
                                         {paymentMethods.map((pm: PaymentMethod) => (
@@ -207,15 +300,77 @@ export function ShiftDashboardStep({
                                         ))}
                                     </select>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Amount</Label>
-                                    <Input
-                                        type="number"
-                                        value={newPayment.amount}
-                                        onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-                                        placeholder="0.00"
-                                    />
-                                </div>
+
+                                {/* Denomination Grid for Cash */}
+                                {showDenominations && (
+                                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Notes</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {denominations.map((denom) => (
+                                                <div key={denom.id} className="flex items-center justify-between p-3 rounded-lg border bg-card shadow-sm">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-lg">{denom.label}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            = ₹{((denominationCounts[denom.id] || 0) * denom.value).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-muted-foreground text-sm">×</span>
+                                                        <Input
+                                                            type="number"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
+                                                            min="0"
+                                                            className="w-24 h-12 text-center text-lg font-medium"
+                                                            value={denominationCounts[denom.id] || ""}
+                                                            onChange={(e) => handleDenominationChange(denom.id, e.target.value)}
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {showCoins && (
+                                            <>
+                                                <Label className="text-xs text-muted-foreground uppercase tracking-wider pt-2">Coins</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-14 text-sm font-medium">Total</span>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        className="flex-1 h-8"
+                                                        value={coinsAmount}
+                                                        onChange={(e) => setCoinsAmount(e.target.value)}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <div className="pt-2 border-t flex justify-between items-center">
+                                            <span className="font-medium">Total</span>
+                                            <span className="text-xl font-bold text-primary">
+                                                ₹{calculatedTotal.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Manual amount for non-cash or when denominations disabled */}
+                                {!showDenominations && selectedMethodId && (
+                                    <div className="space-y-2">
+                                        <Label>Amount</Label>
+                                        <Input
+                                            type="number"
+                                            value={manualAmount}
+                                            onChange={(e) => setManualAmount(e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                )}
+
                                 <div className="flex gap-2">
                                     {editingPaymentId && (
                                         <Button variant="outline" className="flex-1" onClick={handleCancelEdit}>

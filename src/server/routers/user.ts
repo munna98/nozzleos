@@ -58,7 +58,7 @@ export const userRouter = router({
     create: adminProcedure
         .input(z.object({
             username: z.string().min(3),
-            password: z.string().min(6),
+            password: z.string().min(4),
             name: z.string().optional(),
             code: z.string().optional(),
             mobile: z.string().optional(),
@@ -94,7 +94,7 @@ export const userRouter = router({
         .input(z.object({
             id: z.number(),
             username: z.string().min(3).optional(),
-            password: z.string().min(6).optional(),
+            password: z.string().min(4).optional(),
             name: z.string().optional(),
             code: z.string().optional(),
             mobile: z.string().optional(),

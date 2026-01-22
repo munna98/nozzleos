@@ -114,7 +114,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="rounded-lg border overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr>
@@ -168,7 +168,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="rounded-lg border overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr>

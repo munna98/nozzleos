@@ -144,5 +144,39 @@ model SessionPayment {
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   amount          Decimal       @db.Decimal(10, 2)
   quantity        Int?
+  coinsAmount     Decimal?      @db.Decimal(10, 2)  // Lump sum for coins
   createdAt       DateTime      @default(now())
+  
+  denominations   PaymentDenomination[]
+}
+
+// Global app settings (single row pattern)
+model Settings {
+  id                      Int      @id @default(1)
+  enableDenominationEntry Boolean  @default(true)  // Show denomination grid for cash
+  enableCoinEntry         Boolean  @default(true)  // Show coins lump sum field
+  updatedAt               DateTime @updatedAt
+}
+
+// Available currency denominations (notes only)
+model Denomination {
+  id        Int     @id @default(autoincrement())
+  value     Int     @unique  // 2000, 500, 200, 100, 50, 20, 10
+  label     String  // "₹2000", "₹500", etc.
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+  
+  paymentDenominations PaymentDenomination[]
+}
+
+// Junction table: which denominations were used in a payment
+model PaymentDenomination {
+  id               Int            @id @default(autoincrement())
+  sessionPaymentId Int
+  sessionPayment   SessionPayment @relation(fields: [sessionPaymentId], references: [id], onDelete: Cascade)
+  denominationId   Int
+  denomination     Denomination   @relation(fields: [denominationId], references: [id])
+  count            Int            @default(0)
+  
+  @@unique([sessionPaymentId, denominationId])
 }

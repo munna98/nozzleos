@@ -16,14 +16,14 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
             router.push('/login')
         } else if (isAuthenticated && pathname === '/login') {
             // Role-based routing after login
-            if (user?.role === 'Filling Attendant') {
+            if (user?.role === 'Fuel Attendant') {
                 router.push('/dashboard')
             } else {
                 router.push('/')
             }
         } else if (isAuthenticated) {
             // Role-based access control
-            if (user?.role === 'Filling Attendant') {
+            if (user?.role === 'Fuel Attendant') {
                 // Filling attendants allowed routes
                 const allowedRoutes = ['/dashboard', '/shift', '/shift-history', '/profile']
                 const isAllowed = allowedRoutes.some(route => pathname.startsWith(route))

@@ -102,17 +102,14 @@ export default function ShiftHistoryPage() {
     }
 
     return (
-        <div className="container mx-auto py-6 px-4 max-w-7xl">
+        <div className="container mx-auto py-10 space-y-8 px-4">
             {/* Header */}
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
                     <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Shift History</h1>
-                    <p className="text-muted-foreground text-sm">
-                        {isAdmin ? 'View and manage all shift records' : 'View your past shift records'}
-                    </p>
+                    <h2 className="text-3xl font-bold tracking-tight">Shift History</h2>
                 </div>
             </div>
 

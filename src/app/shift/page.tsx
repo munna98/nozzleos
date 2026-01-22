@@ -29,6 +29,8 @@ export default function ShiftPage() {
         retry: false
     })
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
+    const settingsQuery = trpc.settings.get.useQuery()
+    const denominationsQuery = trpc.denomination.getAll.useQuery()
 
     const summaryQuery = trpc.shift.getSummary.useQuery(
         { shiftId: activeShiftQuery.data?.id || 0 },
@@ -154,7 +156,13 @@ export default function ShiftPage() {
         })
     }
 
-    const handleAddOrUpdatePayment = (data: { methodId: number; amount: number; paymentId?: number }) => {
+    const handleAddOrUpdatePayment = (data: {
+        methodId: number;
+        amount: number;
+        paymentId?: number;
+        denominations?: { denominationId: number; count: number }[];
+        coinsAmount?: number;
+    }) => {
         if (!activeShiftQuery.data) return
 
         if (data.paymentId) {
@@ -167,7 +175,9 @@ export default function ShiftPage() {
             addPaymentMutation.mutate({
                 shiftId: activeShiftQuery.data.id,
                 paymentMethodId: data.methodId,
-                amount: data.amount
+                amount: data.amount,
+                denominations: data.denominations,
+                coinsAmount: data.coinsAmount
             })
         }
     }
@@ -244,6 +254,8 @@ export default function ShiftPage() {
                     session={currentSession}
                     elapsedTime={elapsedTime}
                     paymentMethods={paymentMethodsQuery.data}
+                    denominations={denominationsQuery.data}
+                    settings={settingsQuery.data}
                     onUpdateClosingReading={handleUpdateClosingReading}
                     onAddPayment={handleAddOrUpdatePayment}
                     onDeletePayment={handleDeletePayment}

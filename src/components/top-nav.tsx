@@ -34,13 +34,13 @@ export function TopNav() {
             href: isAdmin ? "/" : "/dashboard",
             label: "Dashboard",
             active: pathname === (isAdmin ? "/" : "/dashboard"),
-            roles: ['Admin', 'Filling Attendant', 'Manager']
+            roles: ['Admin', 'Fuel Attendant', 'Manager']
         },
         {
             href: "/shift-history",
             label: "Shift History",
             active: pathname.startsWith("/shift-history"),
-            roles: ['Admin', 'Filling Attendant', 'Manager']
+            roles: ['Admin', 'Fuel Attendant', 'Manager']
         },
         {
             href: "/employees",
@@ -71,6 +71,12 @@ export function TopNav() {
             label: "Payment Methods",
             active: pathname.startsWith("/payment-methods"),
             roles: ['Admin']
+        },
+        {
+            href: "/settings",
+            label: "Settings",
+            active: pathname.startsWith("/settings"),
+            roles: ['Admin', 'Manager']
         },
     ]
 

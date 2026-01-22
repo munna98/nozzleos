@@ -23,7 +23,7 @@ export default function LoginPage() {
             const user = await login(username, password)
             toast.success('Logged in successfully')
 
-            if (user?.role === 'Filling Attendant') {
+            if (user?.role === 'Fuel Attendant') {
                 router.push('/dashboard')
             } else {
                 router.push('/')

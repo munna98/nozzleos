@@ -22,7 +22,12 @@ export const shiftRouter = router({
                     },
                 },
                 sessionPayments: {
-                    include: { paymentMethod: true },
+                    include: {
+                        paymentMethod: true,
+                        denominations: {
+                            include: { denomination: true },
+                        },
+                    },
                 },
             },
         })
@@ -111,6 +116,12 @@ export const shiftRouter = router({
             paymentMethodId: z.number(),
             amount: z.number().min(0),
             quantity: z.number().optional(),
+            // Denomination support for cash payments
+            denominations: z.array(z.object({
+                denominationId: z.number(),
+                count: z.number().min(0),
+            })).optional(),
+            coinsAmount: z.number().min(0).optional(),
         }))
         .mutation(async ({ input }) => {
             const payment = await prisma.sessionPayment.create({
@@ -119,9 +130,23 @@ export const shiftRouter = router({
                     paymentMethodId: input.paymentMethodId,
                     amount: new Prisma.Decimal(input.amount),
                     quantity: input.quantity,
+                    coinsAmount: input.coinsAmount ? new Prisma.Decimal(input.coinsAmount) : null,
                 },
                 include: { paymentMethod: true },
             })
+
+            // Create denomination records if provided
+            if (input.denominations && input.denominations.length > 0) {
+                await prisma.paymentDenomination.createMany({
+                    data: input.denominations
+                        .filter(d => d.count > 0)
+                        .map(d => ({
+                            sessionPaymentId: payment.id,
+                            denominationId: d.denominationId,
+                            count: d.count,
+                        })),
+                })
+            }
 
             // Update total collected
             await prisma.dutySession.update({
