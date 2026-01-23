@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, protectedProcedure } from '../trpc/init'
 import { authService } from '../services/auth.service'
+import { TRPCError } from '@trpc/server'
 
 export const authRouter = router({
     /**
@@ -12,14 +13,30 @@ export const authRouter = router({
             password: z.string().min(1),
         }))
         .mutation(async ({ input }) => {
-            return authService.login(input.username, input.password)
+            try {
+                return await authService.login(input.username, input.password)
+            } catch (error) {
+                console.error('Login error:', error)
+                throw new TRPCError({
+                    code: 'UNAUTHORIZED',
+                    message: error instanceof Error ? error.message : 'Login failed',
+                })
+            }
         }),
 
     /**
      * Refresh access token
      */
     refresh: publicProcedure.mutation(async () => {
-        return authService.refreshTokens()
+        try {
+            return await authService.refreshTokens()
+        } catch (error) {
+            console.error('Refresh error:', error)
+            throw new TRPCError({
+                code: 'UNAUTHORIZED',
+                message: 'Session expired. Please login again.',
+            })
+        }
     }),
 
     /**
