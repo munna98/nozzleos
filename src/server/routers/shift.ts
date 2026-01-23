@@ -272,11 +272,11 @@ export const shiftRouter = router({
                 })
             }
 
-            // Complete shift
+            // Complete shift - set to pending_verification for admin review
             const completedShift = await prisma.dutySession.update({
                 where: { id: input.shiftId },
                 data: {
-                    status: 'completed',
+                    status: 'pending_verification',
                     endTime: new Date(),
                     notes: input.notes,
                 },
@@ -477,6 +477,119 @@ export const shiftRouter = router({
                 totalCollected,
                 shortage,
             }
+        }),
+
+    /**
+     * Get shifts pending verification (admin only)
+     */
+    getPendingVerification: adminProcedure
+        .input(z.object({
+            limit: z.number().min(1).max(100).default(20),
+            offset: z.number().min(0).default(0),
+        }))
+        .query(async ({ input }) => {
+            const [shifts, total] = await Promise.all([
+                prisma.dutySession.findMany({
+                    where: { status: 'pending_verification' },
+                    include: {
+                        user: { select: { id: true, username: true, name: true } },
+                        nozzleReadings: {
+                            include: { nozzle: { include: { fuel: true } } },
+                        },
+                        sessionPayments: { include: { paymentMethod: true } },
+                    },
+                    orderBy: { endTime: 'desc' },
+                    skip: input.offset,
+                    take: input.limit,
+                }),
+                prisma.dutySession.count({ where: { status: 'pending_verification' } }),
+            ])
+
+            return {
+                sessions: shifts,
+                pagination: {
+                    total,
+                    limit: input.limit,
+                    offset: input.offset,
+                }
+            }
+        }),
+
+    /**
+     * Verify shift (admin only) - approve or reject
+     */
+    verifyShift: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            approved: z.boolean(),
+            notes: z.string().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({
+                where: { id: input.shiftId },
+            })
+
+            if (!shift) {
+                throw new Error('Shift not found')
+            }
+
+            if (shift.status !== 'pending_verification') {
+                throw new Error('Shift is not pending verification')
+            }
+
+            const updatedShift = await prisma.dutySession.update({
+                where: { id: input.shiftId },
+                data: {
+                    status: input.approved ? 'verified' : 'rejected',
+                    verifiedAt: new Date(),
+                    verifiedByUserId: ctx.user.id,
+                    rejectionNotes: input.approved ? null : (input.notes || null),
+                },
+                include: {
+                    user: { select: { id: true, username: true, name: true } },
+                    verifiedBy: { select: { id: true, username: true, name: true } },
+                },
+            })
+
+            return updatedShift
+        }),
+
+    /**
+     * Resubmit rejected shift for verification (user who created it or admin)
+     */
+    resubmitForVerification: protectedProcedure
+        .input(z.object({
+            shiftId: z.number(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({
+                where: { id: input.shiftId },
+            })
+
+            if (!shift) {
+                throw new Error('Shift not found')
+            }
+
+            // Only the shift owner or admin can resubmit
+            if (shift.userId !== ctx.user.id && ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
+                throw new Error('You do not have permission to resubmit this shift')
+            }
+
+            if (shift.status !== 'rejected') {
+                throw new Error('Only rejected shifts can be resubmitted')
+            }
+
+            const updatedShift = await prisma.dutySession.update({
+                where: { id: input.shiftId },
+                data: {
+                    status: 'pending_verification',
+                    verifiedAt: null,
+                    verifiedByUserId: null,
+                    rejectionNotes: null,
+                },
+            })
+
+            return updatedShift
         }),
 
     /**

@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon, FuelStationIcon } from "@hugeicons/core-free-icons"
 
@@ -17,9 +18,10 @@ interface ShiftHistoryListProps {
     shifts: ShiftSession[]
     isAdmin: boolean
     onViewShift: (shiftId: number) => void
+    onVerifyShift?: (shiftId: number) => void
 }
 
-export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryListProps) {
+export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }: ShiftHistoryListProps) {
     const formatDate = (dateStr: string | Date) => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('en-GB', {
@@ -62,6 +64,12 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryL
                 const totalCollected = Number(shift.totalPaymentCollected)
                 const shortage = totalCollected - totalSales
 
+                // Stop propagation for action buttons to prevent card click opening detail
+                const handleAction = (e: React.MouseEvent, action: () => void) => {
+                    e.stopPropagation()
+                    action()
+                }
+
                 return (
                     <Card
                         key={shift.id}
@@ -86,9 +94,33 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift }: ShiftHistoryL
                                             </span>
                                         </div>
                                     </div>
-                                    <Badge variant={shift.status === 'completed' ? 'default' : 'secondary'}>
-                                        {shift.status}
-                                    </Badge>
+                                    <div className="flex gap-2 items-start">
+                                        {/* Quick Verify Button */}
+                                        {isAdmin && shift.status === 'pending_verification' && onVerifyShift && (
+                                            <Button
+                                                size="sm"
+                                                className="h-6 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                onClick={(e) => handleAction(e, () => onVerifyShift(shift.id))}
+                                            >
+                                                Approve
+                                            </Button>
+                                        )}
+                                        <Badge
+                                            variant={
+                                                shift.status === 'completed' ? 'default' :
+                                                    shift.status === 'verified' ? 'default' :
+                                                        shift.status === 'pending_verification' ? 'secondary' :
+                                                            shift.status === 'rejected' ? 'destructive' : 'secondary'
+                                            }
+                                            className={
+                                                shift.status === 'verified' ? 'bg-green-600 hover:bg-green-700' :
+                                                    shift.status === 'pending_verification' ? 'bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/25 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800' : ''
+                                            }
+                                        >
+                                            {shift.status === 'pending_verification' ? 'Pending Review' :
+                                                shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
+                                        </Badge>
+                                    </div>
                                 </div>
 
                                 {/* Admin: Show User */}

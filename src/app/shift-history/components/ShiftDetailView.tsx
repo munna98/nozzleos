@@ -1,11 +1,16 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon } from "@hugeicons/core-free-icons"
+import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon } from "@hugeicons/core-free-icons"
+import { trpc } from "@/lib/trpc"
+import { toast } from "sonner"
 
 import { inferRouterOutputs } from '@trpc/server'
 import { AppRouter } from '@/server/trpc/router'
@@ -18,9 +23,55 @@ interface ShiftDetailProps {
     isAdmin: boolean
     onBack: () => void
     onEdit: () => void
+    onVerifySuccess?: () => void
 }
 
-export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailProps) {
+export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySuccess }: ShiftDetailProps) {
+    const [isRejecting, setIsRejecting] = useState(false)
+    const [rejectionNotes, setRejectionNotes] = useState("")
+
+    const utils = trpc.useUtils()
+
+    const verifyMutation = trpc.shift.verifyShift.useMutation({
+        onSuccess: () => {
+            toast.success(isRejecting ? "Shift rejected" : "Shift verified successfully")
+            setIsRejecting(false)
+            setRejectionNotes("") // Reset state
+            utils.shift.invalidate() // Invalidate queries
+            if (onVerifySuccess) onVerifySuccess() // Trigger callback
+        },
+        onError: (err) => {
+            toast.error(err.message || "Failed to verify shift")
+        }
+    })
+
+    const resubmitMutation = trpc.shift.resubmitForVerification.useMutation({
+        onSuccess: () => {
+            toast.success("Shift resubmitted for verification")
+            utils.shift.invalidate()
+            if (onVerifySuccess) onVerifySuccess()
+        },
+        onError: (err) => {
+            toast.error(err.message || "Failed to resubmit shift")
+        }
+    })
+
+    const handleVerify = (approved: boolean) => {
+        if (!approved && !isRejecting) {
+            setIsRejecting(true)
+            return
+        }
+
+        verifyMutation.mutate({
+            shiftId: shift.id,
+            approved,
+            notes: approved ? undefined : rejectionNotes
+        })
+    }
+
+    const handleResubmit = () => {
+        resubmitMutation.mutate({ shiftId: shift.id })
+    }
     const formatDate = (dateStr: string | Date) => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('en-GB', {
@@ -55,8 +106,20 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                             <h1 className="text-2xl font-bold tracking-tight">
                                 {shift.type ? (shift.type.charAt(0) + shift.type.slice(1).toLowerCase() + ' Shift') : 'Shift'}
                             </h1>
-                            <Badge variant={shift.status === 'completed' ? 'default' : 'secondary'}>
-                                {shift.status}
+                            <Badge
+                                variant={
+                                    shift.status === 'completed' ? 'default' :
+                                        shift.status === 'verified' ? 'default' :
+                                            shift.status === 'pending_verification' ? 'secondary' :
+                                                shift.status === 'rejected' ? 'destructive' : 'secondary'
+                                }
+                                className={
+                                    shift.status === 'verified' ? 'bg-green-600 hover:bg-green-700' :
+                                        shift.status === 'pending_verification' ? 'bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/25 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800' : ''
+                                }
+                            >
+                                {shift.status === 'pending_verification' ? 'Pending Review' :
+                                    shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
                             </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
@@ -80,6 +143,113 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                     </Button>
                 )}
             </div>
+
+            {/* Verification Status Alert */}
+            {shift.status === 'pending_verification' && (
+                <Alert className="bg-yellow-500/10 border-yellow-500/50 text-yellow-600 dark:text-yellow-400">
+                    <HugeiconsIcon icon={InformationCircleIcon} className="h-4 w-4" />
+                    <AlertTitle>Pending Verification</AlertTitle>
+                    <AlertDescription>
+                        This shift is awaiting administrator verification.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {shift.status === 'rejected' && (
+                <Alert variant="destructive">
+                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                    <AlertTitle>Shift Rejected</AlertTitle>
+                    <AlertDescription>
+                        <div>
+                            This shift has been rejected by {(shift as any).verifiedBy?.name || 'Admin'}.
+                            {(shift as any).rejectionNotes && (
+                                <div className="mt-2 text-sm bg-background/50 p-2 rounded border border-destructive/20">
+                                    <strong>Reason:</strong> {(shift as any).rejectionNotes}
+                                </div>
+                            )}
+                            <div className="mt-3">
+                                <Button size="sm" variant="outline" onClick={handleResubmit} disabled={resubmitMutation.isPending}>
+                                    <HugeiconsIcon icon={RefreshIcon} className="mr-2 h-3.5 w-3.5" />
+                                    Resubmit for Verification
+                                </Button>
+                            </div>
+                        </div>
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {shift.status === 'verified' && (
+                <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                    <AlertTitle>Verified Shift</AlertTitle>
+                    <AlertDescription>
+                        Verified by {(shift as any).verifiedBy?.name || 'Admin'} on {formatDateTime((shift as any).verifiedAt || '')}
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {/* Admin Verification Controls */}
+            {isAdmin && shift.status === 'pending_verification' && (
+                <Card className="border-primary/50 shadow-sm bg-primary/5">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Admin Verification</CardTitle>
+                        <CardDescription>Review the shift details below and verify or reject this submission.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {isRejecting && (
+                            <div className="space-y-2">
+                                <span className="text-sm font-medium">Rejection Reason (Required)</span>
+                                <Textarea
+                                    placeholder="Please explain why this shift is being rejected..."
+                                    value={rejectionNotes}
+                                    onChange={(e) => setRejectionNotes(e.target.value)}
+                                />
+                            </div>
+                        )}
+                        <div className="flex gap-3">
+                            {!isRejecting ? (
+                                <>
+                                    <Button
+                                        className="flex-1 bg-green-600 hover:bg-green-700"
+                                        onClick={() => handleVerify(true)}
+                                        disabled={verifyMutation.isPending}
+                                    >
+                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-2 h-4 w-4" />
+                                        Approve Shift
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className="flex-1"
+                                        onClick={() => setIsRejecting(true)}
+                                        disabled={verifyMutation.isPending}
+                                    >
+                                        <HugeiconsIcon icon={Cancel01Icon} className="mr-2 h-4 w-4" />
+                                        Reject Shift
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button
+                                        variant="destructive"
+                                        className="flex-1"
+                                        onClick={() => handleVerify(false)}
+                                        disabled={verifyMutation.isPending || !rejectionNotes.trim()}
+                                    >
+                                        Confirm Rejection
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => setIsRejecting(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
