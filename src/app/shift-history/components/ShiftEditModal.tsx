@@ -78,7 +78,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
 
     // Local state for editing
     const [shiftDetails, setShiftDetails] = useState({
-        shiftType: ShiftType.MORNING,
+        shiftType: ShiftType.MORNING as string,
         notes: '',
         status: '' as 'in_progress' | 'completed' | 'archived'
     })
@@ -103,7 +103,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
         updateShiftMutation.mutate({
             shiftId,
             data: {
-                shiftType: shiftDetails.shiftType,
+                shiftType: shiftDetails.shiftType as ShiftType,
                 notes: shiftDetails.notes || undefined,
                 status: shiftDetails.status
             }
@@ -191,7 +191,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
                                 <Label>Shift Type</Label>
                                 <Select
                                     value={shiftDetails.shiftType}
-                                    onValueChange={(v) => setShiftDetails(prev => ({ ...prev, shiftType: v as ShiftType }))}
+                                    onValueChange={(v) => setShiftDetails(prev => ({ ...prev, shiftType: v }))}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
