@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
 import prisma from '@/lib/prisma'
+import { authService } from '@/server/services/auth.service'
 import type { Context } from './init'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-min-32-characters-long'
@@ -15,18 +16,21 @@ export async function createContext(): Promise<Context> {
     const cookieStore = await cookies()
     const token = cookieStore.get('auth_token')?.value
 
-    if (!token) {
-        return { user: null }
-    }
-
-    try {
+    // Helper to get user from token
+    const getUserFromToken = async (token: string) => {
         const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
-
-        // Verify user still exists and is active
-        const user = await prisma.user.findUnique({
+        return prisma.user.findUnique({
             where: { id: decoded.userId },
             include: { role: true },
         })
+    }
+
+    try {
+        if (!token) {
+            throw new Error('No token')
+        }
+
+        const user = await getUserFromToken(token)
 
         if (!user || !user.isActive) {
             return { user: null }
@@ -40,6 +44,18 @@ export async function createContext(): Promise<Context> {
             },
         }
     } catch {
-        return { user: null }
+        // Token invalid or expired, try to refresh
+        try {
+            const result = await authService.refreshTokens()
+            return {
+                user: {
+                    id: result.user.id,
+                    username: result.user.username,
+                    role: result.user.role,
+                },
+            }
+        } catch {
+            return { user: null }
+        }
     }
 }
