@@ -114,7 +114,8 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-lg border overflow-hidden">
+                    {/* Desktop View (Table) */}
+                    <div className="hidden md:block rounded-lg border overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr>
@@ -122,6 +123,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                                     <th className="text-left p-3 font-medium">Fuel</th>
                                     <th className="text-right p-3 font-medium">Opening</th>
                                     <th className="text-right p-3 font-medium">Closing</th>
+                                    <th className="text-right p-3 font-medium">Test Qty</th>
                                     <th className="text-right p-3 font-medium">Qty (L)</th>
                                     <th className="text-right p-3 font-medium">Amount</th>
                                 </tr>
@@ -141,6 +143,9 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                                                 ? parseFloat(reading.closingReading.toString()).toFixed(2)
                                                 : '--'}
                                         </td>
+                                        <td className="p-3 text-right text-muted-foreground">
+                                            {parseFloat(reading.testQty?.toString() || '0').toFixed(2)}
+                                        </td>
                                         <td className="p-3 text-right font-medium">
                                             {parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)}
                                         </td>
@@ -150,11 +155,55 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
                                     </tr>
                                 ))}
                                 <tr className="border-t bg-muted/30 font-medium">
-                                    <td colSpan={5} className="p-3 text-right">Total Fuel Sales</td>
+                                    <td colSpan={6} className="p-3 text-right">Total Fuel Sales</td>
                                     <td className="p-3 text-right">₹{shift.totalFuelSales.toFixed(2)}</td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile View (Cards) */}
+                    <div className="md:hidden space-y-3">
+                        {shift.nozzleReadings.map((reading: any) => (
+                            <div key={reading.id} className="rounded-lg border p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline">{reading.nozzle.code}</Badge>
+                                        <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                    </div>
+                                    <div className="font-bold">
+                                        ₹{reading.amount.toFixed(2)}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-1">Opening</p>
+                                        <p>{parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground mb-1">Closing</p>
+                                        <p>{reading.closingReading
+                                            ? parseFloat(reading.closingReading.toString()).toFixed(2)
+                                            : '--'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-1">Test Qty</p>
+                                        <p>{parseFloat(reading.testQty?.toString() || '0').toFixed(2)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground mb-1">Net Qty</p>
+                                        <p className="font-medium">{parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)} L</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <div className="rounded-lg bg-muted/30 p-4 flex justify-between items-center font-bold">
+                            <span>Total Fuel Sales</span>
+                            <span>₹{shift.totalFuelSales.toFixed(2)}</span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -204,16 +253,18 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit }: ShiftDetailP
             </Card>
 
             {/* Notes */}
-            {shift.notes && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Closing Notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">{shift.notes}</p>
-                    </CardContent>
-                </Card>
-            )}
-        </div>
+            {
+                shift.notes && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Closing Notes</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-muted-foreground">{shift.notes}</p>
+                        </CardContent>
+                    </Card>
+                )
+            }
+        </div >
     )
 }

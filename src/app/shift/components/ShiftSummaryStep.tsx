@@ -72,12 +72,15 @@ export function ShiftSummaryStep({
                             <HugeiconsIcon icon={FuelStationIcon} className="h-4 w-4" />
                             Fuel Sales Breakdown
                         </h3>
-                        <div className="rounded-md border overflow-hidden">
+
+                        {/* Desktop View (Table) */}
+                        <div className="hidden md:block rounded-md border overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50">
                                     <tr>
                                         <th className="text-left p-3 font-medium">Nozzle</th>
                                         <th className="text-left p-3 font-medium">Fuel</th>
+                                        <th className="text-right p-3 font-medium">Test Qty</th>
                                         <th className="text-right p-3 font-medium">Qty (L)</th>
                                         <th className="text-right p-3 font-medium">Rate</th>
                                         <th className="text-right p-3 font-medium">Amount</th>
@@ -90,6 +93,9 @@ export function ShiftSummaryStep({
                                                 <Badge variant="outline">{reading.nozzle.code}</Badge>
                                             </td>
                                             <td className="p-3">{reading.nozzle.fuel.name}</td>
+                                            <td className="p-3 text-right text-muted-foreground">
+                                                {parseFloat(reading.testQty?.toString() || '0').toFixed(2)}
+                                            </td>
                                             <td className="p-3 text-right font-medium">
                                                 {parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)}
                                             </td>
@@ -102,11 +108,53 @@ export function ShiftSummaryStep({
                                         </tr>
                                     ))}
                                     <tr className="border-t bg-muted/30 font-medium">
-                                        <td colSpan={4} className="p-3 text-right">Total Fuel Sales</td>
+                                        <td colSpan={5} className="p-3 text-right">Total Fuel Sales</td>
                                         <td className="p-3 text-right">₹{summary.totalFuelSales.toFixed(2)}</td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Mobile View (Cards) */}
+                        <div className="md:hidden space-y-3">
+                            {summary.nozzleReadings.map((reading: SummaryNozzleReading) => (
+                                <Card key={reading.id}>
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline">{reading.nozzle.code}</Badge>
+                                                <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                            </div>
+                                            <div className="font-bold">
+                                                ₹{parseFloat(String(reading.amount)).toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Test Qty</p>
+                                                <p>{parseFloat(reading.testQty?.toString() || '0').toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-xs text-muted-foreground mb-1">Rate</p>
+                                                <p>₹{parseFloat(String(reading.price)).toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground mb-1">Net Qty</p>
+                                                <p className="font-medium">{parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)} L</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            <Card className="bg-muted/30">
+                                <CardContent className="p-4 flex justify-between items-center font-bold">
+                                    <span>Total Fuel Sales</span>
+                                    <span>₹{summary.totalFuelSales.toFixed(2)}</span>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
 
