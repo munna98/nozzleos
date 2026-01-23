@@ -8,6 +8,7 @@ import { ShiftDetailView } from "./components/ShiftDetailView"
 import { ShiftEditModal } from "./components/ShiftEditModal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
 import { useRouter } from "next/navigation"
@@ -61,7 +62,7 @@ export default function ShiftHistoryPage() {
         if (shiftDetailQuery.isLoading) {
             return (
                 <div className="container mx-auto py-6 px-4 max-w-4xl flex items-center justify-center min-h-[50vh]">
-                    <div className="text-muted-foreground">Loading shift details...</div>
+                    <Spinner className="size-8" />
                 </div>
             )
         }
@@ -117,7 +118,7 @@ export default function ShiftHistoryPage() {
 
             {/* Shift List */}
             {shiftsQuery.isLoading ? (
-                <div className="text-center py-12 text-muted-foreground">Loading shifts...</div>
+                <div className="text-center py-12"><Spinner className="size-6 mx-auto" /></div>
             ) : shiftsQuery.data?.sessions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                     No shifts found.
