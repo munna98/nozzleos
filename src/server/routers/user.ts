@@ -10,16 +10,16 @@ export const userRouter = router({
     getAll: adminProcedure
         .input(z.object({
             role: z.string().optional(),
-        }))
+        }).optional())
         .query(async ({ input }) => {
             const where: any = { deletedAt: null }
-            
-            if (input.role) {
+
+            if (input?.role) {
                 where.role = {
                     name: input.role
                 }
             }
-            
+
             const users = await prisma.user.findMany({
                 where,
                 include: { role: true },

@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { FilterIcon, Cancel01Icon } from "@hugeicons/core-free-icons"
+import { DatePicker } from "@/components/ui/date-picker"
 
 export interface ShiftFiltersState {
     shiftType?: ShiftType
@@ -36,50 +37,30 @@ export function ShiftFilters({
     isOpen = false,
     onOpenChange,
 }: ShiftFiltersProps) {
-    const [localFilters, setLocalFilters] = useState<ShiftFiltersState>(filters)
-    const [attendants, setAttendants] = useState<Array<{ id: number; name: string | null; username: string }>>([])
     const attendantsQuery = trpc.user.getAll.useQuery(
-        { role: 'Attendant' },
+        { role: 'Fuel Attendant' },
         { enabled: isAdmin }
     )
 
-    useEffect(() => {
-        if (attendantsQuery.data) {
-            setAttendants(attendantsQuery.data.map((u: any) => ({
-                id: u.id,
-                name: u.name,
-                username: u.username
-            })))
-        }
-    }, [attendantsQuery.data])
-
-    const handleApplyFilters = () => {
-        onFiltersChange(localFilters)
-        onOpenChange?.(false)
-    }
+    const attendants = attendantsQuery.data || []
 
     const handleClearFilters = () => {
-        const cleared = {}
-        setLocalFilters(cleared)
-        onFiltersChange(cleared)
+        onFiltersChange({})
         onOpenChange?.(false)
     }
 
-    const handleDateChange = (field: 'startDateFrom' | 'startDateTo', value: string) => {
-        const date = value ? new Date(value) : undefined
-        setLocalFilters(prev => ({
-            ...prev,
-            [field]: date
-        }))
+    const handleFilterChange = (updates: Partial<ShiftFiltersState>) => {
+        onFiltersChange({
+            ...filters,
+            ...updates
+        })
+    }
+
+    const handleDateChange = (field: 'startDateFrom' | 'startDateTo', date?: Date) => {
+        handleFilterChange({ [field]: date })
     }
 
     const hasActiveFilters = Object.keys(filters).length > 0
-
-    const formatDateForInput = (date?: Date) => {
-        if (!date) return ''
-        const d = new Date(date)
-        return d.toISOString().split('T')[0]
-    }
 
     return (
         <>
@@ -126,12 +107,11 @@ export function ShiftFilters({
                             <div className="space-y-2">
                                 <Label htmlFor="shift-type" className="text-xs font-medium">Shift Type</Label>
                                 <Select
-                                    value={localFilters.shiftType || 'all'}
+                                    value={filters.shiftType || 'all'}
                                     onValueChange={(value) =>
-                                        setLocalFilters(prev => ({
-                                            ...prev,
+                                        handleFilterChange({
                                             shiftType: value === 'all' ? undefined : (value as ShiftType)
-                                        }))
+                                        })
                                     }
                                 >
                                     <SelectTrigger id="shift-type" className="h-8">
@@ -150,12 +130,11 @@ export function ShiftFilters({
                             <div className="space-y-2">
                                 <Label className="text-xs font-medium">Status</Label>
                                 <Select
-                                    value={localFilters.status || 'all'}
+                                    value={filters.status || 'all'}
                                     onValueChange={(value) =>
-                                        setLocalFilters(prev => ({
-                                            ...prev,
+                                        handleFilterChange({
                                             status: value === 'all' ? undefined : value
-                                        }))
+                                        })
                                     }
                                 >
                                     <SelectTrigger className="h-8">
@@ -170,41 +149,16 @@ export function ShiftFilters({
                                 </Select>
                             </div>
 
-                            {/* Date From */}
-                            <div className="space-y-2">
-                                <Label htmlFor="date-from" className="text-xs font-medium">From Date</Label>
-                                <Input
-                                    id="date-from"
-                                    type="date"
-                                    value={formatDateForInput(localFilters.startDateFrom)}
-                                    onChange={(e) => handleDateChange('startDateFrom', e.target.value)}
-                                    className="h-8 text-xs"
-                                />
-                            </div>
-
-                            {/* Date To */}
-                            <div className="space-y-2">
-                                <Label htmlFor="date-to" className="text-xs font-medium">To Date</Label>
-                                <Input
-                                    id="date-to"
-                                    type="date"
-                                    value={formatDateForInput(localFilters.startDateTo)}
-                                    onChange={(e) => handleDateChange('startDateTo', e.target.value)}
-                                    className="h-8 text-xs"
-                                />
-                            </div>
-
                             {/* Admin-only: Attendant Select */}
                             {isAdmin && (
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-medium">Attendant</Label>
+                                    <Label className="text-xs font-medium">Fuel Attendant</Label>
                                     <Select
-                                        value={localFilters.userId ? localFilters.userId.toString() : 'all'}
+                                        value={filters.userId ? filters.userId.toString() : 'all'}
                                         onValueChange={(value) =>
-                                            setLocalFilters(prev => ({
-                                                ...prev,
+                                            handleFilterChange({
                                                 userId: value === 'all' ? undefined : parseInt(value)
-                                            }))
+                                            })
                                         }
                                     >
                                         <SelectTrigger className="h-8">
@@ -225,22 +179,37 @@ export function ShiftFilters({
                                     </Select>
                                 </div>
                             )}
+
+                            {/* Date From */}
+                            <div className="space-y-2">
+                                <Label htmlFor="date-from" className="text-xs font-medium">From Date</Label>
+                                <DatePicker
+                                    date={filters.startDateFrom}
+                                    setDate={(date) => handleDateChange('startDateFrom', date)}
+                                    className="h-8 text-xs"
+                                    placeholder="From"
+                                />
+                            </div>
+
+                            {/* Date To */}
+                            <div className="space-y-2">
+                                <Label htmlFor="date-to" className="text-xs font-medium">To Date</Label>
+                                <DatePicker
+                                    date={filters.startDateTo}
+                                    setDate={(date) => handleDateChange('startDateTo', date)}
+                                    className="h-8 text-xs"
+                                    placeholder="To"
+                                />
+                            </div>
                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex gap-2 pt-4 border-t">
                             <Button
                                 size="sm"
-                                onClick={handleApplyFilters}
-                                className="flex-1 h-8"
-                            >
-                                Apply Filters
-                            </Button>
-                            <Button
-                                size="sm"
                                 variant="outline"
                                 onClick={() => onOpenChange?.(false)}
-                                className="h-8"
+                                className="flex-1 h-8"
                             >
                                 Close
                             </Button>
