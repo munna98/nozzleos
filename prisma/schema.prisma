@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model UserRole {
@@ -33,6 +34,9 @@ model User {
   
   // Shift Management
   dutySessions DutySession[]
+  
+  @@index([roleId, isActive])
+  @@index([isActive])
 }
 
 model Customer {
@@ -45,6 +49,9 @@ model Customer {
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
   paymentMethod PaymentMethod?
+  
+  @@index([isActive])
+  @@index([phone])
 }
 
 model PaymentMethod {
@@ -56,6 +63,8 @@ model PaymentMethod {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   sessionPayments SessionPayment[]
+  
+  @@index([isActive])
 }
 
 model Fuel {
@@ -67,6 +76,8 @@ model Fuel {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  
+  @@index([isActive])
 }
 
 model Dispenser {
@@ -78,6 +89,8 @@ model Dispenser {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  
+  @@index([isActive])
 }
 
 model Nozzle {
@@ -96,6 +109,10 @@ model Nozzle {
   deletedAt      DateTime?
 
   nozzleSessionReadings NozzleSessionReading[]
+  
+  @@index([isActive, isAvailable])
+  @@index([dispenserId])
+  @@index([fuelId])
 }
 
 enum ShiftType {
@@ -120,6 +137,11 @@ model DutySession {
 
   nozzleReadings        NozzleSessionReading[]
   sessionPayments       SessionPayment[]
+  
+  @@index([userId, status])
+  @@index([status, endTime])
+  @@index([userId, endTime])
+  @@index([createdAt])
 }
 
 model NozzleSessionReading {
@@ -134,6 +156,9 @@ model NozzleSessionReading {
   fuelDispensed  Decimal     @default(0) @db.Decimal(10, 2)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  
+  @@index([dutySessionId])
+  @@index([nozzleId])
 }
 
 model SessionPayment {
@@ -148,6 +173,10 @@ model SessionPayment {
   createdAt       DateTime      @default(now())
   
   denominations   PaymentDenomination[]
+  
+  @@index([dutySessionId])
+  @@index([paymentMethodId])
+  @@index([createdAt])
 }
 
 // Global app settings (single row pattern)
@@ -167,6 +196,9 @@ model Denomination {
   sortOrder Int     @default(0)
   
   paymentDenominations PaymentDenomination[]
+  
+  @@index([sortOrder])
+  @@index([isActive])
 }
 
 // Junction table: which denominations were used in a payment
