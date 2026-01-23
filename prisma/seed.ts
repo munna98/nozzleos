@@ -65,13 +65,12 @@ async function main() {
 
     // Create denominations (Indian currency notes)
     const denominations = [
-        { value: 2000, label: '₹2000', sortOrder: 1 },
-        { value: 500, label: '₹500', sortOrder: 2 },
-        { value: 200, label: '₹200', sortOrder: 3 },
-        { value: 100, label: '₹100', sortOrder: 4 },
-        { value: 50, label: '₹50', sortOrder: 5 },
-        { value: 20, label: '₹20', sortOrder: 6 },
-        { value: 10, label: '₹10', sortOrder: 7 },
+        { value: 500, label: '₹500', sortOrder: 1 },
+        { value: 200, label: '₹200', sortOrder: 2 },
+        { value: 100, label: '₹100', sortOrder: 3 },
+        { value: 50, label: '₹50', sortOrder: 4 },
+        { value: 20, label: '₹20', sortOrder: 5 },
+        { value: 10, label: '₹10', sortOrder: 6 },
     ]
 
     for (const denom of denominations) {

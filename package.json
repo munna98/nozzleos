@@ -17,6 +17,7 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.1.0",
     "@hugeicons/core-free-icons": "^3.1.1",
     "@hugeicons/react": "^1.1.4",
     "@prisma/client": "^5.22.0",

@@ -108,6 +108,9 @@ CREATE TABLE "DutySession" (
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "verifiedAt" TIMESTAMP(3),
+    "verifiedByUserId" INTEGER,
+    "rejectionNotes" TEXT,
 
     CONSTRAINT "DutySession_pkey" PRIMARY KEY ("id")
 );
@@ -278,6 +281,9 @@ ALTER TABLE "Nozzle" ADD CONSTRAINT "Nozzle_fuelId_fkey" FOREIGN KEY ("fuelId") 
 
 -- AddForeignKey
 ALTER TABLE "DutySession" ADD CONSTRAINT "DutySession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DutySession" ADD CONSTRAINT "DutySession_verifiedByUserId_fkey" FOREIGN KEY ("verifiedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "NozzleSessionReading" ADD CONSTRAINT "NozzleSessionReading_dutySessionId_fkey" FOREIGN KEY ("dutySessionId") REFERENCES "DutySession"("id") ON DELETE CASCADE ON UPDATE CASCADE;

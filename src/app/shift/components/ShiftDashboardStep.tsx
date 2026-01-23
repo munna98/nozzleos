@@ -15,6 +15,14 @@ import {
     PencilEdit01Icon,
     Delete02Icon
 } from "@hugeicons/core-free-icons"
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+} from "@/components/ui/combobox"
 import type { inferRouterOutputs } from "@trpc/server"
 import type { AppRouter } from "@/server/trpc/router"
 
@@ -289,16 +297,24 @@ export function ShiftDashboardStep({
                             <CardContent className="space-y-3">
                                 <div className="space-y-2">
                                     <Label>Payment Method</Label>
-                                    <select
-                                        className="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        value={selectedMethodId}
-                                        onChange={(e) => setSelectedMethodId(e.target.value)}
+                                    <Combobox
+                                        items={paymentMethods}
+                                        value={selectedMethod || null}
+                                        onValueChange={(val: PaymentMethod | null) => setSelectedMethodId(val?.id.toString() ?? "")}
+                                        itemToStringLabel={(item: PaymentMethod) => item?.name ?? ""}
                                     >
-                                        <option value="">Select Method</option>
-                                        {paymentMethods.map((pm: PaymentMethod) => (
-                                            <option key={pm.id} value={pm.id}>{pm.name}</option>
-                                        ))}
-                                    </select>
+                                        <ComboboxInput placeholder="Select Method" />
+                                        <ComboboxContent>
+                                            <ComboboxEmpty>No items found.</ComboboxEmpty>
+                                            <ComboboxList>
+                                                {(item: PaymentMethod) => (
+                                                    <ComboboxItem key={item.id} value={item}>
+                                                        {item.name}
+                                                    </ComboboxItem>
+                                                )}
+                                            </ComboboxList>
+                                        </ComboboxContent>
+                                    </Combobox>
                                 </div>
 
                                 {/* Denomination Grid for Cash */}
