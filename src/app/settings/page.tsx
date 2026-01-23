@@ -4,9 +4,8 @@ import { trpc } from "@/lib/trpc"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading03Icon } from "@hugeicons/core-free-icons"
 
 export default function SettingsPage() {
     const settingsQuery = trpc.settings.get.useQuery()
@@ -32,7 +31,7 @@ export default function SettingsPage() {
     if (loading) {
         return (
             <div className="container mx-auto py-10 flex justify-center">
-                <HugeiconsIcon icon={Loading03Icon} className="h-8 w-8 animate-spin text-muted-foreground" />
+                <Spinner className="size-8" />
             </div>
         )
     }

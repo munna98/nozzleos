@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Tick01Icon, Delete02Icon, Add01Icon } from "@hugeicons/core-free-icons"
@@ -158,7 +159,7 @@ export function ShiftEditModal({ shiftId, isOpen, onClose }: ShiftEditModalProps
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent className="max-w-2xl">
                     <div className="py-12 text-center text-muted-foreground">
-                        Loading...
+                        <Spinner className="size-6 mx-auto" />
                     </div>
                 </DialogContent>
             </Dialog>

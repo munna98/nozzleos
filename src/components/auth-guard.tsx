@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
+import { Spinner } from '@/components/ui/spinner'
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     const { user, isAuthenticated, isLoading } = useAuth()
@@ -46,7 +47,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     }, [isAuthenticated, isLoading, user, router, pathname])
 
     if (isLoading) {
-        return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+        return <div className="flex items-center justify-center min-h-screen"><Spinner className="size-8" /></div>
     }
 
     // If on login page and authenticated, redirect based on role

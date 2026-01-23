@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Add01Icon, PencilEdit01Icon, Delete02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { Spinner } from "@/components/ui/spinner"
 import {
     Table,
     TableBody,
@@ -85,7 +86,7 @@ export default function PaymentMethodsPage() {
                             {loading ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
-                                        Loading...
+                                        <Spinner className="size-6 mx-auto" />
                                     </TableCell>
                                 </TableRow>
                             ) : paymentMethods.length === 0 ? (
@@ -142,7 +143,7 @@ export default function PaymentMethodsPage() {
             {/* Mobile View - Card List */}
             <div className="space-y-4 md:hidden">
                 {loading ? (
-                    <div className="text-center py-10">Loading...</div>
+                    <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
                 ) : paymentMethods.length === 0 ? (
                     <div className="text-center py-10">No payment methods found.</div>
                 ) : (

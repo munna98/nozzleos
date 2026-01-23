@@ -101,27 +101,27 @@ export function TopNav() {
                                 <span className="sr-only">Toggle menu</span>
                             </Button>
                         </SheetTrigger>
-                        <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-                            <SheetHeader className="text-left border-b pb-4 mb-4">
-                                <SheetTitle>NozzleOS</SheetTitle>
+                        <SheetContent side="left" className="w-[240px] sm:w-[300px] p-0">
+                            <SheetHeader className="text-left border-b px-4 py-2 mb-1">
+                                <SheetTitle className="text-lg">NozzleOS</SheetTitle>
                             </SheetHeader>
-                            <div className="flex flex-col space-y-4">
+                            <div className="flex flex-col">
                                 {routes.map((route) => (
                                     <Link
                                         key={route.href}
                                         href={route.href}
                                         onClick={() => setOpen(false)}
                                         className={cn(
-                                            "text-sm font-medium transition-colors hover:text-primary",
+                                            "px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md mx-2 my-0",
                                             route.active
-                                                ? "text-foreground font-bold"
+                                                ? "text-foreground font-bold bg-accent"
                                                 : "text-muted-foreground"
                                         )}
                                     >
                                         {route.label}
                                     </Link>
                                 ))}
-                                <Button variant="ghost" className="justify-start px-0 text-muted-foreground hover:text-primary" onClick={() => { setOpen(false); handleLogout(); }}>
+                                <Button variant="ghost" className="justify-start px-4 mx-2 my-0 text-muted-foreground hover:text-primary hover:bg-accent" onClick={() => { setOpen(false); handleLogout(); }}>
                                     Logout
                                 </Button>
                             </div>

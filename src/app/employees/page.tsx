@@ -4,6 +4,7 @@ import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { User, UserRole } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
     Table,
     TableBody,
@@ -96,7 +97,7 @@ export default function EmployeesPage() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10">Loading...</TableCell>
+                                    <TableCell colSpan={6} className="text-center py-10"><Spinner className="size-6 mx-auto" /></TableCell>
                                 </TableRow>
                             ) : users.length === 0 ? (
                                 <TableRow>
@@ -143,7 +144,7 @@ export default function EmployeesPage() {
             {/* Mobile View - Card List */}
             <div className="space-y-4 md:hidden">
                 {isLoading ? (
-                    <div className="text-center py-10">Loading...</div>
+                    <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
                 ) : users.length === 0 ? (
                     <div className="text-center py-10">No employees found.</div>
                 ) : (
