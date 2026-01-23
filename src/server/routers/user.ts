@@ -7,26 +7,38 @@ export const userRouter = router({
     /**
      * Get all users (admin only)
      */
-    getAll: adminProcedure.query(async () => {
-        const users = await prisma.user.findMany({
-            where: { deletedAt: null },
-            include: { role: true },
-            orderBy: { createdAt: 'desc' },
-        })
-        return users.map(user => ({
-            id: user.id,
-            username: user.username,
-            name: user.name,
-            code: user.code,
-            mobile: user.mobile,
-            isActive: user.isActive,
-            address: user.address,
-            role: user.role, // Return the full role object
-            roleId: user.roleId,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
+    getAll: adminProcedure
+        .input(z.object({
+            role: z.string().optional(),
         }))
-    }),
+        .query(async ({ input }) => {
+            const where: any = { deletedAt: null }
+            
+            if (input.role) {
+                where.role = {
+                    name: input.role
+                }
+            }
+            
+            const users = await prisma.user.findMany({
+                where,
+                include: { role: true },
+                orderBy: { createdAt: 'desc' },
+            })
+            return users.map(user => ({
+                id: user.id,
+                username: user.username,
+                name: user.name,
+                code: user.code,
+                mobile: user.mobile,
+                isActive: user.isActive,
+                address: user.address,
+                role: user.role, // Return the full role object
+                roleId: user.roleId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+            }))
+        }),
 
     /**
      * Get user by ID

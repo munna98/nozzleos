@@ -381,24 +381,76 @@ export const shiftRouter = router({
 
 
     /**
-     * Get all shifts (for history page)
+     * Get all shifts (for history page) with advanced filtering
      */
     getAll: protectedProcedure
         .input(z.object({
             limit: z.number().min(1).max(100).default(20),
             offset: z.number().min(0).default(0),
             status: z.string().optional(),
+            shiftType: z.nativeEnum(ShiftType).optional(),
+            startDateFrom: z.date().optional(),
+            startDateTo: z.date().optional(),
+            endDateFrom: z.date().optional(),
+            endDateTo: z.date().optional(),
+            userId: z.number().optional(), // For admins to filter by attendant
+            userNameSearch: z.string().optional(), // Search by name/username
         }))
         .query(async ({ ctx, input }) => {
             const where: any = {}
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+
+            // Status filter
             if (input.status) {
                 where.status = input.status
             } else {
                 where.status = { not: 'in_progress' } // By default show history (completed/archived)
             }
 
-            // Non-admin can only see their own history
-            if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
+            // Shift type filter
+            if (input.shiftType) {
+                where.type = input.shiftType
+            }
+
+            // Date range filters on startTime (shift start date)
+            if (input.startDateFrom || input.startDateTo) {
+                where.startTime = {}
+                if (input.startDateFrom) {
+                    where.startTime.gte = input.startDateFrom
+                }
+                if (input.startDateTo) {
+                    where.startTime.lte = input.startDateTo
+                }
+            }
+
+            // Date range filters on endTime (shift end date)
+            if (input.endDateFrom || input.endDateTo) {
+                where.endTime = {}
+                if (input.endDateFrom) {
+                    where.endTime.gte = input.endDateFrom
+                }
+                if (input.endDateTo) {
+                    where.endTime.lte = input.endDateTo
+                }
+            }
+
+            // User search (admin only)
+            if (isAdmin && input.userNameSearch) {
+                where.user = {
+                    OR: [
+                        { name: { contains: input.userNameSearch, mode: 'insensitive' } },
+                        { username: { contains: input.userNameSearch, mode: 'insensitive' } },
+                    ],
+                }
+            }
+
+            // Specific user filter (admin only)
+            if (input.userId) {
+                if (isAdmin) {
+                    where.userId = input.userId
+                }
+            } else if (!isAdmin) {
+                // Non-admin can only see their own history
                 where.userId = ctx.user.id
             }
 
