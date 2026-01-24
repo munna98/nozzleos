@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +30,8 @@ interface ShiftDetailProps {
 export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySuccess }: ShiftDetailProps) {
     const [isRejecting, setIsRejecting] = useState(false)
     const [rejectionNotes, setRejectionNotes] = useState("")
+    const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+
 
     const utils = trpc.useUtils()
 
@@ -88,6 +91,45 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
             minute: '2-digit'
         })
     }
+
+    // Calculate aggregated denominations
+    const denominationCommons = (() => {
+        const counts: Record<string, { count: number, value: number, label: string }> = {}
+        let totalCoins = 0
+
+        shift.sessionPayments.forEach((payment: any) => {
+            // Aggregate coins
+            if (payment.coinsAmount) {
+                totalCoins += Number(payment.coinsAmount)
+            }
+
+            // Aggregate denominations
+            if (payment.denominations) {
+                payment.denominations.forEach((d: any) => {
+                    const key = d.denominationId.toString()
+                    if (!counts[key]) {
+                        counts[key] = {
+                            count: 0,
+                            value: d.denomination.value,
+                            label: d.denomination.label
+                        }
+                    }
+                    counts[key].count += d.count
+                })
+            }
+        })
+
+        // Filter out zero counts and sort by value descending
+        const sortedDenoms = Object.values(counts)
+            .filter(d => d.count > 0)
+            .sort((a, b) => b.value - a.value)
+
+        return {
+            denominations: sortedDenoms,
+            totalCoins,
+            hasData: sortedDenoms.length > 0 || totalCoins > 0
+        }
+    })()
 
     const formatDateTime = (dateStr: string | Date) => {
         return `${formatDate(dateStr)} at ${formatTime(dateStr)}`
@@ -251,190 +293,289 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                 </Card>
             )}
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <p className="text-muted-foreground text-sm mb-1">Total Fuel Sales</p>
-                        <p className="text-2xl font-bold">₹{shift.totalFuelSales.toFixed(2)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <p className="text-muted-foreground text-sm mb-1">Total Collected</p>
-                        <p className="text-2xl font-bold">₹{shift.totalCollected.toFixed(2)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <p className="text-muted-foreground text-sm mb-1">Shortage / Excess</p>
-                        <p className={`text-2xl font-bold ${shift.shortage > 0 ? 'text-green-600' : shift.shortage < 0 ? 'text-red-600' : ''}`}>
-                            {shift.shortage > 0 ? '+' : shift.shortage < 0 ? '-' : ''}₹{Math.abs(shift.shortage).toFixed(2)}
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Nozzle-wise Breakdown */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <HugeiconsIcon icon={FuelStationIcon} className="h-5 w-5" />
-                        Fuel Sales Breakdown
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {/* Desktop View (Table) */}
-                    <div className="hidden md:block rounded-lg border overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted/50">
-                                <tr>
-                                    <th className="text-left p-3 font-medium">Nozzle</th>
-                                    <th className="text-left p-3 font-medium">Fuel</th>
-                                    <th className="text-right p-3 font-medium">Opening</th>
-                                    <th className="text-right p-3 font-medium">Closing</th>
-                                    <th className="text-right p-3 font-medium">Test Qty</th>
-                                    <th className="text-right p-3 font-medium">Qty (L)</th>
-                                    <th className="text-right p-3 font-medium">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {shift.nozzleReadings.map((reading: any) => (
-                                    <tr key={reading.id} className="border-t">
-                                        <td className="p-3">
-                                            <Badge variant="outline">{reading.nozzle.code}</Badge>
-                                        </td>
-                                        <td className="p-3">{reading.nozzle.fuel.name}</td>
-                                        <td className="p-3 text-right text-muted-foreground">
-                                            {parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}
-                                        </td>
-                                        <td className="p-3 text-right text-muted-foreground">
-                                            {reading.closingReading
-                                                ? parseFloat(reading.closingReading.toString()).toFixed(2)
-                                                : '--'}
-                                        </td>
-                                        <td className="p-3 text-right text-muted-foreground">
-                                            {parseFloat(reading.testQty?.toString() || '0').toFixed(2)}
-                                        </td>
-                                        <td className="p-3 text-right font-medium">
-                                            {parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)}
-                                        </td>
-                                        <td className="p-3 text-right font-medium">
-                                            ₹{reading.amount.toFixed(2)}
-                                        </td>
-                                    </tr>
-                                ))}
-                                <tr className="border-t bg-muted/30 font-medium">
-                                    <td colSpan={6} className="p-3 text-right">Total Fuel Sales</td>
-                                    <td className="p-3 text-right">₹{shift.totalFuelSales.toFixed(2)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+            {/* Main Content Grid - 2/3 left, 1/3 right */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - 2/3 width */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card>
+                            <CardContent className="p-4 text-center">
+                                <p className="text-muted-foreground text-sm mb-1">Total Fuel Sales</p>
+                                <p className="text-2xl font-bold">₹{shift.totalFuelSales.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4 text-center">
+                                <p className="text-muted-foreground text-sm mb-1">Total Collected</p>
+                                <p className="text-2xl font-bold">₹{shift.totalCollected.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4 text-center">
+                                <p className="text-muted-foreground text-sm mb-1">Shortage / Excess</p>
+                                <p className={`text-2xl font-bold ${shift.shortage > 0 ? 'text-green-600' : shift.shortage < 0 ? 'text-red-600' : ''}`}>
+                                    {shift.shortage > 0 ? '+' : shift.shortage < 0 ? '-' : ''}₹{Math.abs(shift.shortage).toFixed(2)}
+                                </p>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    {/* Mobile View (Cards) */}
-                    <div className="md:hidden space-y-3">
-                        {shift.nozzleReadings.map((reading: any) => (
-                            <div key={reading.id} className="rounded-lg border p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline">{reading.nozzle.code}</Badge>
-                                        <span className="font-medium">{reading.nozzle.fuel.name}</span>
-                                    </div>
-                                    <div className="font-bold">
-                                        ₹{reading.amount.toFixed(2)}
-                                    </div>
-                                </div>
-
-                                <Separator />
-
-                                <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
-                                    <div>
-                                        <p className="text-xs text-muted-foreground mb-1">Opening</p>
-                                        <p>{parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-muted-foreground mb-1">Closing</p>
-                                        <p>{reading.closingReading
-                                            ? parseFloat(reading.closingReading.toString()).toFixed(2)
-                                            : '--'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground mb-1">Test Qty</p>
-                                        <p>{parseFloat(reading.testQty?.toString() || '0').toFixed(2)}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-muted-foreground mb-1">Net Qty</p>
-                                        <p className="font-medium">{parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)} L</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                        <div className="rounded-lg bg-muted/30 p-4 flex justify-between items-center font-bold">
-                            <span>Total Fuel Sales</span>
-                            <span>₹{shift.totalFuelSales.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Payments Breakdown */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <HugeiconsIcon icon={MoneyReceive01Icon} className="h-5 w-5" />
-                        Payments Breakdown
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-lg border overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted/50">
-                                <tr>
-                                    <th className="text-left p-3 font-medium">Payment Method</th>
-                                    <th className="text-right p-3 font-medium">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {shift.sessionPayments.length === 0 ? (
-                                    <tr className="border-t">
-                                        <td colSpan={2} className="p-3 text-center text-muted-foreground">
-                                            No payments recorded
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    shift.sessionPayments.map((payment: any) => (
-                                        <tr key={payment.id} className="border-t">
-                                            <td className="p-3">{payment.paymentMethod.name}</td>
-                                            <td className="p-3 text-right font-medium">
-                                                ₹{parseFloat(payment.amount.toString()).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                                <tr className="border-t bg-muted/30 font-medium">
-                                    <td className="p-3 text-right">Total Collected</td>
-                                    <td className="p-3 text-right">₹{shift.totalCollected.toFixed(2)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Notes */}
-            {
-                shift.notes && (
+                    {/* Nozzle-wise Breakdown */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">Closing Notes</CardTitle>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <HugeiconsIcon icon={FuelStationIcon} className="h-5 w-5" />
+                                Fuel Sales Breakdown
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-muted-foreground">{shift.notes}</p>
+                            {/* Desktop View (Table) */}
+                            <div className="hidden md:block rounded-lg border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50">
+                                        <tr>
+                                            <th className="text-left p-3 font-medium">Nozzle</th>
+                                            <th className="text-left p-3 font-medium">Fuel</th>
+                                            <th className="text-right p-3 font-medium">Opening</th>
+                                            <th className="text-right p-3 font-medium">Closing</th>
+                                            <th className="text-right p-3 font-medium">Test Qty</th>
+                                            <th className="text-right p-3 font-medium">Qty (L)</th>
+                                            <th className="text-right p-3 font-medium">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {shift.nozzleReadings.map((reading: any) => (
+                                            <tr key={reading.id} className="border-t">
+                                                <td className="p-3">
+                                                    <Badge variant="outline">{reading.nozzle.code}</Badge>
+                                                </td>
+                                                <td className="p-3">{reading.nozzle.fuel.name}</td>
+                                                <td className="p-3 text-right text-muted-foreground">
+                                                    {parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right text-muted-foreground">
+                                                    {reading.closingReading
+                                                        ? parseFloat(reading.closingReading.toString()).toFixed(2)
+                                                        : '--'}
+                                                </td>
+                                                <td className="p-3 text-right text-muted-foreground">
+                                                    {parseFloat(reading.testQty?.toString() || '0').toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right font-medium">
+                                                    {parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right font-medium">
+                                                    ₹{reading.amount.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        <tr className="border-t bg-muted/30 font-medium">
+                                            <td colSpan={6} className="p-3 text-right">Total Fuel Sales</td>
+                                            <td className="p-3 text-right">₹{shift.totalFuelSales.toFixed(2)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile View (Cards) */}
+                            <div className="md:hidden space-y-3">
+                                {shift.nozzleReadings.map((reading: any) => (
+                                    <div key={reading.id} className="rounded-lg border p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline">{reading.nozzle.code}</Badge>
+                                                <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                            </div>
+                                            <div className="font-bold">
+                                                ₹{reading.amount.toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Opening</p>
+                                                <p>{parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground mb-1">Closing</p>
+                                                <p>{reading.closingReading
+                                                    ? parseFloat(reading.closingReading.toString()).toFixed(2)
+                                                    : '--'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Test Qty</p>
+                                                <p>{parseFloat(reading.testQty?.toString() || '0').toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground mb-1">Net Qty</p>
+                                                <p className="font-medium">{parseFloat(reading.fuelDispensed?.toString() || '0').toFixed(2)} L</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="rounded-lg bg-muted/30 p-4 flex justify-between items-center font-bold">
+                                    <span>Total Fuel Sales</span>
+                                    <span>₹{shift.totalFuelSales.toFixed(2)}</span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
-                )
-            }
+
+                    {/* Notes */}
+                    {shift.notes && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Closing Notes</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground">{shift.notes}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+
+                {/* Right Column - 1/3 width */}
+                <div className="space-y-6">
+                    {/* Payments Breakdown */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <HugeiconsIcon icon={MoneyReceive01Icon} className="h-5 w-5" />
+                                Payments Breakdown
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-lg border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50">
+                                        <tr>
+                                            <th className="text-left p-3 font-medium">Payment Method</th>
+                                            <th className="text-right p-3 font-medium">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {shift.sessionPayments.length === 0 ? (
+                                            <tr className="border-t">
+                                                <td colSpan={2} className="p-3 text-center text-muted-foreground">
+                                                    No payments recorded
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            shift.sessionPayments.map((payment: any) => (
+                                                <Fragment key={payment.id}>
+                                                    <tr className="border-t">
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-2">
+                                                                {payment.paymentMethod.name}
+                                                                {payment.denominations && payment.denominations.length > 0 && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                                                                        onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
+                                                                    >
+                                                                        {expandedPaymentId === payment.id ? "Hide" : "Details"}
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3 text-right font-medium">
+                                                            ₹{parseFloat(payment.amount.toString()).toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                    {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
+                                                        <tr className="bg-muted/30">
+                                                            <td colSpan={2} className="p-3">
+                                                                <div className="grid grid-cols-1 gap-2 text-xs">
+                                                                    {payment.denominations.map((d: any) => (
+                                                                        <div key={d.id} className="flex justify-between items-center bg-background border rounded px-2 py-1">
+                                                                            <span>{d.denomination?.label || `Note ${d.denominationId}`} <span className="text-muted-foreground">x {d.count}</span></span>
+                                                                            <span className="font-medium ml-2">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {Number(payment.coinsAmount) > 0 && (
+                                                                        <div className="flex justify-between items-center bg-background border rounded px-2 py-1">
+                                                                            <span>Coins</span>
+                                                                            <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            ))
+                                        )}
+                                        <tr className="border-t bg-muted/30 font-medium">
+                                            <td className="p-3 text-right">Total Collected</td>
+                                            <td className="p-3 text-right">₹{shift.totalCollected.toFixed(2)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Total Cash Breakdown */}
+                    {denominationCommons.hasData && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <HugeiconsIcon icon={MoneyReceive01Icon} className="h-5 w-5" />
+                                    Total Cash Breakdown
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-lg border overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/50">
+                                            <tr>
+                                                <th className="text-left p-3 font-medium">Denomination</th>
+                                                <th className="text-center p-3 font-medium">Count</th>
+                                                <th className="text-right p-3 font-medium">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {denominationCommons.denominations.map((d) => (
+                                                <tr key={d.label} className="border-t hover:bg-muted/50 transition-colors">
+                                                    <td className="p-3">{d.label}</td>
+                                                    <td className="p-3 text-center">{d.count}</td>
+                                                    <td className="p-3 text-right font-medium">
+                                                        ₹{(d.count * d.value).toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            ))}
+
+                                            {denominationCommons.totalCoins > 0 && (
+                                                <tr className="border-t hover:bg-muted/50 transition-colors">
+                                                    <td className="p-3">Coins</td>
+                                                    <td className="p-3 text-center">-</td>
+                                                    <td className="p-3 text-right font-medium">
+                                                        ₹{denominationCommons.totalCoins.toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            )}
+
+                                            <tr className="border-t bg-muted/30 font-medium">
+                                                <td colSpan={2} className="p-3 text-right">Total Cash</td>
+                                                <td className="p-3 text-right">
+                                                    ₹{(
+                                                        denominationCommons.denominations.reduce((acc, curr) => acc + (curr.count * curr.value), 0) +
+                                                        denominationCommons.totalCoins
+                                                    ).toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            </div>
         </div >
     )
 }

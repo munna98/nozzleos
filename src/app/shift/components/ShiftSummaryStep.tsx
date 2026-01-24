@@ -11,6 +11,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { FuelStationIcon, MoneyReceive01Icon } from "@hugeicons/core-free-icons"
 import type { inferRouterOutputs } from "@trpc/server"
 import type { AppRouter } from "@/server/trpc/router"
+import { useMemo } from "react"
+
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSummary = NonNullable<RouterOutputs['shift']['getSummary']>
@@ -31,6 +33,46 @@ export function ShiftSummaryStep({
     isSubmitting
 }: ShiftSummaryStepProps) {
     const [closingNotes, setClosingNotes] = useState("")
+
+    // Calculate aggregated denominations
+    const denominationCommons = useMemo(() => {
+        const counts: Record<string, { count: number, value: number, label: string }> = {}
+        let totalCoins = 0
+
+        summary.sessionPayments.forEach((payment: any) => {
+            // Aggregate coins
+            if (payment.coinsAmount) {
+                totalCoins += Number(payment.coinsAmount)
+            }
+
+            // Aggregate denominations
+            if (payment.denominations) {
+                payment.denominations.forEach((d: any) => {
+                    const key = d.denominationId.toString()
+                    if (!counts[key]) {
+                        counts[key] = {
+                            count: 0,
+                            value: d.denomination.value,
+                            label: d.denomination.label
+                        }
+                    }
+                    counts[key].count += d.count
+                })
+            }
+        })
+
+        // Filter out zero counts and sort by value descending
+        const sortedDenoms = Object.values(counts)
+            .filter(d => d.count > 0)
+            .sort((a, b) => b.value - a.value)
+
+        return {
+            denominations: sortedDenoms,
+            totalCoins,
+            hasData: sortedDenoms.length > 0 || totalCoins > 0
+        }
+    }, [summary.sessionPayments])
+
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -192,6 +234,59 @@ export function ShiftSummaryStep({
                             </table>
                         </div>
                     </div>
+
+                    {/* Total Cash Breakdown */}
+                    {denominationCommons.hasData && (
+                        <div className="space-y-3">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <HugeiconsIcon icon={MoneyReceive01Icon} className="h-4 w-4" />
+                                Total Cash Breakdown
+                            </h3>
+                            <div className="rounded-md border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50">
+                                        <tr>
+                                            <th className="text-left p-3 font-medium">Denomination</th>
+                                            <th className="text-center p-3 font-medium">Count</th>
+                                            <th className="text-right p-3 font-medium">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {denominationCommons.denominations.map((d) => (
+                                            <tr key={d.label} className="border-t hover:bg-muted/50 transition-colors">
+                                                <td className="p-3">{d.label}</td>
+                                                <td className="p-3 text-center">{d.count}</td>
+                                                <td className="p-3 text-right font-medium">
+                                                    ₹{(d.count * d.value).toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+
+                                        {denominationCommons.totalCoins > 0 && (
+                                            <tr className="border-t hover:bg-muted/50 transition-colors">
+                                                <td className="p-3">Coins</td>
+                                                <td className="p-3 text-center">-</td>
+                                                <td className="p-3 text-right font-medium">
+                                                    ₹{denominationCommons.totalCoins.toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        )}
+
+                                        <tr className="border-t bg-muted/30 font-medium">
+                                            <td colSpan={2} className="p-3 text-right">Total Cash</td>
+                                            <td className="p-3 text-right">
+                                                ₹{(
+                                                    denominationCommons.denominations.reduce((acc, curr) => acc + (curr.count * curr.value), 0) +
+                                                    denominationCommons.totalCoins
+                                                ).toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
 
                     <Separator />
 

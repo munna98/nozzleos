@@ -13,7 +13,8 @@ import {
     MoneyReceive01Icon,
     TimeQuarterPassIcon,
     PencilEdit01Icon,
-    Delete02Icon
+    Delete02Icon,
+    Cancel01Icon
 } from "@hugeicons/core-free-icons"
 import {
     Combobox,
@@ -54,6 +55,7 @@ interface ShiftDashboardStepProps {
     denominations?: Denomination[]
     settings?: Settings | null
     onUpdateClosingReading: (readingId: number, closingReading: number) => void
+    onUpdateTestQty: (readingId: number, testQty: number) => void
     onAddPayment: (data: PaymentData) => void
     onDeletePayment: (paymentId: number) => void
     onFinishShift: () => void
@@ -67,6 +69,7 @@ export function ShiftDashboardStep({
     denominations = [],
     settings,
     onUpdateClosingReading,
+    onUpdateTestQty,
     onAddPayment,
     onDeletePayment,
     onFinishShift,
@@ -77,6 +80,9 @@ export function ShiftDashboardStep({
     const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({})
     const [coinsAmount, setCoinsAmount] = useState("")
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
+    const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+    const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
+
 
     // Check if selected method is Cash and denomination entry is enabled
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
@@ -231,14 +237,71 @@ export function ShiftDashboardStep({
                                             {parseFloat(reading.openingReading.toString()).toFixed(2)} L
                                         </p>
                                     </div>
-                                    {Number(reading.testQty) > 0 && (
-                                        <div>
-                                            <p className="text-muted-foreground">Test Qty</p>
-                                            <p className="font-medium">
-                                                {parseFloat(reading.testQty.toString()).toFixed(2)} L
-                                            </p>
-                                        </div>
-                                    )}
+                                    <div>
+                                        <p className="text-muted-foreground flex items-center gap-2">
+                                            Test Qty
+                                            {!editingTestQtyId && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                                    onClick={() => setEditingTestQtyId(reading.id)}
+                                                >
+                                                    <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
+                                                </Button>
+                                            )}
+                                        </p>
+                                        {editingTestQtyId === reading.id ? (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="h-7 w-20 px-2 text-sm"
+                                                    defaultValue={parseFloat(reading.testQty.toString())}
+                                                    id={`test-qty-${reading.id}`}
+                                                    autoFocus
+                                                />
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                    onClick={() => {
+                                                        const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
+                                                        const val = parseFloat(input.value) || 0
+                                                        onUpdateTestQty(reading.id, val)
+                                                        setEditingTestQtyId(null)
+                                                    }}
+                                                >
+                                                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                    onClick={() => setEditingTestQtyId(null)}
+                                                >
+                                                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                {Number(reading.testQty) > 0 ? (
+                                                    <p className="font-medium">
+                                                        {parseFloat(reading.testQty.toString()).toFixed(2)} L
+                                                    </p>
+                                                ) : (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-6 text-xs px-2 border-dashed text-muted-foreground"
+                                                        onClick={() => setEditingTestQtyId(reading.id)}
+                                                    >
+                                                        + Add Test Qty
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
@@ -404,24 +467,58 @@ export function ShiftDashboardStep({
                                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                 .map((payment: SessionPayment) => (
                                     <Card key={payment.id} className="relative overflow-hidden">
-                                        <CardContent className="py-0 px-3 flex items-center justify-between">
-                                            <div>
-                                                <p className="font-medium">{payment.paymentMethod.name}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {new Date(payment.createdAt).toLocaleTimeString()}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <p className="font-bold text-lg">₹{payment.amount.toString()}</p>
-                                                <div className="flex gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
-                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeletePayment(payment.id)}>
-                                                        <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
-                                                    </Button>
+                                        <CardContent className="py-2 px-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-medium flex items-center gap-2">
+                                                        {payment.paymentMethod.name}
+                                                        {payment.denominations && payment.denominations.length > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                                                                onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
+                                                            >
+                                                                {expandedPaymentId === payment.id ? "Hide Breakdown" : "Show Breakdown"}
+                                                            </Button>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {new Date(payment.createdAt).toLocaleTimeString()}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <p className="font-bold text-lg">₹{payment.amount.toString()}</p>
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
+                                                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeletePayment(payment.id)}>
+                                                            <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            {/* Denomination Breakdown */}
+                                            {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t text-sm bg-muted/30 p-2 rounded-md">
+                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                        {payment.denominations.map((d: any) => (
+                                                            <div key={d.id} className="flex justify-between items-center text-xs">
+                                                                <span>{d.denomination?.label || `Note ${d.denominationId}`} <span className="text-muted-foreground">x {d.count}</span></span>
+                                                                <span className="font-medium">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
+                                                            </div>
+                                                        ))}
+                                                        {Number(payment.coinsAmount) > 0 && (
+                                                            <div className="flex justify-between items-center text-xs pt-1 border-t border-dashed mt-1 col-span-2">
+                                                                <span>Coins</span>
+                                                                <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 ))}

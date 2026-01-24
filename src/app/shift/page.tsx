@@ -257,6 +257,7 @@ export default function ShiftPage() {
                     denominations={denominationsQuery.data}
                     settings={settingsQuery.data}
                     onUpdateClosingReading={handleUpdateClosingReading}
+                    onUpdateTestQty={handleUpdateTestQty}
                     onAddPayment={handleAddOrUpdatePayment}
                     onDeletePayment={handleDeletePayment}
                     onFinishShift={handleFinishShiftAttempt}

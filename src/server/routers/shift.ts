@@ -347,7 +347,13 @@ export const shiftRouter = router({
                     nozzleReadings: {
                         include: { nozzle: { include: { fuel: true } } },
                     },
-                    sessionPayments: { include: { paymentMethod: true } },
+                    sessionPayments: {
+                        include: {
+                            paymentMethod: true,
+                            denominations: { include: { denomination: true } },
+                        }
+                    },
+
                 },
             })
             if (!shift) throw new Error('Shift not found')
@@ -495,7 +501,13 @@ export const shiftRouter = router({
                     nozzleReadings: {
                         include: { nozzle: { include: { fuel: true, dispenser: true } } },
                     },
-                    sessionPayments: { include: { paymentMethod: true } },
+                    sessionPayments: {
+                        include: {
+                            paymentMethod: true,
+                            denominations: { include: { denomination: true } },
+                        }
+                    },
+
                 },
             })
             if (!shift) throw new Error("Shift not found")

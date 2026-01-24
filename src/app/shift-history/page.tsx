@@ -104,7 +104,7 @@ export default function ShiftHistoryPage() {
     if (selectedShiftId) {
         if (shiftDetailQuery.isLoading) {
             return (
-                <div className="container mx-auto py-6 px-4 max-w-4xl flex items-center justify-center min-h-[50vh]">
+                <div className="container mx-auto py-6 px-4 flex items-center justify-center min-h-[50vh]">
                     <Spinner className="size-8" />
                 </div>
             )
@@ -112,7 +112,7 @@ export default function ShiftHistoryPage() {
 
         if (shiftDetailQuery.error) {
             return (
-                <div className="container mx-auto py-6 px-4 max-w-4xl flex flex-col items-center justify-center min-h-[50vh] gap-4">
+                <div className="container mx-auto py-6 px-4 flex flex-col items-center justify-center min-h-[50vh] gap-4">
                     <div className="text-destructive font-medium">Error loading details</div>
                     <div className="text-muted-foreground text-sm">{shiftDetailQuery.error.message}</div>
                     <Button variant="outline" onClick={handleCloseDetail}>
@@ -124,7 +124,7 @@ export default function ShiftHistoryPage() {
 
         if (shiftDetailQuery.data) {
             return (
-                <div className="container mx-auto py-6 px-4 max-w-4xl">
+                <div className="container mx-auto py-6 px-4">
                     <ShiftDetailView
                         shift={shiftDetailQuery.data}
                         isAdmin={isAdmin}
