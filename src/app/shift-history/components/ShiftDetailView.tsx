@@ -210,7 +210,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                             {!isRejecting ? (
                                 <>
                                     <Button
-                                        className="flex-1 bg-green-600 hover:bg-green-700"
+                                        className="flex-1"
                                         onClick={() => handleVerify(true)}
                                         disabled={verifyMutation.isPending}
                                     >
@@ -218,12 +218,12 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                                         Approve Shift
                                     </Button>
                                     <Button
-                                        variant="destructive"
+                                        variant="outline"
                                         className="flex-1"
                                         onClick={() => setIsRejecting(true)}
                                         disabled={verifyMutation.isPending}
                                     >
-                                        <HugeiconsIcon icon={Cancel01Icon} className="mr-2 h-4 w-4" />
+                                        <HugeiconsIcon icon={Cancel01Icon} className="mr-2 h-4 w-4 " />
                                         Reject Shift
                                     </Button>
                                 </>

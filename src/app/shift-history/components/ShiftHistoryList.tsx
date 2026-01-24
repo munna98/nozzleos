@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon, FuelStationIcon } from "@hugeicons/core-free-icons"
+import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon, FuelStationIcon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 
 import { inferRouterOutputs } from '@trpc/server'
 import { AppRouter } from '@/server/trpc/router'
@@ -94,17 +94,7 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 items-start">
-                                        {/* Quick Verify Button */}
-                                        {isAdmin && shift.status === 'pending_verification' && onVerifyShift && (
-                                            <Button
-                                                size="sm"
-                                                className="h-6 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                                onClick={(e) => handleAction(e, () => onVerifyShift(shift.id))}
-                                            >
-                                                Approve
-                                            </Button>
-                                        )}
+                                    <div className="flex flex-col gap-2 items-end">
                                         <Badge
                                             variant={
                                                 shift.status === 'completed' ? 'default' :
@@ -120,12 +110,23 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                                             {shift.status === 'pending_verification' ? 'Pending Review' :
                                                 shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
                                         </Badge>
+                                        {/* Quick Verify Button */}
+                                        {isAdmin && shift.status === 'pending_verification' && onVerifyShift && (
+                                            <Button
+                                                size="sm"
+                                                className="h-6 gap-1"
+                                                onClick={(e) => handleAction(e, () => onVerifyShift(shift.id))}
+                                            >
+                                                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                Approve
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Admin: Show User */}
                                 {isAdmin && shift.user && (
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-sm text-foreground">
                                         <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4" />
                                         <span>{shift.user.name || shift.user.username}</span>
                                     </div>
