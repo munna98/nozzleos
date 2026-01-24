@@ -64,42 +64,25 @@ export function ShiftFilters({
 
     return (
         <>
-            {/* Filter Toggle Button (for mobile/collapsible) */}
-            {onOpenChange && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onOpenChange(!isOpen)}
-                    className="gap-2"
-                >
-                    <HugeiconsIcon icon={FilterIcon} className="h-4 w-4" />
-                    Filters
-                    {hasActiveFilters && (
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px]">
-                            {Object.keys(filters).length}
-                        </Badge>
-                    )}
-                </Button>
-            )}
+
 
             {/* Filter Panel */}
             {isOpen && (
                 <Card className="border-primary/20 bg-card/50">
                     <CardContent className="p-4 space-y-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-sm">Filter Shifts</h3>
-                            {hasActiveFilters && (
+                        {hasActiveFilters && (
+                            <div className="flex justify-end mb-2">
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={handleClearFilters}
-                                    className="text-xs"
+                                    className="text-xs h-7 px-2"
                                 >
                                     <HugeiconsIcon icon={Cancel01Icon} className="h-3.5 w-3.5 mr-1" />
                                     Clear All
                                 </Button>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         {/* Grid layout for filters */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

@@ -319,30 +319,28 @@ export function ShiftDashboardStep({
 
                                 {/* Denomination Grid for Cash */}
                                 {showDenominations && (
-                                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                                    <div className="space-y-2 p-2 bg-muted/50 rounded-lg">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">Notes</Label>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {denominations.map((denom) => (
-                                                <div key={denom.id} className="flex items-center justify-between p-3 rounded-lg border bg-card shadow-sm">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold text-lg">{denom.label}</span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            = ₹{((denominationCounts[denom.id] || 0) * denom.value).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-muted-foreground text-sm">×</span>
+                                                <div key={denom.id} className="grid grid-cols-[1fr_auto_1fr] items-center p-2 rounded-lg border bg-card shadow-sm gap-1">
+                                                    <span className="font-bold text-base truncate">{denom.label}</span>
+                                                    <div className="flex items-center gap-1 justify-center">
+                                                        <span className="text-muted-foreground text-xs">×</span>
                                                         <Input
                                                             type="number"
                                                             inputMode="numeric"
                                                             pattern="[0-9]*"
                                                             min="0"
-                                                            className="w-24 h-12 text-center text-lg font-medium"
+                                                            className="w-16 text-center"
                                                             value={denominationCounts[denom.id] || ""}
                                                             onChange={(e) => handleDenominationChange(denom.id, e.target.value)}
                                                             placeholder="0"
                                                         />
                                                     </div>
+                                                    <span className="text-sm font-medium text-right text-muted-foreground truncate">
+                                                        ₹{((denominationCounts[denom.id] || 0) * denom.value).toLocaleString()}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
@@ -356,7 +354,7 @@ export function ShiftDashboardStep({
                                                         type="number"
                                                         min="0"
                                                         step="0.01"
-                                                        className="flex-1 h-8"
+                                                        className="flex-1"
                                                         value={coinsAmount}
                                                         onChange={(e) => setCoinsAmount(e.target.value)}
                                                         placeholder="0.00"
@@ -402,29 +400,31 @@ export function ShiftDashboardStep({
 
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Payment History</p>
-                            {session.sessionPayments?.map((payment: SessionPayment) => (
-                                <Card key={payment.id} className="relative overflow-hidden">
-                                    <CardContent className="py-0 px-3 flex items-center justify-between">
-                                        <div>
-                                            <p className="font-medium">{payment.paymentMethod.name}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {new Date(payment.createdAt).toLocaleTimeString()}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <p className="font-bold text-lg">₹{payment.amount.toString()}</p>
-                                            <div className="flex gap-1">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
-                                                    <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeletePayment(payment.id)}>
-                                                    <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
-                                                </Button>
+                            {[...(session.sessionPayments || [])]
+                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                .map((payment: SessionPayment) => (
+                                    <Card key={payment.id} className="relative overflow-hidden">
+                                        <CardContent className="py-0 px-3 flex items-center justify-between">
+                                            <div>
+                                                <p className="font-medium">{payment.paymentMethod.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {new Date(payment.createdAt).toLocaleTimeString()}
+                                                </p>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                            <div className="flex items-center gap-3">
+                                                <p className="font-bold text-lg">₹{payment.amount.toString()}</p>
+                                                <div className="flex gap-1">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeletePayment(payment.id)}>
+                                                        <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
                             {(!session.sessionPayments || session.sessionPayments.length === 0) && (
                                 <p className="text-center text-muted-foreground text-sm py-4">
                                     No payments recorded yet.

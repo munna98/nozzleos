@@ -178,6 +178,7 @@ export default function ShiftHistoryPage() {
                 onFiltersChange={handleApplyFilters}
                 isAdmin={isAdmin}
                 isOpen={filterOpen}
+                onOpenChange={setFilterOpen}
             />
 
             <ShiftListContent
