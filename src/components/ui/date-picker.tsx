@@ -21,8 +21,10 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, setDate, placeholder = "Pick a date", className }: DatePickerProps) {
+    const [open, setOpen] = React.useState(false)
+
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button
                     variant={"outline"}
@@ -40,7 +42,10 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", classNa
                 <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
+                    onSelect={(newDate) => {
+                        setDate(newDate)
+                        setOpen(false)
+                    }}
                     initialFocus
                 />
             </PopoverContent>
