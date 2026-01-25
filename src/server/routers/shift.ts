@@ -240,6 +240,24 @@ export const shiftRouter = router({
             })
             if (!shift) throw new Error('Shift not found')
 
+            // Verify all nozzles have closing readings
+            for (const nozzleReading of shift.nozzleReadings) {
+                const inputReading = input.readings?.find(r => r.readingId === nozzleReading.id)
+                const closingVal = inputReading ? inputReading.closingReading : Number(nozzleReading.closingReading)
+
+                // Check if we have a valid number (considering 0 is valid if opening is 0, but generally we want non-null)
+                // The issue describes "without updating closing reading", implying it might be null or missing.
+                // In Prisma, Decimal? can be null. Number(null) is 0, but reading.closingReading would be null in DB.
+                // If it's explicitly passed as 0 in input, that's a value.
+
+                const hasInput = inputReading !== undefined
+                const hasDbValue = nozzleReading.closingReading !== null
+
+                if (!hasInput && !hasDbValue) {
+                    throw new Error(`Missing closing reading for nozzle ${nozzleReading.nozzleId}`)
+                }
+            }
+
             // Update closing readings and calculate fuel dispensed
             const readingsToProcess = input.readings || shift.nozzleReadings.map((r: any) => ({
                 readingId: r.id,
@@ -331,6 +349,47 @@ export const shiftRouter = router({
                 where: { id: nozzleReadingId },
                 data: updateData
             })
+            return { success: true }
+        }),
+
+    /**
+     * Add nozzle to active shift
+     */
+    addNozzle: protectedProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            nozzleId: z.number(),
+        }))
+        .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({
+                where: { id: input.shiftId },
+            })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status !== 'in_progress') throw new Error('Shift is not in progress')
+
+            // Check if nozzle available
+            const nozzle = await prisma.nozzle.findUnique({
+                where: { id: input.nozzleId },
+            })
+            if (!nozzle) throw new Error('Nozzle not found')
+            if (!nozzle.isAvailable) throw new Error('Nozzle is not available')
+            if (!nozzle.isActive) throw new Error('Nozzle is not active')
+
+            // Add to shift
+            await prisma.nozzleSessionReading.create({
+                data: {
+                    dutySessionId: input.shiftId,
+                    nozzleId: input.nozzleId,
+                    openingReading: new Prisma.Decimal(nozzle.currentreading),
+                },
+            })
+
+            // Mark unavailable
+            await prisma.nozzle.update({
+                where: { id: input.nozzleId },
+                data: { isAvailable: false },
+            })
+
             return { success: true }
         }),
 

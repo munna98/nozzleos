@@ -193,9 +193,9 @@ export default function ShiftPage() {
 
     const handleFinishShiftAttempt = () => {
         if (!activeShiftQuery.data) return
-        const hasClosing = activeShiftQuery.data.nozzleReadings.some((r: any) => r.closingReading !== null)
-        if (!hasClosing) {
-            return toast.error("Enter at least one closing reading")
+        const allHaveClosing = activeShiftQuery.data.nozzleReadings.every((r: any) => r.closingReading !== null && r.closingReading !== undefined)
+        if (!allHaveClosing) {
+            return toast.error("Please enter closing readings for all nozzles")
         }
         setStep(4)
     }

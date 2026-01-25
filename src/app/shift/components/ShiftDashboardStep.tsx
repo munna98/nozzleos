@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
     CheckmarkCircle02Icon,
@@ -14,7 +16,8 @@ import {
     TimeQuarterPassIcon,
     PencilEdit01Icon,
     Delete02Icon,
-    Cancel01Icon
+    Cancel01Icon,
+    PlusSignIcon
 } from "@hugeicons/core-free-icons"
 import {
     Combobox,
@@ -25,7 +28,9 @@ import {
     ComboboxList,
 } from "@/components/ui/combobox"
 import type { inferRouterOutputs } from "@trpc/server"
+import { trpc } from "@/lib/trpc"
 import type { AppRouter } from "@/server/trpc/router"
+import { toast } from "sonner"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSession = NonNullable<RouterOutputs['shift']['getActive']>
@@ -82,6 +87,33 @@ export function ShiftDashboardStep({
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
+
+    // Add Nozzle State
+    const [isAddNozzleOpen, setIsAddNozzleOpen] = useState(false)
+    const [selectedNozzleToAdd, setSelectedNozzleToAdd] = useState<string>("")
+    const utils = trpc.useUtils()
+    const availableNozzlesQuery = trpc.nozzle.getAvailable.useQuery(undefined, {
+        enabled: isAddNozzleOpen
+    })
+    const addNozzleMutation = trpc.shift.addNozzle.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.nozzle.getAll.invalidate()
+            utils.nozzle.getAvailable.invalidate()
+            toast.success("Nozzle added to shift")
+            setIsAddNozzleOpen(false)
+            setSelectedNozzleToAdd("")
+        },
+        onError: (error) => toast.error(error.message)
+    })
+
+    const handleAddNozzle = () => {
+        if (!selectedNozzleToAdd) return
+        addNozzleMutation.mutate({
+            shiftId: session.id,
+            nozzleId: parseInt(selectedNozzleToAdd)
+        })
+    }
 
 
     // Check if selected method is Cash and denomination entry is enabled
@@ -210,10 +242,17 @@ export function ShiftDashboardStep({
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 {/* Left: Nozzles */}
                 <div className="md:col-span-3 space-y-4">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <HugeiconsIcon icon={FuelStationIcon} />
-                        Nozzle Readings
-                    </h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <HugeiconsIcon icon={FuelStationIcon} />
+                            Nozzle Readings
+                        </h3>
+                        <Button variant="outline" size="sm" onClick={() => setIsAddNozzleOpen(true)}>
+                            <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
+                            Add Nozzle
+                        </Button>
+                    </div>
+
                     {session.nozzleReadings.map((reading: NozzleReading) => (
                         <Card key={reading.id}>
                             <CardContent className="p-4 space-y-3">
@@ -546,6 +585,42 @@ export function ShiftDashboardStep({
                     </div>
                 </div>
             </div>
+
+            {/* Add Nozzle Dialog */}
+            <Dialog open={isAddNozzleOpen} onOpenChange={setIsAddNozzleOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Nozzle to Shift</DialogTitle>
+                        <DialogDescription>
+                            Select a nozzle to add to your current shift.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label>Select Nozzle</Label>
+                        <Select value={selectedNozzleToAdd} onValueChange={setSelectedNozzleToAdd}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Include Nozzle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableNozzlesQuery.data?.map(nozzle => (
+                                    <SelectItem key={nozzle.id} value={nozzle.id.toString()}>
+                                        {nozzle.code} ({nozzle.fuel.name})
+                                    </SelectItem>
+                                ))}
+                                {(!availableNozzlesQuery.data || availableNozzlesQuery.data.length === 0) && (
+                                    <SelectItem value="none" disabled>No available nozzles</SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddNozzleOpen(false)}>Cancel</Button>
+                        <Button onClick={handleAddNozzle} disabled={!selectedNozzleToAdd || addNozzleMutation.isPending}>
+                            {addNozzleMutation.isPending ? "Adding..." : "Add Nozzle"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
