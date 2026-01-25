@@ -484,10 +484,10 @@ export const shiftRouter = router({
                     where.startTime.gte = input.startDateFrom
                 }
                 if (input.startDateTo) {
-                    // Set to end of day to include all shifts on the selected date
-                    const endOfSelectedDay = new Date(input.startDateTo)
-                    endOfSelectedDay.setHours(23, 59, 59, 999)
-                    where.startTime.lte = endOfSelectedDay
+                    // Set to next day to include all shifts on the selected date (less than next day 00:00)
+                    const nextDay = new Date(input.startDateTo)
+                    nextDay.setDate(nextDay.getDate() + 1)
+                    where.startTime.lt = nextDay
                 }
             }
 
@@ -498,10 +498,10 @@ export const shiftRouter = router({
                     where.endTime.gte = input.endDateFrom
                 }
                 if (input.endDateTo) {
-                    // Set to end of day to include all shifts on the selected date
-                    const endOfSelectedDay = new Date(input.endDateTo)
-                    endOfSelectedDay.setHours(23, 59, 59, 999)
-                    where.endTime.lte = endOfSelectedDay
+                    // Set to next day to include all shifts on the selected date (less than next day 00:00)
+                    const nextDay = new Date(input.endDateTo)
+                    nextDay.setDate(nextDay.getDate() + 1)
+                    where.endTime.lt = nextDay
                 }
             }
 
