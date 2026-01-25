@@ -32,7 +32,6 @@ export default function PaymentMethodsPage() {
             toast.success("Payment method deleted successfully")
         },
         onError: (error) => {
-            console.error("Failed to delete payment method", error)
             toast.error(error.message || "Failed to delete payment method")
         }
     })

@@ -49,7 +49,6 @@ export function AddPaymentMethodDialog({
             onSuccess()
         },
         onError: (error) => {
-            console.error("Failed to create payment method", error)
             toast.error(error.message || "Failed to create payment method")
         }
     })
@@ -61,7 +60,6 @@ export function AddPaymentMethodDialog({
             onSuccess()
         },
         onError: (error) => {
-            console.error("Failed to update payment method", error)
             toast.error(error.message || "Failed to update payment method")
         }
     })

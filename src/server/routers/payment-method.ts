@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const paymentMethodRouter = router({
@@ -50,6 +50,15 @@ export const paymentMethodRouter = router({
         }))
         .mutation(async ({ input }) => {
             const { id, ...data } = input
+
+            // Prevent deactivating Cash payment method
+            if (id === 1 && data.isActive === false) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot deactivate the Cash payment method'
+                })
+            }
+
             return prisma.paymentMethod.update({ where: { id }, data })
         }),
 
@@ -59,6 +68,12 @@ export const paymentMethodRouter = router({
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
+            if (input.id === 1) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot delete the Cash payment method'
+                })
+            }
             await prisma.paymentMethod.update({
                 where: { id: input.id },
                 data: { isActive: false },

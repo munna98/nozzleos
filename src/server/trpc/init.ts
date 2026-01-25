@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server'
+export { TRPCError };
 import superjson from 'superjson'
 import { ZodError } from 'zod'
 

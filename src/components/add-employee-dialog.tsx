@@ -68,7 +68,6 @@ export function AddEmployeeDialog({
             onSuccess()
         },
         onError: (error) => {
-            console.error("Failed to create employee", error)
             toast.error(error.message || "Failed to create employee")
         }
     })
@@ -80,7 +79,6 @@ export function AddEmployeeDialog({
             onSuccess()
         },
         onError: (error) => {
-            console.error("Failed to update employee", error)
             toast.error(error.message || "Failed to update employee")
         }
     })

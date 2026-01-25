@@ -34,6 +34,7 @@ async function main() {
         where: { username: 'admin' },
         update: {},
         create: {
+            id: 1,
             username: 'admin',
             name: 'Administrator',
             passwordHash: adminPassword,
@@ -46,7 +47,10 @@ async function main() {
     await prisma.paymentMethod.upsert({
         where: { name: 'Cash' },
         update: {},
-        create: { name: 'Cash' },
+        create: {
+            id: 1,
+            name: 'Cash'
+        },
     })
 
     console.log('✅ Created payment methods')

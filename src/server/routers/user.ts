@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
 import { authService } from '../services/auth.service'
 import prisma from '@/lib/prisma'
 
@@ -116,6 +116,15 @@ export const userRouter = router({
         }))
         .mutation(async ({ input }) => {
             const { id, password, ...data } = input
+
+            // Prevent deactivating admin user
+            if (id === 1 && data.isActive === false) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot deactivate the admin user'
+                })
+            }
+
             const updateData: Record<string, unknown> = { ...data }
 
             if (password) {
@@ -136,11 +145,17 @@ export const userRouter = router({
         }),
 
     /**
-     * Soft delete user (admin only)
+     * Delete user (admin only)
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
+            if (input.id === 1) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot delete the admin user'
+                })
+            }
             await prisma.user.update({
                 where: { id: input.id },
                 data: { deletedAt: new Date(), isActive: false },

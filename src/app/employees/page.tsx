@@ -19,6 +19,7 @@ import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { toast } from "sonner"
 
 const getInitials = (name: string) => {
     return name
@@ -41,6 +42,10 @@ export default function EmployeesPage() {
     const deleteMutation = trpc.user.delete.useMutation({
         onSuccess: () => {
             utils.user.getAll.invalidate()
+            toast.success("Employee deleted successfully")
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete employee")
         }
     })
 
