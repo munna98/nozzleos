@@ -39,9 +39,13 @@ export const paymentRouter = router({
             }
 
             // Customer payment filter (all methods with a customer)
-            if (input.isCustomerPayment) {
+            if (input.isCustomerPayment === true) {
                 where.paymentMethod = {
                     customerId: { not: null }
+                }
+            } else if (input.isCustomerPayment === false) {
+                where.paymentMethod = {
+                    customerId: null
                 }
             }
 

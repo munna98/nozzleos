@@ -32,7 +32,7 @@ export function ShiftSuccessStep({ onHome }: ShiftSuccessStepProps) {
                 <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => router.push('/shift-history')}
+                    onClick={() => router.push('/reports/shift-history')}
                 >
                     <HugeiconsIcon icon={TimeQuarterPassIcon} className="h-4 w-4 mr-2" />
                     View Shift History

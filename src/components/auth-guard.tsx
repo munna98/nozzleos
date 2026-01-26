@@ -26,7 +26,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
             // Role-based access control
             if (user?.role === 'Fuel Attendant') {
                 // Filling attendants allowed routes
-                const allowedRoutes = ['/dashboard', '/shift', '/shift-history', '/profile']
+                const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/profile']
                 const isAllowed = allowedRoutes.some(route => pathname.startsWith(route))
 
                 if (!isAllowed && pathname !== '/') {

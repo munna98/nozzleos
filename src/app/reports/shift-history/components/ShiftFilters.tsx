@@ -58,35 +58,139 @@ export function ShiftFilters({
         })
     }
 
+    const [isCustom, setIsCustom] = useState(false)
+
     const handleDateChange = (field: 'startDateFrom' | 'startDateTo', date?: Date) => {
         handleFilterChange({ [field]: date })
     }
+
+    // Determine valid preset based on current dates
+    const getPresetValue = () => {
+        if (isCustom) return 'custom'
+
+        const today = new Date()
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        const thisWeekStart = new Date(today)
+        const day = thisWeekStart.getDay()
+        const diff = thisWeekStart.getDate() - day + (day === 0 ? -6 : 1)
+        thisWeekStart.setDate(diff)
+
+        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+
+        if (filters.startDateFrom && filters.startDateTo) {
+            const from = new Date(filters.startDateFrom)
+            const to = new Date(filters.startDateTo)
+
+            if (from.toDateString() === today.toDateString() && to.toDateString() === today.toDateString()) {
+                return 'today'
+            }
+            if (from.toDateString() === yesterday.toDateString() && to.toDateString() === yesterday.toDateString()) {
+                return 'yesterday'
+            }
+            if (from.toDateString() === thisWeekStart.toDateString() && to.toDateString() === today.toDateString()) {
+                return 'this_week'
+            }
+            if (from.toDateString() === thisMonthStart.toDateString() && to.toDateString() === today.toDateString()) {
+                return 'this_month'
+            }
+        }
+        return 'custom'
+    }
+
+    const handlePresetChange = (value: string) => {
+        const today = new Date()
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        const thisWeekStart = new Date(today)
+        const day = thisWeekStart.getDay()
+        const diff = thisWeekStart.getDate() - day + (day === 0 ? -6 : 1)
+        thisWeekStart.setDate(diff)
+
+        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+
+        if (value === 'custom') {
+            setIsCustom(true)
+            return
+        }
+
+        setIsCustom(false)
+
+        if (value === 'today') {
+            onFiltersChange({
+                ...filters,
+                startDateFrom: today,
+                startDateTo: today
+            })
+        } else if (value === 'yesterday') {
+            onFiltersChange({
+                ...filters,
+                startDateFrom: yesterday,
+                startDateTo: yesterday
+            })
+        } else if (value === 'this_week') {
+            onFiltersChange({
+                ...filters,
+                startDateFrom: thisWeekStart,
+                startDateTo: today
+            })
+        } else if (value === 'this_month') {
+            onFiltersChange({
+                ...filters,
+                startDateFrom: thisMonthStart,
+                startDateTo: today
+            })
+        } else {
+            // Custom: keep existing dates (allows user to edit)
+        }
+    }
+
+    const preset = getPresetValue()
 
     const hasActiveFilters = Object.keys(filters).length > 0
 
     return (
         <div className={className}>
-            {/* Date Pickers */}
-            {/* Date Pickers */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
-                <div className="flex-1">
-                    <DatePicker
-                        date={filters.startDateFrom}
-                        setDate={(date) => handleDateChange('startDateFrom', date)}
-                        className="w-full md:w-[130px] h-8 text-xs"
-                        placeholder="From"
-                    />
-                </div>
-                <span className="text-muted-foreground shrink-0">-</span>
-                <div className="flex-1">
-                    <DatePicker
-                        date={filters.startDateTo}
-                        setDate={(date) => handleDateChange('startDateTo', date)}
-                        className="w-full md:w-[130px] h-8 text-xs"
-                        placeholder="To"
-                    />
-                </div>
+            {/* Date Range Preset */}
+            <div className="w-full md:w-auto">
+                <Select value={preset} onValueChange={handlePresetChange}>
+                    <SelectTrigger className="w-full md:w-[130px] h-8">
+                        <SelectValue placeholder="Date Range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="yesterday">Yesterday</SelectItem>
+                        <SelectItem value="this_week">This Week</SelectItem>
+                        <SelectItem value="this_month">This Month</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
+
+            {/* Date Pickers (only show if Custom) */}
+            {preset === 'custom' && (
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="flex-1">
+                        <DatePicker
+                            date={filters.startDateFrom}
+                            setDate={(date) => handleDateChange('startDateFrom', date)}
+                            className="w-full md:w-[130px] h-8 text-xs"
+                            placeholder="From"
+                        />
+                    </div>
+                    <span className="text-muted-foreground shrink-0">-</span>
+                    <div className="flex-1">
+                        <DatePicker
+                            date={filters.startDateTo}
+                            setDate={(date) => handleDateChange('startDateTo', date)}
+                            className="w-full md:w-[130px] h-8 text-xs"
+                            placeholder="To"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Shift Type Filter */}
             <Select

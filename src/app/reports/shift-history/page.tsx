@@ -23,7 +23,11 @@ export default function ShiftHistoryPage() {
 
     const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
     const [editingShiftId, setEditingShiftId] = useState<number | null>(null)
-    const [filters, setFilters] = useState<ShiftFiltersState>({})
+    // Default to Today's date
+    const [filters, setFilters] = useState<ShiftFiltersState>({
+        startDateFrom: new Date(),
+        startDateTo: new Date()
+    })
     const [filterOpen, setFilterOpen] = useState(false)
 
     const [page, setPage] = useState(0)

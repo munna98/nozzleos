@@ -36,12 +36,7 @@ export function TopNav() {
             active: pathname === (isAdmin ? "/" : "/dashboard"),
             roles: ['Admin', 'Fuel Attendant', 'Manager']
         },
-        {
-            href: "/shift-history",
-            label: "Shift History",
-            active: pathname.startsWith("/shift-history"),
-            roles: ['Admin', 'Fuel Attendant', 'Manager']
-        },
+        // Shift History moved under Reports
         {
             href: "/employees",
             label: "Employees",
@@ -79,16 +74,32 @@ export function TopNav() {
             roles: ['Admin', 'Manager']
         },
         {
-            href: "/reports/payment-transactions",
             label: "Reports",
-            active: pathname.startsWith("/reports/payment-transactions"),
-            roles: ['Admin', 'Manager']
+            active: pathname.startsWith("/reports"),
+            roles: ['Admin', 'Fuel Attendant', 'Manager'],
+            children: [
+                {
+                    href: "/reports/shift-history",
+                    label: "Shift History",
+                    active: pathname.startsWith("/reports/shift-history"),
+                    roles: ['Admin', 'Fuel Attendant', 'Manager']
+                },
+                {
+                    href: "/reports/payments",
+                    label: "Payments Report",
+                    active: pathname.startsWith("/reports/payments"),
+                    roles: ['Admin', 'Manager']
+                }
+            ]
         },
     ]
 
     const routes = allRoutes.filter(route =>
         !route.roles || (user?.role && route.roles.includes(user.role))
-    )
+    ).map(route => ({
+        ...route,
+        children: route.children?.filter(child => !child.roles || (user?.role && child.roles.includes(user.role)))
+    }))
 
     const handleLogout = async () => {
         await logout()
@@ -113,19 +124,42 @@ export function TopNav() {
                             </SheetHeader>
                             <div className="flex flex-col">
                                 {routes.map((route) => (
-                                    <Link
-                                        key={route.href}
-                                        href={route.href}
-                                        onClick={() => setOpen(false)}
-                                        className={cn(
-                                            "px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md mx-2 my-0",
-                                            route.active
-                                                ? "text-foreground font-bold bg-accent"
-                                                : "text-muted-foreground"
-                                        )}
-                                    >
-                                        {route.label}
-                                    </Link>
+                                    route.children ? (
+                                        <div key={route.label} className="flex flex-col">
+                                            <div className="px-4 py-2 text-sm font-bold text-muted-foreground">
+                                                {route.label}
+                                            </div>
+                                            {route.children.map(child => (
+                                                <Link
+                                                    key={child.href}
+                                                    href={child.href}
+                                                    onClick={() => setOpen(false)}
+                                                    className={cn(
+                                                        "px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md mx-4 my-0 mb-1",
+                                                        child.active
+                                                            ? "text-foreground font-bold bg-accent"
+                                                            : "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {child.label}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <Link
+                                            key={route.href || route.label}
+                                            href={route.href || '#'}
+                                            onClick={() => setOpen(false)}
+                                            className={cn(
+                                                "px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md mx-2 my-0 mb-1",
+                                                route.active
+                                                    ? "text-foreground font-bold bg-accent"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            {route.label}
+                                        </Link>
+                                    )
                                 ))}
                                 <Button variant="ghost" className="justify-start px-4 mx-2 my-0 text-muted-foreground hover:text-primary hover:bg-accent" onClick={() => { setOpen(false); handleLogout(); }}>
                                     Logout
@@ -141,18 +175,40 @@ export function TopNav() {
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
                     {routes.map((route) => (
-                        <Link
-                            key={route.href}
-                            href={route.href}
-                            className={cn(
-                                "text-sm font-medium transition-colors hover:text-primary",
-                                route.active
-                                    ? "text-black dark:text-white"
-                                    : "text-muted-foreground"
-                            )}
-                        >
-                            {route.label}
-                        </Link>
+                        route.children ? (
+                            <DropdownMenu key={route.label}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className={cn(
+                                        "text-sm font-medium transition-colors hover:text-primary h-auto py-2 px-3",
+                                        route.active ? "text-black dark:text-white" : "text-muted-foreground"
+                                    )}>
+                                        {route.label}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    {route.children.map(child => (
+                                        <DropdownMenuItem key={child.href} asChild>
+                                            <Link href={child.href} className="cursor-pointer w-full">
+                                                {child.label}
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Link
+                                key={route.href || route.label}
+                                href={route.href || '#'}
+                                className={cn(
+                                    "text-sm font-medium transition-colors hover:text-primary",
+                                    route.active
+                                        ? "text-black dark:text-white"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                {route.label}
+                            </Link>
+                        )
                     ))}
                 </div>
                 {/* Helper for potential future user menu or other right-aligned items */}

@@ -44,7 +44,7 @@ export default function DashboardPage() {
                 </Card>
 
                 {/* View Shift History */}
-                <Card className="cursor-pointer hover:border-primary/50 transition-colors group" onClick={() => router.push('/shift-history')}>
+                <Card className="cursor-pointer hover:border-primary/50 transition-colors group" onClick={() => router.push('/reports/shift-history')}>
                     <CardHeader>
                         <div className="flex items-center gap-3">
                             <div className="p-3 rounded-xl bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">

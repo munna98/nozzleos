@@ -33,8 +33,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PaymentFilters } from "./components/PaymentFilters"
 
 export default function PaymentTransactionsReport() {
-    const [fromDate, setFromDate] = useState<Date | undefined>()
-    const [toDate, setToDate] = useState<Date | undefined>()
+    const [fromDate, setFromDate] = useState<Date | undefined>(new Date())
+    const [toDate, setToDate] = useState<Date | undefined>(new Date())
     const [paymentMethodId, setPaymentMethodId] = useState<string>("all")
     const [attendantId, setAttendantId] = useState<string>("all")
     const [page, setPage] = useState(0)
@@ -51,8 +51,8 @@ export default function PaymentTransactionsReport() {
         offset: page * limit,
         startDate: fromDate,
         endDate: toDate,
-        paymentMethodId: paymentMethodId !== "all" && paymentMethodId !== "customer_all" ? parseInt(paymentMethodId) : undefined,
-        isCustomerPayment: paymentMethodId === "customer_all",
+        paymentMethodId: paymentMethodId !== "all" && paymentMethodId !== "customer_all" && paymentMethodId !== "standard_all" ? parseInt(paymentMethodId) : undefined,
+        isCustomerPayment: paymentMethodId === "customer_all" ? true : (paymentMethodId === "standard_all" ? false : undefined),
         userId: attendantId !== "all" ? parseInt(attendantId) : undefined,
     }
 
@@ -106,7 +106,7 @@ export default function PaymentTransactionsReport() {
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-3xl font-bold tracking-tight">Payment Transactions Report</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Payments Report</h2>
 
                 {/* Mobile Filter Toggle */}
                 <Button
