@@ -169,7 +169,9 @@ export default function ShiftPage() {
             updatePaymentMutation.mutate({
                 paymentId: data.paymentId,
                 paymentMethodId: data.methodId,
-                amount: data.amount
+                amount: data.amount,
+                denominations: data.denominations,
+                coinsAmount: data.coinsAmount
             })
         } else {
             addPaymentMutation.mutate({

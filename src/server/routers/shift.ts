@@ -170,6 +170,11 @@ export const shiftRouter = router({
             paymentMethodId: z.number().optional(),
             amount: z.number().min(0).optional(),
             quantity: z.number().optional(),
+            denominations: z.array(z.object({
+                denominationId: z.number(),
+                count: z.number().min(0),
+            })).optional(),
+            coinsAmount: z.number().min(0).optional(),
         }))
         .mutation(async ({ input }) => {
             const { paymentId, ...data } = input
@@ -178,6 +183,7 @@ export const shiftRouter = router({
             if (data.paymentMethodId) updateData.paymentMethodId = data.paymentMethodId
             if (data.amount !== undefined) updateData.amount = new Prisma.Decimal(data.amount)
             if (data.quantity !== undefined) updateData.quantity = data.quantity
+            if (data.coinsAmount !== undefined) updateData.coinsAmount = new Prisma.Decimal(data.coinsAmount)
 
             // Get old payment for balance adjustment
             const oldPayment = await prisma.sessionPayment.findUnique({ where: { id: paymentId } })
@@ -188,6 +194,27 @@ export const shiftRouter = router({
                 data: updateData,
                 include: { paymentMethod: true },
             })
+
+            // Update denominations if provided
+            if (data.denominations) {
+                // Delete existing
+                await prisma.paymentDenomination.deleteMany({
+                    where: { sessionPaymentId: paymentId }
+                })
+
+                // Create new
+                if (data.denominations.length > 0) {
+                    await prisma.paymentDenomination.createMany({
+                        data: data.denominations
+                            .filter(d => d.count > 0)
+                            .map(d => ({
+                                sessionPaymentId: payment.id,
+                                denominationId: d.denominationId,
+                                count: d.count,
+                            })),
+                    })
+                }
+            }
 
             // Adjust total if amount changed
             if (data.amount !== undefined) {
