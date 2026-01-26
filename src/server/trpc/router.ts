@@ -9,6 +9,7 @@ import { paymentMethodRouter } from '../routers/payment-method'
 import { shiftRouter } from '../routers/shift'
 import { settingsRouter } from '../routers/settings'
 import { denominationRouter } from '../routers/denomination'
+import { paymentRouter } from '../routers/payment'
 
 export const appRouter = router({
     auth: authRouter,
@@ -18,6 +19,7 @@ export const appRouter = router({
     dispenser: dispenserRouter,
     nozzle: nozzleRouter,
     paymentMethod: paymentMethodRouter,
+    payment: paymentRouter,
     shift: shiftRouter,
     settings: settingsRouter,
     denomination: denominationRouter,

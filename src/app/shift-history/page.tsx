@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, FilterIcon } from "@hugeicons/core-free-icons"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
 
 export default function ShiftHistoryPage() {
     const router = useRouter()
@@ -160,7 +161,7 @@ export default function ShiftHistoryPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setFilterOpen(!filterOpen)}
-                    className="gap-2"
+                    className="gap-2 md:hidden"
                 >
                     <HugeiconsIcon icon={FilterIcon} className="h-4 w-4" />
                     Filters
@@ -170,16 +171,32 @@ export default function ShiftHistoryPage() {
                         </Badge>
                     )}
                 </Button>
+
+                {/* Desktop Filters (Always Visible, Inline) */}
+                <div className="hidden md:block">
+                    <ShiftFilters
+                        filters={filters}
+                        onFiltersChange={handleApplyFilters}
+                        isAdmin={isAdmin}
+                        className="flex items-center gap-2"
+                    />
+                </div>
             </div>
 
-            {/* Filters */}
-            <ShiftFilters
-                filters={filters}
-                onFiltersChange={handleApplyFilters}
-                isAdmin={isAdmin}
-                isOpen={filterOpen}
-                onOpenChange={setFilterOpen}
-            />
+            {/* Mobile Filters (Collapsible) */}
+            {filterOpen && (
+                <Card className="md:hidden">
+                    <CardContent className="p-4">
+                        <ShiftFilters
+                            filters={filters}
+                            onFiltersChange={handleApplyFilters}
+                            isAdmin={isAdmin}
+                            className="flex flex-col gap-4"
+                            onOpenChange={setFilterOpen}
+                        />
+                    </CardContent>
+                </Card>
+            )}
 
             <ShiftListContent
                 query={shiftsQuery}

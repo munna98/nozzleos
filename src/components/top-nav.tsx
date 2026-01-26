@@ -78,6 +78,12 @@ export function TopNav() {
             active: pathname.startsWith("/settings"),
             roles: ['Admin', 'Manager']
         },
+        {
+            href: "/reports/payment-transactions",
+            label: "Reports",
+            active: pathname.startsWith("/reports/payment-transactions"),
+            roles: ['Admin', 'Manager']
+        },
     ]
 
     const routes = allRoutes.filter(route =>
