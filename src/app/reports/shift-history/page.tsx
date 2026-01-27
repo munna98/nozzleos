@@ -129,7 +129,7 @@ export default function ShiftHistoryPage() {
 
         if (shiftDetailQuery.data) {
             return (
-                <div className="container mx-auto py-6 px-4">
+                <div className="container mx-auto py-6 px-4 max-w-5xl">
                     <ShiftDetailView
                         shift={shiftDetailQuery.data}
                         isAdmin={isAdmin}

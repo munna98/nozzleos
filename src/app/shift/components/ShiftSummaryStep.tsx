@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -33,45 +33,8 @@ export function ShiftSummaryStep({
     isSubmitting
 }: ShiftSummaryStepProps) {
     const [closingNotes, setClosingNotes] = useState("")
+    const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
 
-    // Calculate aggregated denominations
-    const denominationCommons = useMemo(() => {
-        const counts: Record<string, { count: number, value: number, label: string }> = {}
-        let totalCoins = 0
-
-        summary.sessionPayments.forEach((payment: any) => {
-            // Aggregate coins
-            if (payment.coinsAmount) {
-                totalCoins += Number(payment.coinsAmount)
-            }
-
-            // Aggregate denominations
-            if (payment.denominations) {
-                payment.denominations.forEach((d: any) => {
-                    const key = d.denominationId.toString()
-                    if (!counts[key]) {
-                        counts[key] = {
-                            count: 0,
-                            value: d.denomination.value,
-                            label: d.denomination.label
-                        }
-                    }
-                    counts[key].count += d.count
-                })
-            }
-        })
-
-        // Filter out zero counts and sort by value descending
-        const sortedDenoms = Object.values(counts)
-            .filter(d => d.count > 0)
-            .sort((a, b) => b.value - a.value)
-
-        return {
-            denominations: sortedDenoms,
-            totalCoins,
-            hasData: sortedDenoms.length > 0 || totalCoins > 0
-        }
-    }, [summary.sessionPayments])
 
 
     return (
@@ -215,11 +178,62 @@ export function ShiftSummaryStep({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {summary.sessionPayments.map((payment: SummaryPayment) => (
-                                        <tr key={payment.id} className="border-t">
-                                            <td className="p-3">{payment.paymentMethod.name}</td>
-                                            <td className="p-3 text-right font-medium">₹{parseFloat(payment.amount.toString()).toFixed(2)}</td>
-                                        </tr>
+                                    {summary.sessionPayments.map((payment: any) => (
+                                        <Fragment key={payment.id}>
+                                            <tr className="border-t">
+                                                <td className="p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        {payment.paymentMethod.name}
+                                                        {payment.denominations && payment.denominations.length > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                                                                onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
+                                                            >
+                                                                {expandedPaymentId === payment.id ? "Hide" : "Details"}
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-right font-medium">₹{parseFloat(payment.amount.toString()).toFixed(2)}</td>
+                                            </tr>
+
+                                            {/* Expanded denomination details */}
+                                            {expandedPaymentId === payment.id && payment.denominations && (
+                                                <tr className="bg-muted/30">
+                                                    <td colSpan={2} className="p-3 pt-0">
+                                                        <div className="rounded border bg-background overflow-hidden mt-1">
+                                                            <table className="w-full text-[11px]">
+                                                                <thead className="bg-muted/50 border-b">
+                                                                    <tr>
+                                                                        <th className="text-left py-1.5 px-3 font-medium">Note</th>
+                                                                        <th className="text-center py-1.5 px-3 font-medium">Qty</th>
+                                                                        <th className="text-right py-1.5 px-3 font-medium">Total</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {payment.denominations.map((d: any) => (
+                                                                        <tr key={d.id} className="border-t first:border-0">
+                                                                            <td className="py-1.5 px-3">{d.denomination.label}</td>
+                                                                            <td className="py-1.5 px-3 text-center">{d.count}</td>
+                                                                            <td className="py-1.5 px-3 text-right">₹{(d.count * d.denomination.value).toLocaleString()}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                    {payment.coinsAmount && Number(payment.coinsAmount) > 0 && (
+                                                                        <tr className="border-t">
+                                                                            <td className="py-1.5 px-3">Coins</td>
+                                                                            <td className="py-1.5 px-3 text-center">-</td>
+                                                                            <td className="py-1.5 px-3 text-right">₹{Number(payment.coinsAmount).toLocaleString()}</td>
+                                                                        </tr>
+                                                                    )}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
                                     ))}
                                     {summary.sessionPayments.length === 0 && (
                                         <tr className="border-t">
@@ -235,57 +249,6 @@ export function ShiftSummaryStep({
                         </div>
                     </div>
 
-                    {/* Total Cash Breakdown */}
-                    {denominationCommons.hasData && (
-                        <div className="space-y-3">
-                            <h3 className="font-semibold flex items-center gap-2">
-                                <HugeiconsIcon icon={MoneyReceive01Icon} className="h-4 w-4" />
-                                Total Cash Breakdown
-                            </h3>
-                            <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50">
-                                        <tr>
-                                            <th className="text-left p-3 font-medium">Denomination</th>
-                                            <th className="text-center p-3 font-medium">Count</th>
-                                            <th className="text-right p-3 font-medium">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {denominationCommons.denominations.map((d) => (
-                                            <tr key={d.label} className="border-t hover:bg-muted/50 transition-colors">
-                                                <td className="p-3">{d.label}</td>
-                                                <td className="p-3 text-center">{d.count}</td>
-                                                <td className="p-3 text-right font-medium">
-                                                    ₹{(d.count * d.value).toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        ))}
-
-                                        {denominationCommons.totalCoins > 0 && (
-                                            <tr className="border-t hover:bg-muted/50 transition-colors">
-                                                <td className="p-3">Coins</td>
-                                                <td className="p-3 text-center">-</td>
-                                                <td className="p-3 text-right font-medium">
-                                                    ₹{denominationCommons.totalCoins.toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        )}
-
-                                        <tr className="border-t bg-muted/30 font-medium">
-                                            <td colSpan={2} className="p-3 text-right">Total Cash</td>
-                                            <td className="p-3 text-right">
-                                                ₹{(
-                                                    denominationCommons.denominations.reduce((acc, curr) => acc + (curr.count * curr.value), 0) +
-                                                    denominationCommons.totalCoins
-                                                ).toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
 
 
                     <Separator />

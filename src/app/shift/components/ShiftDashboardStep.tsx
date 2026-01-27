@@ -17,8 +17,10 @@ import {
     PencilEdit01Icon,
     Delete02Icon,
     Cancel01Icon,
-    PlusSignIcon
+    PlusSignIcon,
+    InformationCircleIcon
 } from "@hugeicons/core-free-icons"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Combobox,
     ComboboxContent,
@@ -122,7 +124,16 @@ export function ShiftDashboardStep({
 
     // Check if selected method is Cash and denomination entry is enabled
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
-    const isCashPayment = selectedMethod?.name?.toLowerCase() === 'cash'
+    const isCashPayment = selectedMethod?.id === 1
+    const existingCashPayment = session.sessionPayments.find(p => p.paymentMethodId === 1)
+
+    // Auto-edit existing cash payment when "Cash" is selected
+    useEffect(() => {
+        if (isCashPayment && existingCashPayment && editingPaymentId !== existingCashPayment.id) {
+            handleEditPayment(existingCashPayment)
+        }
+    }, [isCashPayment, existingCashPayment, editingPaymentId])
+
     const showDenominations = isCashPayment && settings?.enableDenominationEntry && denominations.length > 0
     const showCoins = showDenominations && settings?.enableCoinEntry
 
@@ -491,13 +502,17 @@ export function ShiftDashboardStep({
                                     </div>
                                 )}
 
+
                                 <div className="flex gap-2">
                                     {editingPaymentId && (
                                         <Button variant="outline" className="flex-1" onClick={handleCancelEdit}>
                                             Cancel
                                         </Button>
                                     )}
-                                    <Button className="flex-1" onClick={handleAddPayment}>
+                                    <Button
+                                        className="flex-1"
+                                        onClick={handleAddPayment}
+                                    >
                                         {editingPaymentId ? "Update" : "Add"} Payment
                                     </Button>
                                 </div>
@@ -522,7 +537,7 @@ export function ShiftDashboardStep({
                                                                 className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
                                                                 onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
                                                             >
-                                                                {expandedPaymentId === payment.id ? "Hide Breakdown" : "Show Breakdown"}
+                                                                {expandedPaymentId === payment.id ? "Hide" : "Details"}
                                                             </Button>
                                                         )}
                                                     </p>
