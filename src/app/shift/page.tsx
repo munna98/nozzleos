@@ -8,7 +8,6 @@ import { trpc } from "@/lib/trpc"
 import { useRouter } from "next/navigation"
 
 import { ShiftStartStep } from "./components/ShiftStartStep"
-import { ShiftVerificationStep } from "./components/ShiftVerificationStep"
 import { ShiftDashboardStep } from "./components/ShiftDashboardStep"
 import { ShiftSummaryStep } from "./components/ShiftSummaryStep"
 import { ShiftSuccessStep } from "./components/ShiftSuccessStep"
@@ -21,6 +20,7 @@ export default function ShiftPage() {
     const [shiftType, setShiftType] = useState<ShiftType>(ShiftType.MORNING)
     const [selectedNozzleIds, setSelectedNozzleIds] = useState<number[]>([])
     const [elapsedTime, setElapsedTime] = useState(0)
+    const [lastSummary, setLastSummary] = useState<any>(null)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
     // Data Queries
@@ -34,7 +34,7 @@ export default function ShiftPage() {
 
     const summaryQuery = trpc.shift.getSummary.useQuery(
         { shiftId: activeShiftQuery.data?.id || 0 },
-        { enabled: (step === 4 || step === 5) && !!activeShiftQuery.data }
+        { enabled: (step === 2 || step === 3 || step === 4) && !!activeShiftQuery.data }
     )
 
     // Mutations
@@ -42,8 +42,10 @@ export default function ShiftPage() {
         onSuccess: (data) => {
             utils.shift.getActive.invalidate()
             utils.nozzle.getAll.invalidate() // Nozzles become unavailable
-            toast.success("Shift started successfully")
-            setStep(2) // Move to verify readings
+            toast.success("Shift started successfully", {
+                description: "Shift is now active. You can manage readings and payments."
+            })
+            setStep(2) // Move to Dashboard
         },
         onError: (error: any) => toast.error(error.message)
     })
@@ -51,6 +53,7 @@ export default function ShiftPage() {
     const updateReadingMutation = trpc.shift.updateNozzleReading.useMutation({
         onSuccess: () => {
             utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
         },
         onError: (error: any) => toast.error(error.message)
     })
@@ -58,6 +61,7 @@ export default function ShiftPage() {
     const addPaymentMutation = trpc.shift.addPayment.useMutation({
         onSuccess: () => {
             utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
             toast.success("Payment added")
         },
         onError: (error: any) => toast.error(error.message)
@@ -66,6 +70,7 @@ export default function ShiftPage() {
     const updatePaymentMutation = trpc.shift.updatePayment.useMutation({
         onSuccess: () => {
             utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
             toast.success("Payment updated")
         },
         onError: (error: any) => toast.error(error.message)
@@ -74,6 +79,7 @@ export default function ShiftPage() {
     const deletePaymentMutation = trpc.shift.deletePayment.useMutation({
         onSuccess: () => {
             utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
             toast.success("Payment removed")
         },
         onError: (error: any) => toast.error(error.message)
@@ -84,7 +90,7 @@ export default function ShiftPage() {
             utils.shift.getActive.invalidate()
             utils.nozzle.getAll.invalidate()
             toast.success("Shift submitted successfully")
-            setStep(5)
+            setStep(4)
         },
         onError: (error: any) => toast.error(error.message)
     })
@@ -93,19 +99,22 @@ export default function ShiftPage() {
     // Effects
     // Check for active session and restore state
     useEffect(() => {
-        if (activeShiftQuery.data && (step === 1 || step === 5)) {
-            // Determine step based on session state?
-            // Usually if active session exists, we go to dashboard (step 3) or verify (step 2)
-            // But we don't know if verification passed. 
-            // For now, if session exists, assume we are in the flow.
-            // If we are at step 1, jump to 3.
-            if (step === 1) setStep(3)
+        if (activeShiftQuery.data && (step === 1 || step === 4)) {
+            // If active session exists and we are at start or success screen, jump to dashboard
+            if (step === 1) setStep(2)
         }
     }, [activeShiftQuery.data, step])
 
+    // Persist summary data
+    useEffect(() => {
+        if (summaryQuery.data) {
+            setLastSummary(summaryQuery.data)
+        }
+    }, [summaryQuery.data])
+
     // Timer
     useEffect(() => {
-        if (activeShiftQuery.data && (step === 3 || step === 2)) {
+        if (activeShiftQuery.data && (step === 2)) {
             const updateTimer = () => {
                 const start = new Date(activeShiftQuery.data!.startTime).getTime()
                 const now = new Date().getTime()
@@ -199,7 +208,7 @@ export default function ShiftPage() {
         if (!allHaveClosing) {
             return toast.error("Please enter closing readings for all nozzles")
         }
-        setStep(4)
+        setStep(3)
     }
 
     const handleSubmitShift = (notes: string) => {
@@ -210,17 +219,17 @@ export default function ShiftPage() {
         })
     }
 
-    const progressValue = (step / 5) * 100
+    const progressValue = (step / 4) * 100
     const currentSession = activeShiftQuery.data
 
     return (
         <div className="container mx-auto py-6 px-4 max-w-7xl">
             {/* Progress Indicator */}
-            {step < 5 && (
+            {step < 4 && (
                 <div className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-sm font-medium text-muted-foreground">
-                            Step {step} of 5
+                            Step {step} of 4
                         </h2>
                     </div>
                     <Progress value={progressValue} className="h-2" />
@@ -238,20 +247,7 @@ export default function ShiftPage() {
                 />
             )}
 
-            {step === 2 && currentSession && (
-                <ShiftVerificationStep
-                    session={currentSession}
-                    onUpdateTestQty={handleUpdateTestQty}
-                    onConfirm={() => {
-                        setStep(3)
-                        toast("Shift Active", {
-                            description: "Opening readings confirmed. You can now manage your shift."
-                        })
-                    }}
-                />
-            )}
-
-            {step === 3 && currentSession && paymentMethodsQuery.data && (
+            {step === 2 && currentSession && paymentMethodsQuery.data && (
                 <ShiftDashboardStep
                     session={currentSession}
                     elapsedTime={elapsedTime}
@@ -263,20 +259,24 @@ export default function ShiftPage() {
                     onAddPayment={handleAddOrUpdatePayment}
                     onDeletePayment={handleDeletePayment}
                     onFinishShift={handleFinishShiftAttempt}
+                    summary={summaryQuery.data || lastSummary}
                 />
             )}
 
-            {step === 4 && summaryQuery.data && (
+            {step === 3 && (summaryQuery.data || lastSummary) && (
                 <ShiftSummaryStep
-                    summary={summaryQuery.data}
-                    onBack={() => setStep(3)}
+                    summary={summaryQuery.data || lastSummary}
+                    onBack={() => setStep(2)}
                     onSubmit={handleSubmitShift}
                     isSubmitting={completeShiftMutation.isPending}
                 />
             )}
 
-            {step === 5 && (
-                <ShiftSuccessStep onHome={() => router.push('/')} />
+            {step === 4 && (
+                <ShiftSuccessStep
+                    onHome={() => router.push('/')}
+                    summary={lastSummary}
+                />
             )}
         </div>
     )

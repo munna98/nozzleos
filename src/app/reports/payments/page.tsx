@@ -179,7 +179,7 @@ export default function PaymentTransactionsReport() {
                                 <TableHead>Payment Method</TableHead>
                                 <TableHead>Attendant</TableHead>
                                 <TableHead>Shift Type</TableHead>
-                                <TableHead>Details</TableHead>
+                                <TableHead>Nozzles</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -223,14 +223,15 @@ export default function PaymentTransactionsReport() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-sm text-muted-foreground">
-                                                {tx.quantity ? `${tx.quantity} L fuel` : ""}
-                                                {tx.coinsAmount && Number(tx.coinsAmount) > 0 ? (
-                                                    tx.quantity ? `, Coins: ${formatCurrency(Number(tx.coinsAmount))}` : `Coins: ${formatCurrency(Number(tx.coinsAmount))}`
-                                                ) : ""}
-                                                {!tx.quantity && !tx.coinsAmount && "-"}
+                                            <div className="flex flex-wrap gap-1">
+                                                {tx.dutySession.nozzleReadings.map((nr: any) => (
+                                                    <Badge key={nr.id} variant="outline" className="text-[10px] px-1.5 h-5">
+                                                        {nr.nozzle.code}
+                                                    </Badge>
+                                                ))}
                                             </div>
                                         </TableCell>
+
                                         <TableCell className="text-right font-medium">
                                             {formatCurrency(Number(tx.amount))}
                                         </TableCell>
@@ -294,20 +295,20 @@ export default function PaymentTransactionsReport() {
                                     </div>
                                 </div>
 
+
+
                                 <div className="flex justify-between items-center text-sm border-t pt-3">
                                     <div className="flex items-center gap-1.5 text-muted-foreground">
                                         <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4" />
                                         <span>{tx.dutySession.user.name || tx.dutySession.user.username}</span>
                                     </div>
-
-                                    {(tx.quantity || (tx.coinsAmount && Number(tx.coinsAmount) > 0)) && (
-                                        <div className="text-xs text-muted-foreground text-right">
-                                            {tx.quantity ? `${tx.quantity} L fuel` : ""}
-                                            {tx.coinsAmount && Number(tx.coinsAmount) > 0 ? (
-                                                tx.quantity ? `, Coins: ${formatCurrency(Number(tx.coinsAmount))}` : `Coins: ${formatCurrency(Number(tx.coinsAmount))}`
-                                            ) : ""}
-                                        </div>
-                                    )}
+                                    <div className="flex flex-wrap gap-1">
+                                        {tx.dutySession.nozzleReadings.map((nr: any) => (
+                                            <Badge key={nr.id} variant="outline" className="text-[10px] px-1.5 h-5 font-normal">
+                                                {nr.nozzle.code}
+                                            </Badge>
+                                        ))}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

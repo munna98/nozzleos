@@ -39,6 +39,7 @@ type NozzleReading = ShiftSession['nozzleReadings'][number]
 type SessionPayment = NonNullable<ShiftSession['sessionPayments']>[number]
 type Denomination = RouterOutputs['denomination']['getAll'][number]
 type Settings = RouterOutputs['settings']['get']
+type ShiftSummary = RouterOutputs['shift']['getSummary']
 
 interface DenominationCount {
     denominationId: number
@@ -65,6 +66,7 @@ interface ShiftDashboardStepProps {
     onDeletePayment: (paymentId: number) => void
     onFinishShift: () => void
     isSubmitting?: boolean
+    summary?: ShiftSummary
 }
 
 export function ShiftDashboardStep({
@@ -78,7 +80,8 @@ export function ShiftDashboardStep({
     onAddPayment,
     onDeletePayment,
     onFinishShift,
-    isSubmitting
+    isSubmitting,
+    summary
 }: ShiftDashboardStepProps) {
     const [selectedMethodId, setSelectedMethodId] = useState("")
     const [manualAmount, setManualAmount] = useState("")
@@ -98,6 +101,7 @@ export function ShiftDashboardStep({
     const addNozzleMutation = trpc.shift.addNozzle.useMutation({
         onSuccess: () => {
             utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
             utils.nozzle.getAll.invalidate()
             utils.nozzle.getAvailable.invalidate()
             toast.success("Nozzle added to shift")
@@ -569,14 +573,27 @@ export function ShiftDashboardStep({
                         </div>
                     </div>
 
-                    {/* Total Amount */}
-                    <Card className="bg-primary/5 border-primary/20">
-                        <CardContent className="p-6">
-                            <p className="text-3xl font-bold text-primary text-center">
-                                ₹{(session.sessionPayments?.reduce((sum: number, p: SessionPayment) => sum + parseFloat(p.amount.toString()), 0) || 0).toFixed(2)}
-                            </p>
-                        </CardContent>
-                    </Card>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Card className="bg-primary/5 border-primary/20">
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wider font-semibold">Total Collected</p>
+                                <p className="text-2xl font-bold text-primary text-center">
+                                    ₹{(session.sessionPayments?.reduce((sum: number, p: SessionPayment) => sum + parseFloat(p.amount.toString()), 0) || 0).toFixed(2)}
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className={`${summary && summary.shortage < 0 ? 'bg-destructive/10 border-destructive/20' : summary && summary.shortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'}`}>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wider font-semibold">
+                                    {summary && summary.shortage < 0 ? 'Shortage' : summary && summary.shortage > 0 ? 'Excess' : 'Status'}
+                                </p>
+                                <p className={`text-2xl font-bold text-center ${summary && summary.shortage < 0 ? 'text-destructive' : summary && summary.shortage > 0 ? 'text-green-600' : ''}`}>
+                                    {summary ? `₹${Math.abs(summary.shortage).toFixed(2)}` : '₹0.00'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     <div className="pt-6 border-t">
                         <Button className="w-full" size="lg" onClick={onFinishShift} disabled={isSubmitting}>

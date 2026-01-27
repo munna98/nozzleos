@@ -186,7 +186,7 @@ model SessionPayment {
   @@index([createdAt])
 }
 
-// Global app settings (single row pattern)
+// App settings (single row pattern)
 model Settings {
   id                      Int      @id @default(1)
   enableDenominationEntry Boolean  @default(true)  // Show denomination grid for cash
@@ -197,8 +197,8 @@ model Settings {
 // Available currency denominations (notes only)
 model Denomination {
   id        Int     @id @default(autoincrement())
-  value     Int     @unique  // 2000, 500, 200, 100, 50, 20, 10
-  label     String  // "₹2000", "₹500", etc.
+  value     Int     @unique  //500, 200, 100, 50, 20, 10
+  label     String  // "₹500", etc.
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)
   

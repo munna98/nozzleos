@@ -76,7 +76,12 @@ export const paymentRouter = router({
                         paymentMethod: true,
                         dutySession: {
                             include: {
-                                user: { select: { id: true, name: true, username: true } }
+                                user: { select: { id: true, name: true, username: true } },
+                                nozzleReadings: {
+                                    include: {
+                                        nozzle: { select: { code: true } }
+                                    }
+                                }
                             }
                         },
                         denominations: {
