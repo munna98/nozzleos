@@ -28,7 +28,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
 import { IndianRupee } from "lucide-react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { FilterIcon, UserCircleIcon, ArrowLeft01Icon } from "@hugeicons/core-free-icons"
+import { FilterIcon, UserCircleIcon, ArrowLeft01Icon, Calendar01Icon } from "@hugeicons/core-free-icons"
 
 import { PaymentFilters } from "./components/PaymentFilters"
 
@@ -275,9 +275,12 @@ export default function PaymentTransactionsReport() {
                                         <span className="font-bold text-lg">
                                             {formatCurrency(Number(tx.amount))}
                                         </span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {format(new Date(tx.createdAt), "dd MMM yyyy • hh:mm a")}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                            <HugeiconsIcon icon={Calendar01Icon} className="h-3 w-3" />
+                                            <span>
+                                                {format(new Date(tx.createdAt), "dd MMM yyyy • hh:mm a")}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                         <span className="font-medium text-sm">
