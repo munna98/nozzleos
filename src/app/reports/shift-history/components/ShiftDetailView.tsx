@@ -115,15 +115,18 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                                     shift.status === 'completed' ? 'default' :
                                         shift.status === 'verified' ? 'default' :
                                             shift.status === 'pending_verification' ? 'secondary' :
-                                                shift.status === 'rejected' ? 'destructive' : 'secondary'
+                                                shift.status === 'in_progress' ? 'default' :
+                                                    shift.status === 'rejected' ? 'destructive' : 'secondary'
                                 }
                                 className={
                                     shift.status === 'verified' ? 'bg-green-600 hover:bg-green-700' :
-                                        shift.status === 'pending_verification' ? 'bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/25 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800' : ''
+                                        shift.status === 'pending_verification' ? 'bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/25 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800' :
+                                            shift.status === 'in_progress' ? 'bg-blue-600 hover:bg-blue-700' : ''
                                 }
                             >
                                 {shift.status === 'pending_verification' ? 'Pending Review' :
-                                    shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
+                                    shift.status === 'in_progress' ? 'In Progress' :
+                                        shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
                             </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
@@ -140,8 +143,8 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                         </div>
                     </div>
                 </div>
-                {isAdmin && (
-                    <Button onClick={onEdit}>
+                {isAdmin && shift.status !== 'verified' && (
+                    <Button onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}>
                         <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4 mr-2" />
                         Edit Shift
                     </Button>

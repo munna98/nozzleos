@@ -124,6 +124,12 @@ export const shiftRouter = router({
             coinsAmount: z.number().min(0).optional(),
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot add payment to a verified shift')
+            }
+
             const payment = await prisma.sessionPayment.create({
                 data: {
                     dutySessionId: input.shiftId,
@@ -186,8 +192,15 @@ export const shiftRouter = router({
             if (data.coinsAmount !== undefined) updateData.coinsAmount = new Prisma.Decimal(data.coinsAmount)
 
             // Get old payment for balance adjustment
-            const oldPayment = await prisma.sessionPayment.findUnique({ where: { id: paymentId } })
+            const oldPayment = await prisma.sessionPayment.findUnique({
+                where: { id: paymentId },
+                include: { dutySession: true }
+            })
             if (!oldPayment) throw new Error('Payment not found')
+
+            if (oldPayment.dutySession.status === 'verified') {
+                throw new Error('Cannot edit a payment in a verified shift')
+            }
 
             const payment = await prisma.sessionPayment.update({
                 where: { id: paymentId },
@@ -234,8 +247,15 @@ export const shiftRouter = router({
     deletePayment: protectedProcedure
         .input(z.object({ paymentId: z.number() }))
         .mutation(async ({ input }) => {
-            const payment = await prisma.sessionPayment.findUnique({ where: { id: input.paymentId } })
+            const payment = await prisma.sessionPayment.findUnique({
+                where: { id: input.paymentId },
+                include: { dutySession: true }
+            })
             if (!payment) throw new Error('Payment not found')
+
+            if (payment.dutySession.status === 'verified') {
+                throw new Error('Cannot delete a payment in a verified shift')
+            }
 
             await prisma.sessionPayment.delete({ where: { id: input.paymentId } })
 
@@ -349,6 +369,12 @@ export const shiftRouter = router({
             })
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot edit reading in a verified shift')
+            }
+
             const { nozzleReadingId, closingReading, testQty } = input.data
             const reading = await prisma.nozzleSessionReading.findUnique({
                 where: { id: nozzleReadingId },
@@ -495,9 +521,8 @@ export const shiftRouter = router({
             // Status filter
             if (input.status) {
                 where.status = input.status
-            } else {
-                where.status = { not: 'in_progress' } // By default show history (completed/archived)
             }
+            // Removed default exclusion of 'in_progress' to show all shifts
 
             // Shift type filter
             if (input.shiftType) {
@@ -566,7 +591,7 @@ export const shiftRouter = router({
                         },
                         sessionPayments: { include: { paymentMethod: true } },
                     },
-                    orderBy: { endTime: 'desc' },
+                    orderBy: { startTime: 'desc' },
                     skip: input.offset,
                     take: input.limit,
                 }),
@@ -767,6 +792,13 @@ export const shiftRouter = router({
             notes: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
+            // Check shift status
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot edit a verified shift')
+            }
+
             if (input.readings) {
                 for (const reading of input.readings) {
                     const nozzleReading = await prisma.nozzleSessionReading.findUnique({
@@ -813,15 +845,25 @@ export const shiftRouter = router({
                 shiftType: z.nativeEnum(ShiftType).optional(),
                 status: z.string().optional(),
                 notes: z.string().optional(),
+                startTime: z.date().optional(),
+                endTime: z.date().optional(),
             })
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot edit a verified shift')
+            }
+
             return prisma.dutySession.update({
                 where: { id: input.shiftId },
                 data: {
                     type: input.data.shiftType,
                     status: input.data.status,
                     notes: input.data.notes,
+                    startTime: input.data.startTime,
+                    endTime: input.data.endTime,
                 }
             })
         }),
@@ -840,6 +882,13 @@ export const shiftRouter = router({
             })
         }))
         .mutation(async ({ input }) => {
+            // Check shift status
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot edit a verified shift')
+            }
+
             // Update the reading
             const reading = await prisma.nozzleSessionReading.update({
                 where: { id: input.readingId },
@@ -871,17 +920,43 @@ export const shiftRouter = router({
             data: z.object({
                 paymentMethodId: z.number(),
                 amount: z.number(),
+                denominations: z.array(z.object({
+                    denominationId: z.number(),
+                    count: z.number().min(0),
+                })).optional(),
+                coinsAmount: z.number().min(0).optional(),
             })
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot add payment to a verified shift')
+            }
+
             const payment = await prisma.sessionPayment.create({
                 data: {
                     dutySessionId: input.shiftId,
                     paymentMethodId: input.data.paymentMethodId,
                     amount: new Prisma.Decimal(input.data.amount),
+                    coinsAmount: input.data.coinsAmount ? new Prisma.Decimal(input.data.coinsAmount) : null,
                 },
                 include: { paymentMethod: true },
             })
+
+            // Create denomination records if provided
+            if (input.data.denominations && input.data.denominations.length > 0) {
+                await prisma.paymentDenomination.createMany({
+                    data: input.data.denominations
+                        .filter(d => d.count > 0)
+                        .map(d => ({
+                            sessionPaymentId: payment.id,
+                            denominationId: d.denominationId,
+                            count: d.count,
+                        })),
+                })
+            }
+
             // Update total
             await prisma.dutySession.update({
                 where: { id: input.shiftId },
@@ -900,26 +975,67 @@ export const shiftRouter = router({
             shiftId: z.number(),
             paymentId: z.number(),
             data: z.object({
-                amount: z.number(),
+                paymentMethodId: z.number().optional(),
+                amount: z.number().optional(),
+                denominations: z.array(z.object({
+                    denominationId: z.number(),
+                    count: z.number().min(0),
+                })).optional(),
+                coinsAmount: z.number().min(0).optional(),
             })
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot edit payment in a verified shift')
+            }
+
             const oldPayment = await prisma.sessionPayment.findUnique({ where: { id: input.paymentId } })
             if (!oldPayment) throw new Error("Payment not found")
 
-            const diff = input.data.amount - Number(oldPayment.amount)
+            // Prepare update data
+            const updateData: any = {}
+            if (input.data.paymentMethodId) updateData.paymentMethodId = input.data.paymentMethodId
+            if (input.data.amount !== undefined) updateData.amount = new Prisma.Decimal(input.data.amount)
+            if (input.data.coinsAmount !== undefined) updateData.coinsAmount = new Prisma.Decimal(input.data.coinsAmount)
 
             const payment = await prisma.sessionPayment.update({
                 where: { id: input.paymentId },
-                data: { amount: new Prisma.Decimal(input.data.amount) },
+                data: updateData,
                 include: { paymentMethod: true },
             })
 
-            if (diff !== 0) {
-                await prisma.dutySession.update({
-                    where: { id: input.shiftId },
-                    data: { totalPaymentCollected: { increment: diff } },
+            // Update denominations if provided
+            if (input.data.denominations) {
+                // Delete existing
+                await prisma.paymentDenomination.deleteMany({
+                    where: { sessionPaymentId: input.paymentId }
                 })
+
+                // Create new
+                if (input.data.denominations.length > 0) {
+                    await prisma.paymentDenomination.createMany({
+                        data: input.data.denominations
+                            .filter(d => d.count > 0)
+                            .map(d => ({
+                                sessionPaymentId: payment.id,
+                                denominationId: d.denominationId,
+                                count: d.count,
+                            })),
+                    })
+                }
+            }
+
+            // Adjust total if amount changed
+            if (input.data.amount !== undefined) {
+                const diff = input.data.amount - Number(oldPayment.amount)
+                if (diff !== 0) {
+                    await prisma.dutySession.update({
+                        where: { id: input.shiftId },
+                        data: { totalPaymentCollected: { increment: diff } },
+                    })
+                }
             }
             return payment
         }),
@@ -933,6 +1049,12 @@ export const shiftRouter = router({
             paymentId: z.number(),
         }))
         .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status === 'verified') {
+                throw new Error('Cannot delete payment from a verified shift')
+            }
+
             const payment = await prisma.sessionPayment.findUnique({ where: { id: input.paymentId } })
             if (!payment) throw new Error("Payment not found")
 
