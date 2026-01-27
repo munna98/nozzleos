@@ -163,14 +163,13 @@ export default function ShiftHistoryPage() {
                 </div>
                 <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={() => setFilterOpen(!filterOpen)}
-                    className="gap-2 md:hidden"
+                    className="md:hidden relative"
                 >
-                    <HugeiconsIcon icon={FilterIcon} className="h-4 w-4" />
-                    Filters
+                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
                     {Object.keys(filters).length > 0 && (
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px]">
+                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
                             {Object.keys(filters).length}
                         </Badge>
                     )}

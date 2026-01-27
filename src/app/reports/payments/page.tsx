@@ -4,6 +4,7 @@ import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -27,12 +28,12 @@ import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
 import { IndianRupee } from "lucide-react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { FilterIcon } from "@hugeicons/core-free-icons"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { FilterIcon, UserCircleIcon, ArrowLeft01Icon } from "@hugeicons/core-free-icons"
 
 import { PaymentFilters } from "./components/PaymentFilters"
 
 export default function PaymentTransactionsReport() {
+    const router = useRouter()
     const [fromDate, setFromDate] = useState<Date | undefined>(new Date())
     const [toDate, setToDate] = useState<Date | undefined>(new Date())
     const [paymentMethodId, setPaymentMethodId] = useState<string>("all")
@@ -105,20 +106,25 @@ export default function PaymentTransactionsReport() {
 
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-3xl font-bold tracking-tight">Payments Report</h2>
+            {/* Header with Back Button and Filter Toggle */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                        <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
+                    </Button>
+                    <h2 className="text-3xl font-bold tracking-tight">Payments Report</h2>
+                </div>
 
                 {/* Mobile Filter Toggle */}
                 <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="md:hidden gap-2"
+                    className="md:hidden relative"
                 >
-                    <HugeiconsIcon icon={FilterIcon} className="h-4 w-4" />
-                    Filters
+                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
                     {activeFilterCount > 0 && (
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px]">
+                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
                             {activeFilterCount}
                         </Badge>
                     )}
@@ -170,9 +176,9 @@ export default function PaymentTransactionsReport() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Date & Time</TableHead>
-                                <TableHead>Shift Type</TableHead>
-                                <TableHead>Attendant</TableHead>
                                 <TableHead>Payment Method</TableHead>
+                                <TableHead>Attendant</TableHead>
+                                <TableHead>Shift Type</TableHead>
                                 <TableHead>Details</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
                             </TableRow>
@@ -204,25 +210,16 @@ export default function PaymentTransactionsReport() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="font-medium">
+                                            {tx.paymentMethod.name}
+                                        </TableCell>
+                                        <TableCell>
+                                            {tx.dutySession.user.name || tx.dutySession.user.username}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary">
                                                 {tx.dutySession.type
-                                                    ? (tx.dutySession.type.charAt(0) + tx.dutySession.type.slice(1).toLowerCase() + ' Shift')
+                                                    ? (tx.dutySession.type.charAt(0) + tx.dutySession.type.slice(1).toLowerCase())
                                                     : 'Shift'}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar size="sm">
-                                                    <AvatarFallback>{getInitials(tx.dutySession.user.name || tx.dutySession.user.username)}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    {tx.dutySession.user.name || tx.dutySession.user.username}
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">
-                                                {tx.paymentMethod.name}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -272,50 +269,42 @@ export default function PaymentTransactionsReport() {
                 ) : (
                     data?.transactions.map((tx) => (
                         <Card key={tx.id}>
-                            <CardContent className="space-y-3 pt-6">
+                            <CardContent className="p-4 flex flex-col gap-3">
                                 <div className="flex justify-between items-start">
                                     <div className="flex flex-col">
-                                        <span className="font-semibold">
-                                            {format(new Date(tx.createdAt), "dd MMM yyyy")}
+                                        <span className="font-bold text-lg">
+                                            {formatCurrency(Number(tx.amount))}
                                         </span>
                                         <span className="text-xs text-muted-foreground">
-                                            {format(new Date(tx.createdAt), "hh:mm a")}
+                                            {format(new Date(tx.createdAt), "dd MMM yyyy • hh:mm a")}
                                         </span>
                                     </div>
-                                    <Badge variant="outline">
-                                        {tx.paymentMethod.name}
-                                    </Badge>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className="font-medium text-sm">
+                                            {tx.paymentMethod.name}
+                                        </span>
+                                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                            {tx.dutySession.type
+                                                ? (tx.dutySession.type.charAt(0) + tx.dutySession.type.slice(1).toLowerCase())
+                                                : 'Shift'}
+                                        </Badge>
+                                    </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div className="text-muted-foreground">Shift:</div>
-                                    <div>
-                                        {tx.dutySession.type
-                                            ? (tx.dutySession.type.charAt(0) + tx.dutySession.type.slice(1).toLowerCase() + ' Shift')
-                                            : 'Shift'}
-                                    </div>
-
-                                    <div className="text-muted-foreground">Attendant:</div>
-                                    <div className="flex items-center gap-2">
-                                        <Avatar className="h-5 w-5">
-                                            <AvatarFallback className="text-[10px]">{getInitials(tx.dutySession.user.name || tx.dutySession.user.username)}</AvatarFallback>
-                                        </Avatar>
+                                <div className="flex justify-between items-center text-sm border-t pt-3">
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                        <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4" />
                                         <span>{tx.dutySession.user.name || tx.dutySession.user.username}</span>
                                     </div>
 
-                                    <div className="text-muted-foreground">Details:</div>
-                                    <div>
-                                        {tx.quantity ? `${tx.quantity} L fuel` : ""}
-                                        {tx.coinsAmount && Number(tx.coinsAmount) > 0 ? (
-                                            tx.quantity ? `, Coins: ${formatCurrency(Number(tx.coinsAmount))}` : `Coins: ${formatCurrency(Number(tx.coinsAmount))}`
-                                        ) : ""}
-                                        {!tx.quantity && !tx.coinsAmount && "-"}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between items-center pt-2 border-t mt-2">
-                                    <span className="text-sm font-medium text-muted-foreground">Amount</span>
-                                    <span className="text-lg font-bold">{formatCurrency(Number(tx.amount))}</span>
+                                    {(tx.quantity || (tx.coinsAmount && Number(tx.coinsAmount) > 0)) && (
+                                        <div className="text-xs text-muted-foreground text-right">
+                                            {tx.quantity ? `${tx.quantity} L fuel` : ""}
+                                            {tx.coinsAmount && Number(tx.coinsAmount) > 0 ? (
+                                                tx.quantity ? `, Coins: ${formatCurrency(Number(tx.coinsAmount))}` : `Coins: ${formatCurrency(Number(tx.coinsAmount))}`
+                                            ) : ""}
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
