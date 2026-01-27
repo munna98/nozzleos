@@ -23,13 +23,15 @@ export const paymentRouter = router({
             if (input.startDate || input.endDate) {
                 where.createdAt = {}
                 if (input.startDate) {
-                    where.createdAt.gte = input.startDate
+                    const start = new Date(input.startDate)
+                    start.setHours(0, 0, 0, 0)
+                    where.createdAt.gte = start
                 }
                 if (input.endDate) {
-                    // Include the whole end day
-                    const nextDay = new Date(input.endDate)
-                    nextDay.setDate(nextDay.getDate() + 1)
-                    where.createdAt.lt = nextDay
+                    const end = new Date(input.endDate)
+                    end.setHours(0, 0, 0, 0)
+                    end.setDate(end.getDate() + 1)
+                    where.createdAt.lt = end
                 }
             }
 
