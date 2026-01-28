@@ -89,6 +89,12 @@ export function TopNav() {
                     label: "Payments Report",
                     active: pathname.startsWith("/reports/payments"),
                     roles: ['Admin', 'Manager']
+                },
+                {
+                    href: "/reports/staff-performance-report",
+                    label: "Staff Performance Report",
+                    active: pathname.startsWith("/reports/staff-performance-report"),
+                    roles: ['Admin', 'Manager']
                 }
             ]
         },

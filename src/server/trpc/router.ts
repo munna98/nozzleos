@@ -10,6 +10,7 @@ import { shiftRouter } from '../routers/shift'
 import { settingsRouter } from '../routers/settings'
 import { denominationRouter } from '../routers/denomination'
 import { paymentRouter } from '../routers/payment'
+import { staffRouter } from '../routers/staff'
 
 export const appRouter = router({
     auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
     shift: shiftRouter,
     settings: settingsRouter,
     denomination: denominationRouter,
+    staff: staffRouter,
 })
 
 export type AppRouter = typeof appRouter
