@@ -23,11 +23,10 @@ interface ShiftDetailProps {
     shift: ShiftDetail
     isAdmin: boolean
     onBack: () => void
-    onEdit: () => void
     onVerifySuccess?: () => void
 }
 
-export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySuccess }: ShiftDetailProps) {
+export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: ShiftDetailProps) {
     const [isRejecting, setIsRejecting] = useState(false)
     const [rejectionNotes, setRejectionNotes] = useState("")
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
@@ -144,9 +143,12 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onEdit, onVerifySucces
                     </div>
                 </div>
                 {isAdmin && shift.status !== 'verified' && (
-                    <Button onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}>
-                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4 mr-2" />
-                        Edit Shift
+                    <Button
+                        onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}
+                        className="gap-2"
+                    >
+                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
+                        <span className="hidden md:inline">Edit Shift</span>
                     </Button>
                 )}
             </div>

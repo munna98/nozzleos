@@ -588,24 +588,26 @@ export function ShiftDashboardStep({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Card className="bg-primary/5 border-primary/20">
-                            <CardContent className="p-4">
-                                <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wider font-semibold">Total Collected</p>
-                                <p className="text-2xl font-bold text-primary text-center">
+                    <div className="flex flex-col gap-4">
+                        <Card className="bg-primary/5 border-primary/20 h-24 flex flex-col justify-center">
+                            <CardContent className="p-4 text-center">
+                                <p className="text-xs text-muted-foreground mb-1 font-semibold">Total Collected</p>
+                                <p className="text-2xl font-bold text-primary">
                                     ₹{(session.sessionPayments?.reduce((sum: number, p: SessionPayment) => sum + parseFloat(p.amount.toString()), 0) || 0).toFixed(2)}
                                 </p>
                             </CardContent>
                         </Card>
 
-                        <Card className={`${summary && summary.shortage < 0 ? 'bg-destructive/10 border-destructive/20' : summary && summary.shortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'}`}>
-                            <CardContent className="p-4">
-                                <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wider font-semibold">
-                                    {summary && summary.shortage < 0 ? 'Shortage' : summary && summary.shortage > 0 ? 'Excess' : 'Status'}
-                                </p>
-                                <p className={`text-2xl font-bold text-center ${summary && summary.shortage < 0 ? 'text-destructive' : summary && summary.shortage > 0 ? 'text-green-600' : ''}`}>
-                                    {summary ? `₹${Math.abs(summary.shortage).toFixed(2)}` : '₹0.00'}
-                                </p>
+                        <Card className={`${summary && summary.shortage < 0 ? 'bg-destructive/10 border-destructive/20' : summary && summary.shortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'} h-12 flex flex-col justify-center overflow-hidden`}>
+                            <CardContent className="p-1 text-center">
+                                <div className="flex flex-col items-center justify-center">
+                                    <p className="text-[10px] text-muted-foreground font-semibold leading-none mb-1">
+                                        {summary && summary.shortage < 0 ? 'Shortage' : summary && summary.shortage > 0 ? 'Excess' : 'Status'}
+                                    </p>
+                                    <p className={`text-base font-bold leading-none ${summary && summary.shortage < 0 ? 'text-destructive' : summary && summary.shortage > 0 ? 'text-green-600' : ''}`}>
+                                        {summary ? `₹${Math.abs(summary.shortage).toFixed(2)}` : '₹0.00'}
+                                    </p>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>

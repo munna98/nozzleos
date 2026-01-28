@@ -5,7 +5,6 @@ import { trpc } from "@/lib/trpc"
 import { useAuth } from "@/lib/auth-context"
 import { ShiftHistoryList } from "./components/ShiftHistoryList"
 import { ShiftDetailView } from "./components/ShiftDetailView"
-import { ShiftEditModal } from "./components/ShiftEditModal"
 import { ShiftFilters, ShiftFiltersState } from "./components/ShiftFilters"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -22,7 +21,6 @@ export default function ShiftHistoryPage() {
     const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
 
     const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
-    const [editingShiftId, setEditingShiftId] = useState<number | null>(null)
     // Default to Today's date
     const [filters, setFilters] = useState<ShiftFiltersState>({
         startDateFrom: new Date(),
@@ -61,22 +59,11 @@ export default function ShiftHistoryPage() {
         setSelectedShiftId(shiftId)
     }
 
-    const handleEditShift = (shiftId: number) => {
-        setEditingShiftId(shiftId)
-    }
-
     const handleCloseDetail = () => {
         setSelectedShiftId(null)
         // Refresh list when closing detail to reflect any status changes
         shiftsQuery.refetch()
         if (isAdmin) pendingCountQuery.refetch()
-    }
-
-    const handleCloseEdit = () => {
-        setEditingShiftId(null)
-        // Refetch the shift details and list after editing
-        shiftDetailQuery.refetch()
-        shiftsQuery.refetch()
     }
 
     const onVerifySuccess = () => {
@@ -134,18 +121,8 @@ export default function ShiftHistoryPage() {
                         shift={shiftDetailQuery.data}
                         isAdmin={isAdmin}
                         onBack={handleCloseDetail}
-                        onEdit={() => handleEditShift(selectedShiftId)}
                         onVerifySuccess={onVerifySuccess}
                     />
-
-                    {/* Edit Modal */}
-                    {editingShiftId && (
-                        <ShiftEditModal
-                            shiftId={editingShiftId}
-                            isOpen={!!editingShiftId}
-                            onClose={handleCloseEdit}
-                        />
-                    )}
                 </div>
             )
         }
