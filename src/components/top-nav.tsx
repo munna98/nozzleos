@@ -91,9 +91,9 @@ export function TopNav() {
                     roles: ['Admin', 'Manager']
                 },
                 {
-                    href: "/reports/staff-performance-report",
+                    href: "/reports/staff-performance",
                     label: "Staff Performance Report",
-                    active: pathname.startsWith("/reports/staff-performance-report"),
+                    active: pathname.startsWith("/reports/staff-performance"),
                     roles: ['Admin', 'Manager']
                 }
             ]

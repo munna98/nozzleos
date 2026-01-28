@@ -107,7 +107,9 @@ export function StaffReportCards({ staff }: StaffReportCardsProps) {
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="text-right mr-2">
-                                    <div className="text-sm font-medium">
+                                    <div className={`text-sm font-bold ${staffMember.totals.totalDifference < 0 ? 'text-destructive' :
+                                        staffMember.totals.totalDifference > 0 ? 'text-green-600' : ''
+                                        }`}>
                                         {formatCurrency(staffMember.totals.totalDifference)}
                                     </div>
                                 </div>
@@ -165,9 +167,6 @@ export function StaffReportCards({ staff }: StaffReportCardsProps) {
                                                         shift.isExcess ? 'text-green-600' : ''
                                                         }`}>
                                                         {shift.difference >= 0 ? '+' : ''}{formatCurrency(shift.difference)}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground mt-0.5">
-                                                        difference
                                                     </div>
                                                 </div>
                                             </div>

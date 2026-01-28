@@ -60,27 +60,29 @@ export default function StaffReportPage() {
         <div className="container mx-auto py-8 space-y-4 px-4">
             {/* Header with Filter Toggle */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                        <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
-                    </Button>
-                    <h2 className="text-3xl font-bold tracking-tight">Staff Performance Report</h2>
-                </div>
+                <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                            <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
+                        </Button>
+                        <h2 className="text-3xl font-bold tracking-tight">Staff Performance</h2>
+                    </div>
 
-                {/* Mobile Filter Toggle */}
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="md:hidden relative self-end"
-                >
-                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
-                    {activeFilterCount > 0 && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
-                            {activeFilterCount}
-                        </Badge>
-                    )}
-                </Button>
+                    {/* Mobile Filter Toggle */}
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                        className="md:hidden relative"
+                    >
+                        <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                        {activeFilterCount > 0 && (
+                            <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                                {activeFilterCount}
+                            </Badge>
+                        )}
+                    </Button>
+                </div>
 
                 {/* Desktop Filters (Always Visible) */}
                 <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2 md:flex-shrink-0">
@@ -140,6 +142,7 @@ export default function StaffReportPage() {
                             <div className={`text-2xl font-bold ${reportQuery.data.summary.overallDifference < 0 ? 'text-destructive' :
                                 reportQuery.data.summary.overallDifference > 0 ? 'text-green-600' : ''
                                 }`}>
+                                {reportQuery.data.summary.overallDifference > 0 ? '+' : ''}
                                 {formatCurrency(reportQuery.data.summary.overallDifference)}
                             </div>
                         </CardContent>
