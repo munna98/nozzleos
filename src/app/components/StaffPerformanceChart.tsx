@@ -65,7 +65,7 @@ export function StaffPerformanceChart() {
                         Staff Performance Comparison
                     </CardTitle>
                     <CardDescription>
-                        Net shortage/excess by employee (sorted by worst performance)
+                        Net shortage/excess by employee
                     </CardDescription>
                 </div>
                 <Select value={days} onValueChange={setDays}>
