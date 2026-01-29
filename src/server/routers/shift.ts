@@ -1066,5 +1066,98 @@ export const shiftRouter = router({
             })
 
             return { success: true }
-        })
+        }),
+
+    /**
+     * Get all active (in_progress) shifts for admin dashboard
+     */
+    getActiveShifts: adminProcedure
+        .query(async () => {
+            const shifts = await prisma.dutySession.findMany({
+                where: { status: 'in_progress' },
+                include: {
+                    user: { select: { id: true, name: true, username: true } },
+                    nozzleReadings: {
+                        include: {
+                            nozzle: {
+                                include: { fuel: true, dispenser: true }
+                            }
+                        }
+                    },
+                },
+                orderBy: { startTime: 'desc' },
+            })
+
+            return shifts.map(shift => ({
+                id: shift.id,
+                user: shift.user,
+                type: shift.type,
+                startTime: shift.startTime,
+                nozzles: shift.nozzleReadings.map(nr => ({
+                    code: nr.nozzle.code,
+                    dispenserCode: nr.nozzle.dispenser.code,
+                    fuelName: nr.nozzle.fuel.name,
+                })),
+                nozzleCount: shift.nozzleReadings.length,
+            }))
+        }),
+
+    /**
+     * Get recent completed/verified/rejected shifts for activity feed
+     */
+    getRecentCompleted: adminProcedure
+        .input(z.object({
+            limit: z.number().min(1).max(20).default(10),
+        }))
+        .query(async ({ input }) => {
+            const shifts = await prisma.dutySession.findMany({
+                where: {
+                    status: { in: ['pending_verification', 'verified', 'rejected'] }
+                },
+                include: {
+                    user: { select: { id: true, name: true, username: true } },
+                    nozzleReadings: {
+                        include: { nozzle: { include: { fuel: true } } }
+                    },
+                },
+                orderBy: { endTime: 'desc' },
+                take: input.limit,
+            })
+
+            return shifts.map(shift => {
+                // Calculate total fuel sales
+                let totalFuelSales = 0
+                for (const reading of shift.nozzleReadings) {
+                    const qty = Number(reading.fuelDispensed || 0)
+                    const price = Number(reading.nozzle.price)
+                    totalFuelSales += qty * price
+                }
+
+                return {
+                    id: shift.id,
+                    user: shift.user,
+                    type: shift.type,
+                    status: shift.status,
+                    endTime: shift.endTime,
+                    totalCollected: Number(shift.totalPaymentCollected),
+                    totalFuelSales: Math.round(totalFuelSales * 100) / 100,
+                }
+            })
+        }),
+
+    /**
+     * Get dashboard statistics counts
+     */
+    getDashboardStats: adminProcedure
+        .query(async () => {
+            const [activeCount, pendingCount] = await Promise.all([
+                prisma.dutySession.count({ where: { status: 'in_progress' } }),
+                prisma.dutySession.count({ where: { status: 'pending_verification' } }),
+            ])
+
+            return {
+                activeShifts: activeCount,
+                pendingVerifications: pendingCount,
+            }
+        }),
 })

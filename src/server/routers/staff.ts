@@ -223,5 +223,96 @@ export const staffRouter = router({
                     fuelBreakdown: overallFuelBreakdown,
                 }
             }
-        })
+        }),
+
+    /**
+     * Get staff performance chart data for dashboard
+     * Returns shortage/excess comparison for fraud detection
+     */
+    getPerformanceChartData: protectedProcedure
+        .input(z.object({
+            days: z.number().min(1).max(90).default(7),
+        }))
+        .query(async ({ ctx, input }) => {
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            if (!isAdmin) {
+                throw new Error('Only admins can view performance chart data')
+            }
+
+            // Calculate date range
+            const endDate = new Date()
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - input.days)
+            startDate.setHours(0, 0, 0, 0)
+
+            // Get all completed shifts in the period
+            const shifts = await prisma.dutySession.findMany({
+                where: {
+                    status: { in: ['pending_verification', 'verified', 'rejected'] },
+                    startTime: { gte: startDate, lte: endDate }
+                },
+                include: {
+                    user: { select: { id: true, name: true, username: true } },
+                    nozzleReadings: {
+                        include: { nozzle: true }
+                    }
+                }
+            })
+
+            // Group by user and calculate totals
+            const staffMap = new Map<number, {
+                userId: number,
+                name: string,
+                totalDifference: number,
+                shiftCount: number
+            }>()
+
+            for (const shift of shifts) {
+                const userId = shift.user.id
+                const userName = shift.user.name || shift.user.username
+
+                // Calculate fuel sales
+                let totalFuelSales = 0
+                for (const reading of shift.nozzleReadings) {
+                    const qty = Number(reading.fuelDispensed || 0)
+                    const price = Number(reading.nozzle.price)
+                    totalFuelSales += qty * price
+                }
+
+                const totalCollected = Number(shift.totalPaymentCollected)
+                const difference = totalCollected - totalFuelSales
+
+                if (!staffMap.has(userId)) {
+                    staffMap.set(userId, {
+                        userId,
+                        name: userName,
+                        totalDifference: 0,
+                        shiftCount: 0
+                    })
+                }
+
+                const data = staffMap.get(userId)!
+                data.totalDifference += difference
+                data.shiftCount += 1
+            }
+
+            // Convert to array and sort by difference (worst performers first - most shortage)
+            const chartData = Array.from(staffMap.values())
+                .map(staff => ({
+                    ...staff,
+                    totalDifference: Math.round(staff.totalDifference * 100) / 100,
+                    isShortage: staff.totalDifference < 0,
+                    isExcess: staff.totalDifference > 0,
+                }))
+                .sort((a, b) => a.totalDifference - b.totalDifference) // Worst (most negative) first
+
+            return {
+                chartData,
+                period: {
+                    startDate,
+                    endDate,
+                    days: input.days
+                }
+            }
+        }),
 })

@@ -1,24 +1,68 @@
-export default function Page() {
+"use client"
+
+import { useAuth } from "@/lib/auth-context"
+import { ActiveShiftsPanel } from "./components/ActiveShiftsPanel"
+import { PendingVerificationsPanel } from "./components/PendingVerificationsPanel"
+import { FuelRatesPanel } from "./components/FuelRatesPanel"
+import { RecentActivityFeed } from "./components/RecentActivityFeed"
+import { StaffPerformanceChart } from "./components/StaffPerformanceChart"
+import { QuickLinksCard } from "./components/QuickLinksCard"
+
+export default function DashboardPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto py-10 px-4">
+        <h1 className="text-2xl font-bold">Welcome, {user?.name || user?.username}</h1>
+        <p className="text-muted-foreground mt-2">
+          Please use the sidebar menu to navigate.
+        </p>
+        {/* Employee dashboard specific content could go here if needed, 
+                    but sticking to admin dashboard as requested */}
+      </div>
+    )
+  }
+
   return (
-    <div className="container mx-auto py-10 space-y-8 px-4">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto py-8 px-4 space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        </div>
+        <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+          {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Placeholder for dashboard stats/cards */}
-        <div className="rounded-lg border bg-card text-card-foreground shadow">
-          <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium">Total Employees</h3>
-          </div>
-          <div className="p-6 pt-0">
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Active staff members</p>
-          </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Left Column - Operational Status */}
+        <div className="space-y-6 lg:row-span-2">
+          <ActiveShiftsPanel />
+          <PendingVerificationsPanel />
+        </div>
+
+        {/* Middle Column Top - Fuel Rates */}
+        <div className="space-y-6">
+          <FuelRatesPanel />
+        </div>
+
+        {/* Right Column Top - Quick Links */}
+        <div className="space-y-6">
+          <QuickLinksCard />
+        </div>
+
+        {/* Middle & Right Column Bottom - Activity Feed */}
+        <div className="space-y-6 md:col-span-2 lg:col-span-2">
+          <RecentActivityFeed />
+        </div>
+
+        {/* Bottom Section - Analytics */}
+        <div className="md:col-span-2 lg:col-span-3">
+          <StaffPerformanceChart />
         </div>
       </div>
     </div>
-  );
+  )
 }

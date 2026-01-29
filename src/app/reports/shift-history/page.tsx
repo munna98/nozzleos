@@ -21,10 +21,12 @@ export default function ShiftHistoryPage() {
     const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
 
     const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
-    // Default to Today's date
+    // Default to Today's date unless status param provided
+    const statusParam = searchParams.get('status')
     const [filters, setFilters] = useState<ShiftFiltersState>({
-        startDateFrom: new Date(),
-        startDateTo: new Date()
+        startDateFrom: statusParam ? undefined : new Date(),
+        startDateTo: statusParam ? undefined : new Date(),
+        status: statusParam || undefined
     })
     const [filterOpen, setFilterOpen] = useState(false)
 
