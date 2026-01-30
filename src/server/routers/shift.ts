@@ -447,6 +447,54 @@ export const shiftRouter = router({
             return { success: true }
         }),
 
+    /**
+     * Remove nozzle from active shift
+     */
+    removeNozzle: protectedProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            nozzleId: z.number(),
+        }))
+        .mutation(async ({ input }) => {
+            const shift = await prisma.dutySession.findUnique({
+                where: { id: input.shiftId },
+                include: { nozzleReadings: true }
+            })
+            if (!shift) throw new Error('Shift not found')
+            if (shift.status !== 'in_progress') throw new Error('Shift is not in progress')
+
+            // Check if multiple nozzles exist
+            if (shift.nozzleReadings.length <= 1) {
+                throw new Error('Cannot remove the last nozzle from current shift')
+            }
+
+            // Find reading
+            const reading = shift.nozzleReadings.find(r => r.nozzleId === input.nozzleId)
+            if (!reading) throw new Error('Nozzle not part of this shift')
+
+            // Check if sales recorded (closing reading exists and > opening)
+            // Or if test qty added
+            if (reading.closingReading !== null) {
+                throw new Error('Cannot remove nozzle after sales have been recorded')
+            }
+            if (Number(reading.testQty) > 0) {
+                throw new Error('Cannot remove nozzle with test quantity recorded')
+            }
+
+            // Remove reading
+            await prisma.nozzleSessionReading.delete({
+                where: { id: reading.id }
+            })
+
+            // Mark nozzle as available
+            await prisma.nozzle.update({
+                where: { id: input.nozzleId },
+                data: { isAvailable: true }
+            })
+
+            return { success: true }
+        }),
+
 
     /**
      * Get shift summary

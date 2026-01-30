@@ -96,6 +96,10 @@ export function ShiftDashboardStep({
     // Add Nozzle State
     const [isAddNozzleOpen, setIsAddNozzleOpen] = useState(false)
     const [selectedNozzleToAdd, setSelectedNozzleToAdd] = useState<string>("")
+    // Remove Nozzle State
+    const [nozzleToRemove, setNozzleToRemove] = useState<NozzleReading | null>(null)
+    const [isRemoveNozzleOpen, setIsRemoveNozzleOpen] = useState(false)
+
     const utils = trpc.useUtils()
     const availableNozzlesQuery = trpc.nozzle.getAvailable.useQuery(undefined, {
         enabled: isAddNozzleOpen
@@ -113,11 +117,41 @@ export function ShiftDashboardStep({
         onError: (error) => toast.error(error.message)
     })
 
+    const removeNozzleMutation = trpc.shift.removeNozzle.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            utils.nozzle.getAll.invalidate()
+            utils.nozzle.getAvailable.invalidate()
+            toast.success("Nozzle removed from shift")
+            setIsRemoveNozzleOpen(false)
+            setNozzleToRemove(null)
+        },
+        onError: (error) => toast.error(error.message)
+    })
+
     const handleAddNozzle = () => {
         if (!selectedNozzleToAdd) return
         addNozzleMutation.mutate({
             shiftId: session.id,
             nozzleId: parseInt(selectedNozzleToAdd)
+        })
+    }
+
+    const handleRemoveNozzleClick = (reading: NozzleReading) => {
+        if (session.nozzleReadings.length <= 1) {
+            toast.error("Cannot remove the last nozzle")
+            return
+        }
+        setNozzleToRemove(reading)
+        setIsRemoveNozzleOpen(true)
+    }
+
+    const handleConfirmRemoveNozzle = () => {
+        if (!nozzleToRemove) return
+        removeNozzleMutation.mutate({
+            shiftId: session.id,
+            nozzleId: nozzleToRemove.nozzleId
         })
     }
 
@@ -268,135 +302,147 @@ export function ShiftDashboardStep({
                         </Button>
                     </div>
 
-                    {session.nozzleReadings.map((reading: NozzleReading) => (
-                        <Card key={reading.id}>
-                            <CardContent className="p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Badge>{reading.nozzle.code}</Badge>
-                                        <span className="font-medium">{reading.nozzle.fuel.name}</span>
-                                    </div>
-                                    {reading.closingReading !== null && (
-                                        <Badge variant="default" className="bg-green-500">
-                                            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-1 h-3 w-3" />
-                                            Complete
-                                        </Badge>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div>
-                                        <p className="text-muted-foreground">Opening</p>
-                                        <p className="font-medium">
-                                            {parseFloat(reading.openingReading.toString()).toFixed(2)} L
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-muted-foreground flex items-center gap-2">
-                                            Test Qty
-                                            {!editingTestQtyId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 text-muted-foreground hover:text-primary"
-                                                    onClick={() => setEditingTestQtyId(reading.id)}
-                                                >
-                                                    <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                        </p>
-                                        {editingTestQtyId === reading.id ? (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    className="h-7 w-20 px-2 text-sm"
-                                                    defaultValue={parseFloat(reading.testQty.toString())}
-                                                    id={`test-qty-${reading.id}`}
-                                                    autoFocus
-                                                />
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                    onClick={() => {
-                                                        const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
-                                                        const val = parseFloat(input.value) || 0
-                                                        onUpdateTestQty(reading.id, val)
-                                                        setEditingTestQtyId(null)
-                                                    }}
-                                                >
-                                                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={() => setEditingTestQtyId(null)}
-                                                >
-                                                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                    {[...session.nozzleReadings]
+                        .sort((a, b) => a.nozzle.code.localeCompare(b.nozzle.code))
+                        .map((reading: NozzleReading) => (
+                            <Card key={reading.id}>
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Badge>{reading.nozzle.code}</Badge>
+                                            <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                        </div>
+                                        {reading.closingReading !== null ? (
+                                            <Badge variant="default" className="bg-green-500">
+                                                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-1 h-3 w-3" />
+                                                Complete
+                                            </Badge>
                                         ) : (
-                                            <div className="flex items-center gap-2">
-                                                {Number(reading.testQty) > 0 ? (
-                                                    <p className="font-medium">
-                                                        {parseFloat(reading.testQty.toString()).toFixed(2)} L
-                                                    </p>
-                                                ) : (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-6 text-xs px-2 border-dashed text-muted-foreground"
-                                                        onClick={() => setEditingTestQtyId(reading.id)}
-                                                    >
-                                                        + Add Test Qty
-                                                    </Button>
-                                                )}
-                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                                onClick={() => handleRemoveNozzleClick(reading)}
+                                                title="Remove Nozzle"
+                                            >
+                                                <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
+                                            </Button>
                                         )}
                                     </div>
-                                </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor={`closing-${reading.id}`}>Closing Reading</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id={`closing-${reading.id}`}
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="Enter closing reading"
-                                            defaultValue={
-                                                reading.closingReading !== null
-                                                    ? parseFloat(reading.closingReading.toString())
-                                                    : ""
-                                            }
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    const value = parseFloat(e.currentTarget.value)
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-muted-foreground">Opening</p>
+                                            <p className="font-medium">
+                                                {parseFloat(reading.openingReading.toString()).toFixed(2)} L
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground flex items-center gap-2">
+                                                Test Qty
+                                                {!editingTestQtyId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                                        onClick={() => setEditingTestQtyId(reading.id)}
+                                                    >
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
+                                                    </Button>
+                                                )}
+                                            </p>
+                                            {editingTestQtyId === reading.id ? (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="h-7 w-20 px-2 text-sm"
+                                                        defaultValue={parseFloat(reading.testQty.toString())}
+                                                        id={`test-qty-${reading.id}`}
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={() => {
+                                                            const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
+                                                            const val = parseFloat(input.value) || 0
+                                                            onUpdateTestQty(reading.id, val)
+                                                            setEditingTestQtyId(null)
+                                                        }}
+                                                    >
+                                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => setEditingTestQtyId(null)}
+                                                    >
+                                                        <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    {Number(reading.testQty) > 0 ? (
+                                                        <p className="font-medium">
+                                                            {parseFloat(reading.testQty.toString()).toFixed(2)} L
+                                                        </p>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-6 text-xs px-2 border-dashed text-muted-foreground"
+                                                            onClick={() => setEditingTestQtyId(reading.id)}
+                                                        >
+                                                            + Add Test Qty
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`closing-${reading.id}`}>Closing Reading</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id={`closing-${reading.id}`}
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="Enter closing reading"
+                                                defaultValue={
+                                                    reading.closingReading !== null
+                                                        ? parseFloat(reading.closingReading.toString())
+                                                        : ""
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const value = parseFloat(e.currentTarget.value)
+                                                        if (!isNaN(value)) {
+                                                            onUpdateClosingReading(reading.id, value)
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                onClick={() => {
+                                                    const input = document.getElementById(`closing-${reading.id}`) as HTMLInputElement
+                                                    const value = parseFloat(input.value)
                                                     if (!isNaN(value)) {
                                                         onUpdateClosingReading(reading.id, value)
                                                     }
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            onClick={() => {
-                                                const input = document.getElementById(`closing-${reading.id}`) as HTMLInputElement
-                                                const value = parseFloat(input.value)
-                                                if (!isNaN(value)) {
-                                                    onUpdateClosingReading(reading.id, value)
-                                                }
-                                            }}
-                                            size="icon"
-                                        >
-                                            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-                                        </Button>
+                                                }}
+                                                size="icon"
+                                            >
+                                                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        ))}
                 </div>
 
                 {/* Right: Payments */}
@@ -651,6 +697,33 @@ export function ShiftDashboardStep({
                         <Button variant="outline" onClick={() => setIsAddNozzleOpen(false)}>Cancel</Button>
                         <Button onClick={handleAddNozzle} disabled={!selectedNozzleToAdd || addNozzleMutation.isPending}>
                             {addNozzleMutation.isPending ? "Adding..." : "Add Nozzle"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Remove Nozzle Confirmation Dialog */}
+            <Dialog open={isRemoveNozzleOpen} onOpenChange={setIsRemoveNozzleOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remove Nozzle</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to remove nozzle {nozzleToRemove?.nozzle.code} from this shift?
+                            This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="bg-amber-50 rounded-md p-3 text-sm text-amber-800 border border-amber-200 my-2 flex gap-2">
+                        <HugeiconsIcon icon={InformationCircleIcon} className="h-5 w-5 shrink-0" />
+                        <p>This will remove the nozzle from your active shift and make it available for others. No sales data will be recorded for this nozzle.</p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRemoveNozzleOpen(false)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmRemoveNozzle}
+                            disabled={removeNozzleMutation.isPending}
+                        >
+                            {removeNozzleMutation.isPending ? "Removing..." : "Remove Nozzle"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
