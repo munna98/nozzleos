@@ -2,9 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { trpc } from "@/lib/trpc"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading02Icon, Analytics01Icon } from "@hugeicons/core-free-icons"
+import { Analytics01Icon } from "@hugeicons/core-free-icons"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, CartesianGrid } from 'recharts'
 import { useState } from "react"
 
@@ -21,7 +22,7 @@ export function StaffPerformanceChart() {
                     <CardTitle>📊 Staff Variance</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[300px] flex items-center justify-center">
-                    <HugeiconsIcon icon={Loading02Icon} className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <Spinner className="size-6" />
                 </CardContent>
             </Card>
         )

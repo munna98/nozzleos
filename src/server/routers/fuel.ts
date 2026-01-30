@@ -43,10 +43,21 @@ export const fuelRouter = router({
             name: z.string().min(1).optional(),
             price: z.number().min(0).optional(),
             isActive: z.boolean().optional(),
+            syncNozzlePrices: z.boolean().optional(),
         }))
         .mutation(async ({ input }) => {
-            const { id, ...data } = input
-            return prisma.fuel.update({ where: { id }, data })
+            const { id, syncNozzlePrices, ...data } = input
+            
+            const updatedFuel = await prisma.fuel.update({ where: { id }, data })
+            
+            if (syncNozzlePrices && data.price !== undefined) {
+                await prisma.nozzle.updateMany({
+                    where: { fuelId: id, deletedAt: null },
+                    data: { price: data.price }
+                })
+            }
+            
+            return updatedFuel
         }),
 
     /**

@@ -3,11 +3,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
 import { trpc } from "@/lib/trpc"
 import { formatDistanceToNow } from "date-fns"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading02Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 
 export function PendingVerificationsPanel() {
     const router = useRouter()
@@ -26,7 +27,7 @@ export function PendingVerificationsPanel() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center py-8">
-                    <HugeiconsIcon icon={Loading02Icon} className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Spinner className="size-6" />
                 </CardContent>
             </Card>
         )

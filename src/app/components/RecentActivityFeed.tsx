@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Spinner } from "@/components/ui/spinner"
 import { trpc } from "@/lib/trpc"
 import { formatDistanceToNow } from "date-fns"
 import { useRouter } from "next/navigation"
@@ -9,7 +10,6 @@ import {
     Clock01Icon,
     Tick02Icon,
     Cancel01Icon,
-    Loading02Icon,
     MenuCircleIcon
 } from "@hugeicons/core-free-icons"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ export function RecentActivityFeed() {
                     <CardTitle className="text-lg">📋 Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center py-8">
-                    <HugeiconsIcon icon={Loading02Icon} className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Spinner className="size-6" />
                 </CardContent>
             </Card>
         )

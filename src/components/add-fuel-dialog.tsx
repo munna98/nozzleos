@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 
 interface AddFuelDialogProps {
@@ -41,6 +42,7 @@ export function AddFuelDialog({
         price: 0,
         isActive: true
     })
+    const [syncNozzlePrices, setSyncNozzlePrices] = useState(false)
 
     const utils = trpc.useUtils()
     const createFuelMutation = trpc.fuel.create.useMutation({
@@ -58,6 +60,7 @@ export function AddFuelDialog({
     const updateFuelMutation = trpc.fuel.update.useMutation({
         onSuccess: () => {
             utils.fuel.getAll.invalidate()
+            utils.dispenser.getAll.invalidate()
             toast.success("Fuel updated successfully")
             onSuccess()
         },
@@ -76,12 +79,14 @@ export function AddFuelDialog({
                 price: fuelToEdit.price,
                 isActive: fuelToEdit.isActive
             })
+            setSyncNozzlePrices(false)
         } else {
             setFormData({
                 name: "",
                 price: 0,
                 isActive: true
             })
+            setSyncNozzlePrices(false)
         }
     }, [fuelToEdit, open])
 
@@ -92,7 +97,8 @@ export function AddFuelDialog({
             updateFuelMutation.mutate({
                 id: fuelToEdit.id,
                 ...formData,
-                isActive: formData.isActive
+                isActive: formData.isActive,
+                syncNozzlePrices
             })
         } else {
             createFuelMutation.mutate(formData)
@@ -138,23 +144,36 @@ export function AddFuelDialog({
                         </div>
 
                         {fuelToEdit && (
-                            <div className="grid md:grid-cols-4 items-center gap-4">
-                                <Label htmlFor="status" className="text-left md:text-right">
-                                    Status
-                                </Label>
-                                <Select
-                                    value={formData.isActive ? "true" : "false"}
-                                    onValueChange={(val) => setFormData({ ...formData, isActive: val === "true" })}
-                                >
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Select status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="true">Active</SelectItem>
-                                        <SelectItem value="false">Inactive</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <>
+                                <div className="grid md:grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="status" className="text-left md:text-right">
+                                        Status
+                                    </Label>
+                                    <Select
+                                        value={formData.isActive ? "true" : "false"}
+                                        onValueChange={(val) => setFormData({ ...formData, isActive: val === "true" })}
+                                    >
+                                        <SelectTrigger className="col-span-3">
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="true">Active</SelectItem>
+                                            <SelectItem value="false">Inactive</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-2">
+                                    <Checkbox
+                                        id="syncNozzles"
+                                        checked={syncNozzlePrices}
+                                        onCheckedChange={(checked) => setSyncNozzlePrices(checked === true)}
+                                    />
+                                    <Label htmlFor="syncNozzles" className="font-normal cursor-pointer">
+                                        Also update rates at every nozzle that uses this fuel
+                                    </Label>
+                                </div>
+                            </>
                         )}
                     </div>
                     <DialogFooter>
