@@ -27,6 +27,14 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog"
+import {
     Combobox,
     ComboboxContent,
     ComboboxEmpty,
@@ -60,6 +68,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
     const [editingOpeningId, setEditingOpeningId] = useState<number | null>(null)
+    const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false)
 
     // Shift Details State
     const [shiftDetails, setShiftDetails] = useState({
@@ -115,6 +124,15 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
         onSuccess: () => {
             utils.shift.getById.invalidate({ id: shift.id })
             toast.success("Payment deleted")
+        },
+        onError: (err) => toast.error(err.message)
+    })
+
+    const finishShiftMutation = trpc.shift.complete.useMutation({
+        onSuccess: () => {
+            utils.shift.getById.invalidate({ id: shift.id })
+            toast.success("Shift finished successfully")
+            setIsFinishDialogOpen(false)
         },
         onError: (err) => toast.error(err.message)
     })
@@ -266,6 +284,22 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
             ...prev,
             [denomId]: Math.max(0, numCount)
         }))
+    }
+
+    const handleFinishAttempt = () => {
+        const allHaveClosing = shift.nozzleReadings.every((r: any) => r.closingReading !== null && r.closingReading !== undefined)
+        if (!allHaveClosing) {
+            return toast.error("Please enter closing readings for all nozzles")
+        }
+        setIsFinishDialogOpen(true)
+    }
+
+    const handleConfirmFinish = () => {
+        finishShiftMutation.mutate({
+            shiftId: shift.id,
+            notes: shiftDetails.notes || undefined,
+            endTime: shiftDetails.endTime || undefined
+        })
     }
 
     // Calculations for summary display
@@ -741,8 +775,61 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                             </CardContent>
                         </Card>
                     </div>
+
+                    {shift.status === 'in_progress' && (
+                        <div className="pt-6 border-t">
+                            <Button className="w-full" size="lg" onClick={handleFinishAttempt}>
+                                Finish Shift
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Finish Shift Dialog */}
+            <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Finish Shift</DialogTitle>
+                        <DialogDescription>
+                            Review the shift summary before finalizing.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground mb-1">Fuel Sales</p>
+                                <p className="font-bold">₹{shift.totalFuelSales?.toFixed(2)}</p>
+                            </div>
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground mb-1">Collected</p>
+                                <p className="font-bold">₹{totalCollected.toFixed(2)}</p>
+                            </div>
+                        </div>
+
+                        <div className={`p-4 rounded-lg text-center ${shortage < 0 ? 'bg-destructive/10 text-destructive' : shortage > 0 ? 'bg-green-500/10 text-green-700' : 'bg-muted'}`}>
+                            <p className="text-sm font-semibold mb-1">
+                                {shortage < 0 ? 'Shortage' : shortage > 0 ? 'Excess' : 'Balanced'}
+                            </p>
+                            <p className="text-2xl font-bold">
+                                ₹{Math.abs(shortage).toFixed(2)}
+                            </p>
+                        </div>
+
+                        <div className="text-sm text-center text-muted-foreground px-4">
+                            Ending this shift will release assigned nozzles and submit for verification.
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsFinishDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleConfirmFinish} disabled={finishShiftMutation.isPending}>
+                            {finishShiftMutation.isPending ? "Finishing..." : "Confirm Finish"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -279,6 +279,7 @@ export const shiftRouter = router({
                 closingReading: z.number().min(0),
             })).optional(),
             notes: z.string().optional(),
+            endTime: z.date().optional(),
         }))
         .mutation(async ({ input }) => {
             const shift = await prisma.dutySession.findUnique({
@@ -342,7 +343,7 @@ export const shiftRouter = router({
                 where: { id: input.shiftId },
                 data: {
                     status: 'pending_verification',
-                    endTime: new Date(),
+                    endTime: input.endTime || new Date(),
                     notes: input.notes,
                 },
                 include: {
