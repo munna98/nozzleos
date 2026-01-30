@@ -7,6 +7,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+} from "@/components/ui/combobox"
 
 interface PaymentFiltersProps {
     fromDate: Date | undefined
@@ -115,6 +123,15 @@ export function PaymentFilters({
 
     const preset = getPresetValue()
 
+    const methodOptions = [
+        { id: "all", name: "All Methods" },
+        { id: "standard_all", name: "All Standard Methods" },
+        { id: "customer_all", name: "All Customer Methods" },
+        ...paymentMethods.map(m => ({ id: m.id.toString(), name: m.name }))
+    ]
+
+    const selectedMethod = methodOptions.find(m => m.id === paymentMethodId)
+
     return (
         <div className={className}>
             {/* Date Range Preset */}
@@ -172,21 +189,26 @@ export function PaymentFilters({
             </Select>
 
             {/* Payment Method Filter */}
-            <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="All Payment Methods" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Methods</SelectItem>
-                    <SelectItem value="standard_all">All Standard Methods</SelectItem>
-                    <SelectItem value="customer_all">All Customer Methods</SelectItem>
-                    {paymentMethods.map((method) => (
-                        <SelectItem key={method.id} value={method.id.toString()}>
-                            {method.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            <div className="w-full md:w-[220px]">
+                <Combobox
+                    items={methodOptions}
+                    value={selectedMethod || null}
+                    onValueChange={(val: any) => setPaymentMethodId(val?.id ?? "all")}
+                    itemToStringLabel={(item: any) => item?.name ?? ""}
+                >
+                    <ComboboxInput placeholder="Select Method" className="w-full" />
+                    <ComboboxContent>
+                        <ComboboxEmpty>No methods found.</ComboboxEmpty>
+                        <ComboboxList>
+                            {(item: any) => (
+                                <ComboboxItem key={item.id} value={item}>
+                                    {item.name}
+                                </ComboboxItem>
+                            )}
+                        </ComboboxList>
+                    </ComboboxContent>
+                </Combobox>
+            </div>
         </div>
     )
 }

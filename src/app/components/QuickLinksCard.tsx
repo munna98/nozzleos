@@ -51,18 +51,18 @@ export function QuickLinksCard() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {links.map((link) => (
                         <Button
                             key={link.href}
                             variant="outline"
-                            className="h-auto py-3 flex flex-col gap-2 items-center justify-center hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                            className="h-auto py-3 px-4 flex flex-row md:flex-col gap-3 md:gap-2 items-center justify-start md:justify-center hover:border-primary/50 hover:bg-accent/50 transition-all group"
                             onClick={() => router.push(link.href)}
                         >
                             <div className={`p-2 rounded-full ${link.bgColor} ${link.color} group-hover:scale-110 transition-transform`}>
                                 <HugeiconsIcon icon={link.icon} className="h-5 w-5" />
                             </div>
-                            <span className="text-xs font-medium text-center text-muted-foreground group-hover:text-foreground">
+                            <span className="text-sm md:text-xs font-medium text-muted-foreground group-hover:text-foreground">
                                 {link.label}
                             </span>
                         </Button>

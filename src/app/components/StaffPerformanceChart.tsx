@@ -18,7 +18,7 @@ export function StaffPerformanceChart() {
         return (
             <Card className="col-span-2">
                 <CardHeader>
-                    <CardTitle>📊 Staff Performance Comparison</CardTitle>
+                    <CardTitle>📊 Staff Variance</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[300px] flex items-center justify-center">
                     <HugeiconsIcon icon={Loading02Icon} className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -62,7 +62,7 @@ export function StaffPerformanceChart() {
                 <div className="space-y-1">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <HugeiconsIcon icon={Analytics01Icon} className="h-5 w-5" />
-                        Staff Performance Comparison
+                        Staff Variance
                     </CardTitle>
                     <CardDescription>
                         Net shortage/excess by employee
@@ -81,7 +81,7 @@ export function StaffPerformanceChart() {
                 </Select>
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] w-full">
+                <div className="h-[300px] w-full min-w-0">
                     {chartData.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                             <p>No performance data available for this period</p>
