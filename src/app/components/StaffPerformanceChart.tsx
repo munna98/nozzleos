@@ -88,7 +88,7 @@ export function StaffPerformanceChart() {
                             <p>No performance data available for this period</p>
                         </div>
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={300}>
                             <BarChart
                                 layout="vertical"
                                 data={chartData}

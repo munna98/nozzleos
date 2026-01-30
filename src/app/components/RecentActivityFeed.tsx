@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge"
 export function RecentActivityFeed() {
     const router = useRouter()
     const { data: shifts, isLoading } = trpc.shift.getRecentCompleted.useQuery(
-        { limit: 10 },
+        { limit: 5 },
         { refetchInterval: 60000 }
     )
 
@@ -57,7 +57,7 @@ export function RecentActivityFeed() {
     }
 
     return (
-        <Card className="h-full">
+        <Card>
             <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <HugeiconsIcon icon={Clock01Icon} className="h-5 w-5 text-muted-foreground" />
@@ -70,7 +70,7 @@ export function RecentActivityFeed() {
                         <p>No recent activity</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                         {shifts?.map((shift) => (
                             <div
                                 key={shift.id}

@@ -66,16 +66,21 @@ export function ActiveShiftsPanel() {
                                         {shift.user.name || shift.user.username}
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Badge variant="outline" className="text-xs">
+                                        <span className="font-medium">
                                             {shift.type}
-                                        </Badge>
+                                        </span>
                                         <span>•</span>
                                         <span>
                                             {formatDistanceToNow(new Date(shift.startTime), { addSuffix: false })} elapsed
                                         </span>
                                     </div>
-                                    <div className="text-sm text-muted-foreground">
-                                        Nozzles: {shift.nozzles.map(n => n.code).join(', ')}
+                                    <div className="flex items-center gap-1.5 text-sm flex-wrap">
+                                        <HugeiconsIcon icon={FuelStationIcon} className="h-3.5 w-3.5 text-muted-foreground" />
+                                        {shift.nozzles.map((n, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs">
+                                                {n.code}
+                                            </Badge>
+                                        ))}
                                     </div>
                                 </div>
                                 <Button

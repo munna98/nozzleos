@@ -43,28 +43,20 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Left Column - Operational Status */}
-        <div className="space-y-6 lg:row-span-2">
+        <div className="space-y-6">
           <ActiveShiftsPanel />
           <PendingVerificationsPanel />
         </div>
 
-        {/* Middle Column Top - Fuel Rates */}
+        {/* Middle Column - Fuel Rates & Activity */}
         <div className="space-y-6">
           <FuelRatesPanel />
-        </div>
-
-        {/* Right Column Top - Quick Links */}
-        <div className="space-y-6">
-          <QuickLinksCard />
-        </div>
-
-        {/* Middle & Right Column Bottom - Activity Feed */}
-        <div className="space-y-6 md:col-span-2 lg:col-span-2">
           <RecentActivityFeed />
         </div>
 
-        {/* Bottom Section - Analytics */}
-        <div className="md:col-span-2 lg:col-span-3">
+        {/* Right Column - Quick Links & Analytics */}
+        <div className="space-y-6">
+          <QuickLinksCard />
           <StaffPerformanceChart />
         </div>
       </div>

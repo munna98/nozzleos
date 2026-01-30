@@ -44,7 +44,7 @@ export function PendingVerificationsPanel() {
                         <span className="h-2 w-2 rounded-full bg-yellow-500" />
                         Pending Verifications
                         {pendingCount > 0 && (
-                            <Badge variant="destructive" className="ml-2">{pendingCount}</Badge>
+                            <Badge variant="secondary" className="ml-2">{pendingCount}</Badge>
                         )}
                     </CardTitle>
                     {pendingCount > 5 && (
