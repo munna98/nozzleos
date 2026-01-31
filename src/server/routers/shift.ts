@@ -887,7 +887,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update shift details
      */
-    adminUpdateShift: adminProcedure
+    adminUpdateShift: protectedProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
@@ -898,9 +898,18 @@ export const shiftRouter = router({
                 endTime: z.date().optional(),
             })
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new Error('You do not have permission to edit this shift')
+            }
+
             if (shift.status === 'verified') {
                 throw new Error('Cannot edit a verified shift')
             }
@@ -920,7 +929,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update individual nozzle reading
      */
-    adminUpdateNozzleReading: adminProcedure
+    adminUpdateNozzleReading: protectedProcedure
         .input(z.object({
             shiftId: z.number(),
             readingId: z.number(),
@@ -930,10 +939,19 @@ export const shiftRouter = router({
                 testQty: z.number().optional(),
             })
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             // Check shift status
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new Error('You do not have permission to edit this shift')
+            }
+
             if (shift.status === 'verified') {
                 throw new Error('Cannot edit a verified shift')
             }
@@ -963,7 +981,7 @@ export const shiftRouter = router({
     /**
      * Admin: Add payment
      */
-    adminAddPayment: adminProcedure
+    adminAddPayment: protectedProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
@@ -976,9 +994,18 @@ export const shiftRouter = router({
                 coinsAmount: z.number().min(0).optional(),
             })
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new Error('You do not have permission to add payments to this shift')
+            }
+
             if (shift.status === 'verified') {
                 throw new Error('Cannot add payment to a verified shift')
             }
@@ -1019,7 +1046,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update payment
      */
-    adminUpdatePayment: adminProcedure
+    adminUpdatePayment: protectedProcedure
         .input(z.object({
             shiftId: z.number(),
             paymentId: z.number(),
@@ -1033,9 +1060,18 @@ export const shiftRouter = router({
                 coinsAmount: z.number().min(0).optional(),
             })
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new Error('You do not have permission to edit payments in this shift')
+            }
+
             if (shift.status === 'verified') {
                 throw new Error('Cannot edit payment in a verified shift')
             }
@@ -1092,14 +1128,23 @@ export const shiftRouter = router({
     /**
      * Admin: Delete payment
      */
-    adminDeletePayment: adminProcedure
+    adminDeletePayment: protectedProcedure
         .input(z.object({
             shiftId: z.number(),
             paymentId: z.number(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new Error('You do not have permission to delete payments from this shift')
+            }
+
             if (shift.status === 'verified') {
                 throw new Error('Cannot delete payment from a verified shift')
             }

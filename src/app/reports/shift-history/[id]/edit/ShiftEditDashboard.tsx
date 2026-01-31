@@ -68,9 +68,11 @@ interface PaymentMethodSummary {
 
 interface ShiftEditDashboardProps {
     shift: ShiftDetail
+    isAdmin: boolean
+    currentUserId?: number
 }
 
-export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
+export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditDashboardProps) {
     const utils = trpc.useUtils()
     const [selectedMethodId, setSelectedMethodId] = useState("")
     const [manualAmount, setManualAmount] = useState("")
@@ -146,6 +148,15 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
             utils.shift.getById.invalidate({ id: shift.id })
             toast.success("Shift finished successfully")
             setIsFinishDialogOpen(false)
+        },
+        onError: (err) => toast.error(err.message)
+    })
+
+    const resubmitMutation = trpc.shift.resubmitForVerification.useMutation({
+        onSuccess: () => {
+            toast.success("Shift resubmitted for verification")
+            utils.shift.invalidate()
+            window.location.href = `/reports/shift-history/${shift.id}`
         },
         onError: (err) => toast.error(err.message)
     })
@@ -340,6 +351,10 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
         })
     }
 
+    const handleResubmit = () => {
+        resubmitMutation.mutate({ shiftId: shift.id })
+    }
+
     // Calculations for summary display
     const totalCollected = shift.sessionPayments?.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0) || 0
     const shortage = shift.shortage // Already present in getById response
@@ -377,6 +392,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                             <Select
                                 value={shiftDetails.shiftType}
                                 onValueChange={(v) => setShiftDetails(prev => ({ ...prev, shiftType: v as ShiftType }))}
+                                disabled={!isAdmin}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -393,6 +409,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                             <DateTimePicker
                                 date={shiftDetails.startTime}
                                 setDate={(date) => setShiftDetails(prev => ({ ...prev, startTime: date || new Date() }))}
+                                disabled={!isAdmin}
                             />
                         </div>
                         <div className="space-y-2">
@@ -400,6 +417,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                             <DateTimePicker
                                 date={shiftDetails.endTime}
                                 setDate={(date) => setShiftDetails(prev => ({ ...prev, endTime: date }))}
+                                disabled={!isAdmin}
                             />
                         </div>
                         <div className="space-y-2">
@@ -858,6 +876,19 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                         <div className="pt-6 border-t">
                             <Button className="w-full" size="lg" onClick={handleFinishAttempt}>
                                 Finish Shift
+                            </Button>
+                        </div>
+                    )}
+
+                    {shift.status === 'rejected' && (
+                        <div className="pt-6 border-t">
+                            <Button
+                                className="w-full"
+                                size="lg"
+                                onClick={handleResubmit}
+                                disabled={resubmitMutation.isPending}
+                            >
+                                {resubmitMutation.isPending ? "Resubmitting..." : "Resubmit for Verification"}
                             </Button>
                         </div>
                     )}

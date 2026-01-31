@@ -18,7 +18,7 @@ interface ShiftHistoryListProps {
     shifts: ShiftSession[]
     isAdmin: boolean
     onViewShift: (shiftId: number) => void
-    onVerifyShift?: (shiftId: number) => void
+    onVerifyShift?: (shift: ShiftSession) => void
 }
 
 export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }: ShiftHistoryListProps) {
@@ -118,7 +118,7 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                                             <Button
                                                 size="sm"
                                                 className="h-6 gap-1"
-                                                onClick={(e) => handleAction(e, () => onVerifyShift(shift.id))}
+                                                onClick={(e) => handleAction(e, () => onVerifyShift(shift))}
                                             >
                                                 <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
                                                 Approve

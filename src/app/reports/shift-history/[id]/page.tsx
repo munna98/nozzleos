@@ -54,6 +54,7 @@ export default function ShiftDetailPage() {
             <ShiftDetailView
                 shift={shiftDetailQuery.data}
                 isAdmin={isAdmin}
+                currentUserId={user?.id}
                 onBack={handleBack}
                 onVerifySuccess={() => shiftDetailQuery.refetch()}
             />

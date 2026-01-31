@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
@@ -31,14 +32,18 @@ interface PaymentMethodSummary {
 interface ShiftDetailProps {
     shift: ShiftDetail
     isAdmin: boolean
+    currentUserId?: number
     onBack: () => void
     onVerifySuccess?: () => void
 }
 
-export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: ShiftDetailProps) {
+export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerifySuccess }: ShiftDetailProps) {
+    const isShiftOwner = currentUserId === shift.userId
     const [isRejecting, setIsRejecting] = useState(false)
     const [rejectionNotes, setRejectionNotes] = useState("")
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+    const [showApproveDialog, setShowApproveDialog] = useState(false)
+    const [showRejectDialog, setShowRejectDialog] = useState(false)
 
 
     const [expandedGroupIds, setExpandedGroupIds] = useState<number[]>([])
@@ -113,6 +118,25 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
         })
     }
 
+    const confirmApproval = () => {
+        verifyMutation.mutate({
+            shiftId: shift.id,
+            approved: true,
+        })
+        setShowApproveDialog(false)
+    }
+
+    const confirmRejection = () => {
+        verifyMutation.mutate({
+            shiftId: shift.id,
+            approved: false,
+            notes: rejectionNotes
+        })
+        setShowRejectDialog(false)
+        setIsRejecting(false)
+        setRejectionNotes("")
+    }
+
     const handleResubmit = () => {
         resubmitMutation.mutate({ shiftId: shift.id })
     }
@@ -184,13 +208,14 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                         </div>
                     </div>
                 </div>
-                {isAdmin && shift.status !== 'verified' && (
+                {/* Edit button: Admin can edit non-verified shifts, Owner can edit rejected shifts */}
+                {((isAdmin && shift.status !== 'verified') || (isShiftOwner && shift.status === 'rejected')) && (
                     <Button
                         onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}
                         className="gap-2"
                     >
                         <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
-                        <span className="hidden md:inline">Edit Shift</span>
+                        <span className="hidden md:inline">{shift.status === 'rejected' ? 'Edit & Resubmit' : 'Edit Shift'}</span>
                     </Button>
                 )}
             </div>
@@ -218,12 +243,15 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                                     <strong>Reason:</strong> {(shift as any).rejectionNotes}
                                 </div>
                             )}
-                            <div className="mt-3">
-                                <Button size="sm" variant="outline" onClick={handleResubmit} disabled={resubmitMutation.isPending}>
-                                    <HugeiconsIcon icon={RefreshIcon} className="mr-2 h-3.5 w-3.5" />
-                                    Resubmit for Verification
-                                </Button>
-                            </div>
+                            {/* Only show resubmit button to shift owner, not to admin */}
+                            {isShiftOwner && (
+                                <div className="mt-3">
+                                    <Button size="sm" variant="outline" onClick={handleResubmit} disabled={resubmitMutation.isPending}>
+                                        <HugeiconsIcon icon={RefreshIcon} className="mr-2 h-3.5 w-3.5" />
+                                        Resubmit for Verification
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </AlertDescription>
                 </Alert>
@@ -262,7 +290,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                                 <>
                                     <Button
                                         className="flex-1"
-                                        onClick={() => handleVerify(true)}
+                                        onClick={() => setShowApproveDialog(true)}
                                         disabled={verifyMutation.isPending}
                                     >
                                         <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-2 h-4 w-4" />
@@ -283,7 +311,7 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                                     <Button
                                         variant="destructive"
                                         className="flex-1"
-                                        onClick={() => handleVerify(false)}
+                                        onClick={() => setShowRejectDialog(true)}
                                         disabled={verifyMutation.isPending || !rejectionNotes.trim()}
                                     >
                                         Confirm Rejection
@@ -584,6 +612,68 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                     </Card>
                 )}
             </div>
+
+            {/* Approve Confirmation Dialog */}
+            <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Approve Shift?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to approve the {shift.type?.toLowerCase()} shift for {shift.user?.name || shift.user?.username}. This action will mark the shift as verified.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="mt-3 space-y-1 text-sm px-6">
+                        <div className="flex justify-between">
+                            <span className="font-medium">Total Fuel Sales:</span>
+                            <span>₹{shift.totalFuelSales.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-medium">Total Collected:</span>
+                            <span>₹{shift.totalCollected.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-medium">Shortage/Excess:</span>
+                            <span className={shift.shortage > 0 ? 'text-green-600' : shift.shortage < 0 ? 'text-red-600' : ''}>
+                                {shift.shortage > 0 ? '+' : shift.shortage < 0 ? '-' : ''}₹{Math.abs(shift.shortage).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={verifyMutation.isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmApproval} disabled={verifyMutation.isPending}>
+                            Approve Shift
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Reject Confirmation Dialog */}
+            <AlertDialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reject Shift?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to reject the {shift.type?.toLowerCase()} shift for {shift.user?.name || shift.user?.username}. The staff member will be notified and can resubmit the shift after making corrections.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6">
+                        <div className="mt-3 p-3 bg-muted rounded-md">
+                            <p className="text-sm font-medium mb-1">Rejection Reason:</p>
+                            <p className="text-sm italic">{rejectionNotes || 'No reason provided'}</p>
+                        </div>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={verifyMutation.isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmRejection}
+                            disabled={verifyMutation.isPending}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Reject Shift
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     )
 }

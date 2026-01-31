@@ -13,6 +13,17 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, FilterIcon } from "@hugeicons/core-free-icons"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 
 export default function ShiftHistoryPage() {
     const router = useRouter()
@@ -29,6 +40,7 @@ export default function ShiftHistoryPage() {
         status: statusParam || undefined
     })
     const [filterOpen, setFilterOpen] = useState(false)
+    const [selectedShiftForVerify, setSelectedShiftForVerify] = useState<any | null>(null)
 
     const [page, setPage] = useState(0)
     const limit = 10
@@ -87,10 +99,25 @@ export default function ShiftHistoryPage() {
         }
     })
 
-    const handleVerifyShift = (shiftId: number) => {
+    const handleVerifyShift = (shift: any) => {
+        setSelectedShiftForVerify(shift)
+    }
+
+    const confirmQuickApproval = () => {
+        if (!selectedShiftForVerify) return
+
         verifyMutation.mutate({
-            shiftId,
+            shiftId: selectedShiftForVerify.id,
             approved: true
+        }, {
+            onSuccess: () => {
+                toast.success("Shift approved successfully")
+                setSelectedShiftForVerify(null)
+                // invalidate is already handled in mutation onSuccess
+            },
+            onError: (err) => {
+                toast.error(err.message)
+            }
         })
     }
 
@@ -122,6 +149,7 @@ export default function ShiftHistoryPage() {
                     <ShiftDetailView
                         shift={shiftDetailQuery.data}
                         isAdmin={isAdmin}
+                        currentUserId={user?.id}
                         onBack={handleCloseDetail}
                         onVerifySuccess={onVerifySuccess}
                     />
@@ -189,6 +217,55 @@ export default function ShiftHistoryPage() {
                 setPage={setPage}
                 limit={limit}
             />
+
+            {/* Quick Verify Confirmation Dialog */}
+            <AlertDialog open={!!selectedShiftForVerify} onOpenChange={(open) => !open && setSelectedShiftForVerify(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Approve Shift?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to approve the {selectedShiftForVerify?.type?.toLowerCase()} shift for {selectedShiftForVerify?.user?.name || selectedShiftForVerify?.user?.username}. This action will mark the shift as verified.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {selectedShiftForVerify && (() => {
+                        const totalFuelSales = selectedShiftForVerify.nozzleReadings.reduce((total: number, reading: any) => {
+                            const dispensed = Number(reading.fuelDispensed?.toString() || 0)
+                            const price = Number(reading.nozzle.price)
+                            return total + (dispensed * price)
+                        }, 0)
+                        const totalCollected = Number(selectedShiftForVerify.totalPaymentCollected)
+                        const shortage = totalCollected - totalFuelSales
+
+                        return (
+                            <div className="mt-3 space-y-1 text-sm px-6">
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Total Fuel Sales:</span>
+                                    <span>₹{totalFuelSales.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Total Collected:</span>
+                                    <span>₹{totalCollected.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Shortage/Excess:</span>
+                                    <span className={shortage > 0 ? 'text-green-600' : shortage < 0 ? 'text-red-600' : ''}>
+                                        {shortage > 0 ? '+' : shortage < 0 ? '-' : ''}₹{Math.abs(shortage).toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        )
+                    })()}
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={verifyMutation.isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmQuickApproval}
+                            disabled={verifyMutation.isPending}
+                        >
+                            Approve Shift
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

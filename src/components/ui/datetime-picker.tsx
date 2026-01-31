@@ -19,9 +19,10 @@ interface DateTimePickerProps {
     setDate: (date?: Date) => void
     placeholder?: string
     className?: string
+    disabled?: boolean
 }
 
-export function DateTimePicker({ date, setDate, placeholder = "Pick date & time", className }: DateTimePickerProps) {
+export function DateTimePicker({ date, setDate, placeholder = "Pick date & time", className, disabled }: DateTimePickerProps) {
     const [open, setOpen] = React.useState(false)
 
     const handleDateSelect = (selectedDate: Date | undefined) => {
@@ -63,6 +64,7 @@ export function DateTimePicker({ date, setDate, placeholder = "Pick date & time"
                         !date && "text-muted-foreground",
                         className
                     )}
+                    disabled={disabled}
                 >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? format(date, "PPP p") : <span>{placeholder}</span>}
