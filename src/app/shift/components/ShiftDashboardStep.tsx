@@ -330,7 +330,7 @@ export function ShiftDashboardStep({
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="grid grid-cols-3 gap-3 text-sm">
                                         <div>
                                             <p className="text-muted-foreground">Opening</p>
                                             <p className="font-medium">
@@ -402,6 +402,18 @@ export function ShiftDashboardStep({
                                                 </div>
                                             )}
                                         </div>
+                                        {reading.closingReading !== null && (
+                                            <div>
+                                                <p className="text-muted-foreground">Qty Dispensed</p>
+                                                <p className="font-medium">
+                                                    {(
+                                                        parseFloat(reading.closingReading.toString()) -
+                                                        parseFloat(reading.openingReading.toString()) -
+                                                        parseFloat(reading.testQty.toString())
+                                                    ).toFixed(2)} L
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-2">
