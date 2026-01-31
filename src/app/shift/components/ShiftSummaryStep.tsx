@@ -230,12 +230,12 @@ export function ShiftSummaryStep({
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-medium">{summary.methodName}</span>
                                                             {summary.count > 1 && (
-                                                                <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal focus:ring-0">
-                                                                    {summary.count}
-                                                                </Badge>
+                                                                <span className="text-[10px] text-muted-foreground font-medium ml-2">
+                                                                    ({summary.count})
+                                                                </span>
                                                             )}
                                                             {summary.count === 1 && summary.payments[0]?.denominations?.length > 0 && (
-                                                                <span className="text-[10px] text-muted-foreground font-medium ml-auto sm:ml-2">
+                                                                <span className="text-[10px] text-muted-foreground font-medium ml-2">
                                                                     {expandedGroupIds.includes(summary.methodId) ? "Hide Details" : "View Details"}
                                                                 </span>
                                                             )}
