@@ -18,7 +18,9 @@ import {
     Delete02Icon,
     Cancel01Icon,
     PlusSignIcon,
-    InformationCircleIcon
+    InformationCircleIcon,
+    ArrowDown01Icon,
+    ArrowUp01Icon
 } from "@hugeicons/core-free-icons"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -42,6 +44,15 @@ type SessionPayment = NonNullable<ShiftSession['sessionPayments']>[number]
 type Denomination = RouterOutputs['denomination']['getAll'][number]
 type Settings = RouterOutputs['settings']['get']
 type ShiftSummary = RouterOutputs['shift']['getSummary']
+
+// Pre-calculate totals for grouping
+interface PaymentMethodSummary {
+    methodId: number
+    methodName: string
+    totalAmount: number
+    count: number
+    payments: SessionPayment[]
+}
 
 interface DenominationCount {
     denominationId: number
@@ -91,6 +102,7 @@ export function ShiftDashboardStep({
     const [coinsAmount, setCoinsAmount] = useState("")
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
 
     // Add Nozzle State
@@ -264,6 +276,34 @@ export function ShiftDashboardStep({
         setCoinsAmount("")
         setEditingPaymentId(null)
     }
+
+
+
+    // Calculate method totals
+    const methodSummaries = useMemo(() => {
+        const summaries: Record<number, PaymentMethodSummary> = {}
+
+        // Initialize with all available methods to show 0 for unused ones if needed, 
+        // or just rely on payments. Let's start with empty.
+
+        session.sessionPayments?.forEach(payment => {
+            if (!summaries[payment.paymentMethodId]) {
+                summaries[payment.paymentMethodId] = {
+                    methodId: payment.paymentMethodId,
+                    methodName: payment.paymentMethod.name,
+                    totalAmount: 0,
+                    count: 0,
+                    payments: []
+                }
+            }
+
+            summaries[payment.paymentMethodId].totalAmount += parseFloat(payment.amount.toString())
+            summaries[payment.paymentMethodId].count += 1
+            summaries[payment.paymentMethodId].payments.push(payment)
+        })
+
+        return summaries
+    }, [session.sessionPayments])
 
     return (
         <div className="space-y-6">
@@ -483,8 +523,13 @@ export function ShiftDashboardStep({
                                             <ComboboxEmpty>No items found.</ComboboxEmpty>
                                             <ComboboxList>
                                                 {(item: PaymentMethod) => (
-                                                    <ComboboxItem key={item.id} value={item}>
-                                                        {item.name}
+                                                    <ComboboxItem key={item.id} value={item} className="justify-between">
+                                                        <span>{item.name}</span>
+                                                        {methodSummaries[item.id] && (
+                                                            <Badge variant="secondary" className="ml-2 text-xs h-5 px-1.5 font-normal">
+                                                                ₹{methodSummaries[item.id].totalAmount.toLocaleString()} {methodSummaries[item.id].count > 1 && `(${methodSummaries[item.id].count})`}
+                                                            </Badge>
+                                                        )}
                                                     </ComboboxItem>
                                                 )}
                                             </ComboboxList>
@@ -579,64 +624,81 @@ export function ShiftDashboardStep({
 
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Payment History</p>
-                            {[...(session.sessionPayments || [])]
+
+                            {/* Grouped Payment History */}
+                            {(session.sessionPayments || [])
                                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                                .map((payment: SessionPayment) => (
-                                    <Card key={payment.id} className="relative overflow-hidden">
-                                        <CardContent className="py-2 px-3">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-medium flex items-center gap-2">
-                                                        {payment.paymentMethod.name}
-                                                        {payment.denominations && payment.denominations.length > 0 && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                                                            >
-                                                                {expandedPaymentId === payment.id ? "Hide" : "Details"}
-                                                            </Button>
-                                                        )}
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {new Date(payment.createdAt).toLocaleTimeString()}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <p className="font-bold text-lg">₹{payment.amount.toString()}</p>
-                                                    <div className="flex gap-1">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
-                                                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeletePayment(payment.id)}>
-                                                            <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
+                                .map((payment) => (
+                                    <div key={payment.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-sm">{payment.paymentMethod?.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                                {payment.denominations && payment.denominations.length > 0 && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
+                                                        }}
+                                                    >
+                                                        {expandedPaymentId === payment.id ? "Hide Details" : "View Details"}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-bold">₹{parseFloat(payment.amount.toString()).toLocaleString()}</span>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleEditPayment(payment)
+                                                        }}
+                                                    >
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            onDeletePayment(payment.id)
+                                                        }}
+                                                    >
+                                                        <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                                    </Button>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {/* Denomination Breakdown */}
-                                            {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
-                                                <div className="mt-2 pt-2 border-t text-sm bg-muted/30 p-2 rounded-md">
-                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                                        {payment.denominations.map((d: any) => (
-                                                            <div key={d.id} className="flex justify-between items-center text-xs">
-                                                                <span>{d.denomination?.label || `Note ${d.denominationId}`} <span className="text-muted-foreground">x {d.count}</span></span>
-                                                                <span className="font-medium">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
-                                                            </div>
-                                                        ))}
-                                                        {Number(payment.coinsAmount) > 0 && (
-                                                            <div className="flex justify-between items-center text-xs pt-1 border-t border-dashed mt-1 col-span-2">
-                                                                <span>Coins</span>
-                                                                <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                        {/* Denomination Details */}
+                                        {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
+                                            <div className="mt-1 pt-2 border-t text-sm bg-muted/30 p-2 rounded-md">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                    {payment.denominations.map((d: any) => (
+                                                        <div key={d.id} className="flex justify-between items-center text-xs">
+                                                            <span>{d.denomination?.label || `Note ${d.denominationId}`} <span className="text-muted-foreground">x {d.count}</span></span>
+                                                            <span className="font-medium">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                    {Number(payment.coinsAmount) > 0 && (
+                                                        <div className="flex justify-between items-center text-xs pt-1 border-t border-dashed mt-1 col-span-2">
+                                                            <span>Coins</span>
+                                                            <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             {(!session.sessionPayments || session.sessionPayments.length === 0) && (
                                 <p className="text-center text-muted-foreground text-sm py-4">

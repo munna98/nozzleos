@@ -16,7 +16,9 @@ import {
     Cancel01Icon,
     PlusSignIcon,
     Settings01Icon,
-    TimeQuarterPassIcon
+    TimeQuarterPassIcon,
+    ArrowDown01Icon,
+    ArrowUp01Icon
 } from "@hugeicons/core-free-icons"
 import {
     Select,
@@ -53,6 +55,16 @@ type RouterOutput = inferRouterOutputs<AppRouter>
 type ShiftDetail = NonNullable<RouterOutput['shift']['getById']>
 type PaymentMethod = RouterOutput['paymentMethod']['getAll'][number]
 type Denomination = RouterOutput['denomination']['getAll'][number]
+type Payment = NonNullable<ShiftDetail['sessionPayments']>[number]
+
+// Pre-calculate totals for grouping
+interface PaymentMethodSummary {
+    methodId: number
+    methodName: string
+    totalAmount: number
+    count: number
+    payments: Payment[]
+}
 
 interface ShiftEditDashboardProps {
     shift: ShiftDetail
@@ -66,6 +78,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
     const [coinsAmount, setCoinsAmount] = useState("")
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
     const [editingOpeningId, setEditingOpeningId] = useState<number | null>(null)
     const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false)
@@ -294,6 +307,31 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
         setIsFinishDialogOpen(true)
     }
 
+
+
+    // Calculate method totals
+    const methodSummaries = useMemo(() => {
+        const summaries: Record<number, PaymentMethodSummary> = {}
+
+        shift.sessionPayments?.forEach(payment => {
+            if (!summaries[payment.paymentMethodId]) {
+                summaries[payment.paymentMethodId] = {
+                    methodId: payment.paymentMethodId,
+                    methodName: payment.paymentMethod.name,
+                    totalAmount: 0,
+                    count: 0,
+                    payments: []
+                }
+            }
+
+            summaries[payment.paymentMethodId].totalAmount += parseFloat(payment.amount.toString())
+            summaries[payment.paymentMethodId].count += 1
+            summaries[payment.paymentMethodId].payments.push(payment)
+        })
+
+        return summaries
+    }, [shift.sessionPayments])
+
     const handleConfirmFinish = () => {
         finishShiftMutation.mutate({
             shiftId: shift.id,
@@ -402,7 +440,7 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="grid grid-cols-3 gap-3 text-sm">
                                     <div>
                                         <p className="text-muted-foreground flex items-center gap-2">
                                             Opening
@@ -520,6 +558,18 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                                             </div>
                                         )}
                                     </div>
+                                    {reading.closingReading !== null && (
+                                        <div>
+                                            <p className="text-muted-foreground">Qty Dispensed</p>
+                                            <p className="font-medium">
+                                                {(
+                                                    parseFloat(reading.closingReading.toString()) -
+                                                    parseFloat(reading.openingReading.toString()) -
+                                                    parseFloat(reading.testQty.toString())
+                                                ).toFixed(2)} L
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">
@@ -589,8 +639,13 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                                             <ComboboxEmpty>No items found.</ComboboxEmpty>
                                             <ComboboxList>
                                                 {(item: PaymentMethod) => (
-                                                    <ComboboxItem key={item.id} value={item}>
-                                                        {item.name}
+                                                    <ComboboxItem key={item.id} value={item} className="justify-between">
+                                                        <span>{item.name}</span>
+                                                        {methodSummaries[item.id] && (
+                                                            <Badge variant="secondary" className="ml-2 text-xs h-5 px-1.5 font-normal">
+                                                                ₹{methodSummaries[item.id].totalAmount.toLocaleString()} {methodSummaries[item.id].count > 1 && `(${methodSummaries[item.id].count})`}
+                                                            </Badge>
+                                                        )}
                                                     </ComboboxItem>
                                                 )}
                                             </ComboboxList>
@@ -686,45 +741,68 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
 
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Payment History</p>
-                            {[...(shift.sessionPayments || [])]
-                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                                .map((payment: any) => (
-                                    <Card key={payment.id} className="relative overflow-hidden">
-                                        <CardContent className="py-2 px-3">
+                            {/* Flat Payment List */}
+                            {(shift.sessionPayments || []).length === 0 ? (
+                                <p className="text-center text-muted-foreground text-sm py-4">
+                                    No payments recorded yet.
+                                </p>
+                            ) : (
+                                (shift.sessionPayments || [])
+                                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                    .map((payment) => (
+                                        <div key={payment.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm">
                                             <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-medium flex items-center gap-2">
-                                                        {payment.paymentMethod.name}
-                                                        {payment.denominations && payment.denominations.length > 0 && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                                                            >
-                                                                {expandedPaymentId === payment.id ? "Hide" : "Details"}
-                                                            </Button>
-                                                        )}
-                                                    </p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm">{payment.paymentMethod?.name}</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    {payment.denominations && payment.denominations.length > 0 && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
+                                                            }}
+                                                        >
+                                                            {expandedPaymentId === payment.id ? "Hide Details" : "View Details"}
+                                                        </Button>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <p className="font-bold text-lg">₹{parseFloat(payment.amount.toString())}</p>
+                                                    <span className="font-bold">₹{parseFloat(payment.amount.toString()).toLocaleString()}</span>
                                                     <div className="flex gap-1">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
-                                                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleEditPayment(payment)
+                                                            }}
+                                                        >
+                                                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
-                                                            if (confirm("Delete payment?")) deletePaymentMutation.mutate({ shiftId: shift.id, paymentId: payment.id })
-                                                        }}>
-                                                            <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                if (confirm("Delete payment?")) deletePaymentMutation.mutate({ shiftId: shift.id, paymentId: payment.id })
+                                                            }}
+                                                        >
+                                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
                                                         </Button>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Denomination Breakdown */}
+                                            {/* Denomination Details */}
                                             {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
-                                                <div className="mt-2 pt-2 border-t text-sm bg-muted/30 p-2 rounded-md">
+                                                <div className="mt-1 pt-2 border-t text-sm bg-muted/30 p-2 rounded-md">
                                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                                         {payment.denominations.map((d: any) => (
                                                             <div key={d.id} className="flex justify-between items-center text-xs">
@@ -741,9 +819,9 @@ export function ShiftEditDashboard({ shift }: ShiftEditDashboardProps) {
                                                     </div>
                                                 </div>
                                             )}
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                        </div>
+                                    ))
+                            )}
                             {(!shift.sessionPayments || shift.sessionPayments.length === 0) && (
                                 <p className="text-center text-muted-foreground text-sm py-4">
                                     No payments recorded yet.

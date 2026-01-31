@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useState, Fragment, useMemo } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon } from "@hugeicons/core-free-icons"
+import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { toast } from "sonner"
 
@@ -18,6 +18,15 @@ import { AppRouter } from '@/server/trpc/router'
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 type ShiftDetail = NonNullable<RouterOutput['shift']['getById']>
+type Payment = NonNullable<ShiftDetail['sessionPayments']>[number]
+
+interface PaymentMethodSummary {
+    methodId: number
+    methodName: string
+    totalAmount: number
+    count: number
+    payments: Payment[]
+}
 
 interface ShiftDetailProps {
     shift: ShiftDetail
@@ -31,6 +40,39 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
     const [rejectionNotes, setRejectionNotes] = useState("")
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
 
+
+    const [expandedGroupIds, setExpandedGroupIds] = useState<number[]>([])
+
+    // Calculate method totals
+    const methodSummaries = useMemo(() => {
+        const summaries: Record<number, PaymentMethodSummary> = {}
+
+        shift.sessionPayments?.forEach(payment => {
+            if (!summaries[payment.paymentMethodId]) {
+                summaries[payment.paymentMethodId] = {
+                    methodId: payment.paymentMethodId,
+                    methodName: payment.paymentMethod.name,
+                    totalAmount: 0,
+                    count: 0,
+                    payments: []
+                }
+            }
+
+            summaries[payment.paymentMethodId].totalAmount += parseFloat(payment.amount.toString())
+            summaries[payment.paymentMethodId].count += 1
+            summaries[payment.paymentMethodId].payments.push(payment)
+        })
+
+        return summaries
+    }, [shift.sessionPayments])
+
+    const toggleGroup = (methodId: number) => {
+        setExpandedGroupIds(prev =>
+            prev.includes(methodId)
+                ? prev.filter(id => id !== methodId)
+                : [...prev, methodId]
+        )
+    }
 
     const utils = trpc.useUtils()
 
@@ -414,50 +456,111 @@ export function ShiftDetailView({ shift, isAdmin, onBack, onVerifySuccess }: Shi
                                             </td>
                                         </tr>
                                     ) : (
-                                        shift.sessionPayments.map((payment: any) => (
-                                            <Fragment key={payment.id}>
-                                                <tr className="border-t">
-                                                    <td className="p-3">
-                                                        <div className="flex items-center gap-2">
-                                                            {payment.paymentMethod.name}
-                                                            {payment.denominations && payment.denominations.length > 0 && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
-                                                                    onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                                                                >
-                                                                    {expandedPaymentId === payment.id ? "Hide" : "Details"}
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3 text-right font-medium">
-                                                        ₹{parseFloat(payment.amount.toString()).toFixed(2)}
-                                                    </td>
-                                                </tr>
-                                                {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
-                                                    <tr className="bg-muted/30">
-                                                        <td colSpan={2} className="p-3">
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                                                {payment.denominations.map((d: any) => (
-                                                                    <div key={d.id} className="flex justify-between items-center bg-background border rounded px-2 py-1">
-                                                                        <span>{d.denomination?.label || `Note ${d.denominationId}`} <span className="text-muted-foreground">x {d.count}</span></span>
-                                                                        <span className="font-medium ml-2">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
-                                                                    </div>
-                                                                ))}
-                                                                {Number(payment.coinsAmount) > 0 && (
-                                                                    <div className="flex justify-between items-center bg-background border rounded px-2 py-1">
-                                                                        <span>Coins</span>
-                                                                        <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
-                                                                    </div>
+                                        Object.values(methodSummaries)
+                                            .sort((a, b) => b.totalAmount - a.totalAmount)
+                                            .map((summary) => (
+                                                <Fragment key={summary.methodId}>
+                                                    <tr
+                                                        className="border-t hover:bg-muted/50 cursor-pointer transition-colors"
+                                                        onClick={() => toggleGroup(summary.methodId)}
+                                                    >
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-medium">{summary.methodName}</span>
+                                                                {summary.count > 1 && (
+                                                                    <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal focus:ring-0">
+                                                                        {summary.count}
+                                                                    </Badge>
+                                                                )}
+                                                                {summary.count === 1 && summary.payments[0]?.denominations?.length > 0 && (
+                                                                    <span className="text-[10px] text-muted-foreground font-medium ml-auto sm:ml-2">
+                                                                        {expandedGroupIds.includes(summary.methodId) ? "Hide Details" : "View Details"}
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                         </td>
+                                                        <td className="p-3 text-right font-bold">
+                                                            ₹{summary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </td>
                                                     </tr>
-                                                )}
-                                            </Fragment>
-                                        ))
+
+                                                    {/* Expanded Payments List */}
+                                                    {expandedGroupIds.includes(summary.methodId) && (
+                                                        <tr className="bg-muted/10">
+                                                            <td colSpan={2} className="p-0">
+                                                                {summary.count === 1 && summary.payments[0]?.denominations?.length > 0 ? (
+                                                                    <div className="p-3 pl-10 pr-6 bg-background/50">
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-xs">
+                                                                            {summary.payments[0].denominations.map((d: any) => (
+                                                                                <div key={d.id} className="flex justify-between items-center py-0.5 last:border-0 border-muted">
+                                                                                    <span className="text-muted-foreground">{d.denomination?.label} × {d.count}</span>
+                                                                                    <span className="font-medium">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {Number(summary.payments[0].coinsAmount) > 0 && (
+                                                                                <div className="flex justify-between mt-1 pt-1 col-span-full border-muted">
+                                                                                    <span className="text-muted-foreground">Coins</span>
+                                                                                    <span className="font-medium">₹{Number(summary.payments[0].coinsAmount).toLocaleString()}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="divide-y border-y">
+                                                                        {summary.payments
+                                                                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                                                            .map((payment) => (
+                                                                                <div key={payment.id} className="p-3 pl-10 pr-6 flex flex-col gap-2">
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                {new Date(payment.createdAt).toLocaleTimeString()}
+                                                                                            </span>
+                                                                                            {payment.denominations && payment.denominations.length > 0 && (
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="sm"
+                                                                                                    className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation()
+                                                                                                        setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {expandedPaymentId === payment.id ? "Hide Details" : "View Details"}
+                                                                                                </Button>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        <span className="font-medium text-xs">₹{parseFloat(payment.amount.toString()).toFixed(2)}</span>
+                                                                                    </div>
+
+                                                                                    {/* Denomination Details */}
+                                                                                    {expandedPaymentId === payment.id && payment.denominations && payment.denominations.length > 0 && (
+                                                                                        <div className="bg-background border rounded p-2 text-xs">
+                                                                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                                                                {payment.denominations.map((d: any) => (
+                                                                                                    <div key={d.id} className="flex justify-between">
+                                                                                                        <span>{d.denomination?.label} x {d.count}</span>
+                                                                                                        <span className="font-medium">₹{(d.count * (d.denomination?.value || 0)).toLocaleString()}</span>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                                {Number(payment.coinsAmount) > 0 && (
+                                                                                                    <div className="flex justify-between border-t border-dashed mt-1 pt-1 col-span-2">
+                                                                                                        <span>Coins</span>
+                                                                                                        <span className="font-medium">₹{Number(payment.coinsAmount).toLocaleString()}</span>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            ))
                                     )}
                                     <tr className="border-t bg-muted/30 font-medium">
                                         <td className="p-3 text-right">Total Collected</td>
