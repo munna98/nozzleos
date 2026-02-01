@@ -639,6 +639,10 @@ export const shiftRouter = router({
                             include: { nozzle: { include: { fuel: true } } },
                         },
                         sessionPayments: { include: { paymentMethod: true } },
+                        editRequests: {
+                            where: { status: "pending" },
+                            include: { requestedByUser: { select: { id: true, name: true, username: true } } }
+                        }
                     },
                     orderBy: { startTime: 'desc' },
                     skip: input.offset,
@@ -677,6 +681,10 @@ export const shiftRouter = router({
                             denominations: { include: { denomination: true } },
                         }
                     },
+                    editRequests: {
+                        where: { status: 'pending' },
+                        include: { requestedByUser: { select: { id: true, name: true, username: true } } }
+                    }
 
                 },
             })

@@ -11,6 +11,7 @@ import { settingsRouter } from '../routers/settings'
 import { denominationRouter } from '../routers/denomination'
 import { paymentRouter } from '../routers/payment'
 import { staffRouter } from '../routers/staff'
+import { shiftEditRequestRouter } from '../routers/shift-edit-request'
 
 export const appRouter = router({
     auth: authRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
     settings: settingsRouter,
     denomination: denominationRouter,
     staff: staffRouter,
+    shiftEditRequest: shiftEditRequestRouter,
 })
 
 export type AppRouter = typeof appRouter

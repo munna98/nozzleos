@@ -4,12 +4,19 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { FuelStationIcon, TimeQuarterPassIcon } from "@hugeicons/core-free-icons"
+import { FuelStationIcon, TimeQuarterPassIcon, PlayIcon } from "@hugeicons/core-free-icons"
 import { useAuth } from "@/lib/auth-context"
+import { trpc } from "@/lib/trpc"
 
 export default function DashboardPage() {
     const router = useRouter()
     const { user } = useAuth()
+
+    const activeShiftQuery = trpc.shift.getActive.useQuery(undefined, {
+        retry: false
+    })
+
+    const hasActiveShift = !!activeShiftQuery.data
 
     return (
         <div className="container mx-auto py-10 px-4">
@@ -23,22 +30,26 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 max-w-2xl">
-                {/* Start New Shift */}
+                {/* Start/Continue Shift */}
                 <Card className="cursor-pointer hover:border-primary/50 transition-colors group" onClick={() => router.push('/shift')}>
                     <CardHeader>
                         <div className="flex items-center gap-3">
                             <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6" />
+                                <HugeiconsIcon icon={hasActiveShift ? PlayIcon : FuelStationIcon} className="h-6 w-6" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg">Start New Shift</CardTitle>
-                                <CardDescription>Begin a new duty shift</CardDescription>
+                                <CardTitle className="text-lg">
+                                    {hasActiveShift ? "Continue Active Shift" : "Start New Shift"}
+                                </CardTitle>
+                                <CardDescription>
+                                    {hasActiveShift ? "Resume your current duty session" : "Begin a new duty shift"}
+                                </CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent>
                         <Button className="w-full" size="lg">
-                            Start Shift
+                            {hasActiveShift ? "Continue Shift" : "Start Shift"}
                         </Button>
                     </CardContent>
                 </Card>

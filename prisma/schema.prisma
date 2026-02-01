@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,24 +15,24 @@ model UserRole {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique
-  name         String?
-  passwordHash String
-  code         String?
-  mobile       String?
-  isActive     Boolean  @default(true)
-  address      String?
-  roleId       Int
-  role         UserRole @relation(fields: [roleId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
-  
-  // Shift Management
-  dutySessions      DutySession[]  @relation("UserSessions")
-  verifiedSessions  DutySession[]  @relation("VerifiedSessions")
-  
+  id                    Int                @id @default(autoincrement())
+  username              String             @unique
+  name                  String?
+  passwordHash          String
+  code                  String?
+  mobile                String?
+  isActive              Boolean            @default(true)
+  address               String?
+  roleId                Int
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  deletedAt             DateTime?
+  dutySessions          DutySession[]      @relation("UserSessions")
+  verifiedSessions      DutySession[]      @relation("VerifiedSessions")
+  initiatedEditRequests ShiftEditRequest[] @relation("EditRequestInitiatedBy")
+  approvedEditRequests  ShiftEditRequest[] @relation("EditRequestApprovedBy")
+  role                  UserRole           @relation(fields: [roleId], references: [id])
+
   @@index([roleId, isActive])
   @@index([isActive])
 }
@@ -50,7 +47,7 @@ model Customer {
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
   paymentMethod PaymentMethod?
-  
+
   @@index([isActive])
   @@index([phone])
 }
@@ -60,11 +57,11 @@ model PaymentMethod {
   name            String           @unique
   isActive        Boolean          @default(true)
   customerId      Int?             @unique
-  customer        Customer?        @relation(fields: [customerId], references: [id])
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  customer        Customer?        @relation(fields: [customerId], references: [id])
   sessionPayments SessionPayment[]
-  
+
   @@index([isActive])
 }
 
@@ -73,11 +70,11 @@ model Fuel {
   name      String    @unique
   price     Float     @default(0)
   isActive  Boolean   @default(true)
-  nozzles   Nozzle[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-  
+  nozzles   Nozzle[]
+
   @@index([isActive])
 }
 
@@ -86,65 +83,55 @@ model Dispenser {
   code      String    @unique
   name      String
   isActive  Boolean   @default(true)
-  nozzles   Nozzle[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-  
+  nozzles   Nozzle[]
+
   @@index([isActive])
 }
 
 model Nozzle {
-  id             Int       @id @default(autoincrement())
-  code           String    @unique
-  dispenserId    Int
-  dispenser      Dispenser @relation(fields: [dispenserId], references: [id])
-  fuelId         Int
-  fuel           Fuel      @relation(fields: [fuelId], references: [id])
-  price          Float     @default(0)
-  currentreading Float     @default(0)
-  isActive       Boolean   @default(true)
-  isAvailable    Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
-
+  id                    Int                    @id @default(autoincrement())
+  code                  String                 @unique
+  dispenserId           Int
+  fuelId                Int
+  price                 Float                  @default(0)
+  currentreading        Float                  @default(0)
+  isActive              Boolean                @default(true)
+  isAvailable           Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  dispenser             Dispenser              @relation(fields: [dispenserId], references: [id])
+  fuel                  Fuel                   @relation(fields: [fuelId], references: [id])
   nozzleSessionReadings NozzleSessionReading[]
-  
+
   @@index([isActive, isAvailable])
   @@index([dispenserId])
   @@index([fuelId])
 }
 
-enum ShiftType {
-  MORNING
-  EVENING
-  NIGHT
-}
-
-// Shift Management Models
 model DutySession {
   id                    Int                    @id @default(autoincrement())
   userId                Int
-  user                  User                   @relation("UserSessions", fields: [userId], references: [id])
   type                  ShiftType              @default(MORNING)
   startTime             DateTime               @default(now())
   endTime               DateTime?
-  status                String                 @default("in_progress")  // in_progress, pending_verification, verified, rejected
+  status                String                 @default("in_progress")
   totalPaymentCollected Decimal                @default(0) @db.Decimal(10, 2)
-  notes                 String?                @db.Text
+  notes                 String?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
-  
-  // Verification fields
   verifiedAt            DateTime?
   verifiedByUserId      Int?
+  rejectionNotes        String?
+  user                  User                   @relation("UserSessions", fields: [userId], references: [id])
   verifiedBy            User?                  @relation("VerifiedSessions", fields: [verifiedByUserId], references: [id])
-  rejectionNotes        String?                @db.Text
-
   nozzleReadings        NozzleSessionReading[]
   sessionPayments       SessionPayment[]
-  
+  editRequests          ShiftEditRequest[]
+
   @@index([userId, status])
   @@index([status, endTime])
   @@index([userId, endTime])
@@ -154,68 +141,86 @@ model DutySession {
 model NozzleSessionReading {
   id             Int         @id @default(autoincrement())
   dutySessionId  Int
-  dutySession    DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
   nozzleId       Int
-  nozzle         Nozzle      @relation(fields: [nozzleId], references: [id])
   openingReading Decimal     @db.Decimal(10, 2)
   testQty        Decimal     @default(0) @db.Decimal(10, 2)
   closingReading Decimal?    @db.Decimal(10, 2)
   fuelDispensed  Decimal     @default(0) @db.Decimal(10, 2)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-  
+  dutySession    DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
+  nozzle         Nozzle      @relation(fields: [nozzleId], references: [id])
+
   @@index([dutySessionId])
   @@index([nozzleId])
 }
 
 model SessionPayment {
-  id              Int           @id @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   dutySessionId   Int
-  dutySession     DutySession   @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
   paymentMethodId Int
-  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
-  amount          Decimal       @db.Decimal(10, 2)
+  amount          Decimal               @db.Decimal(10, 2)
   quantity        Int?
-  coinsAmount     Decimal?      @db.Decimal(10, 2)  // Lump sum for coins
-  createdAt       DateTime      @default(now())
-  
+  coinsAmount     Decimal?              @db.Decimal(10, 2)
+  createdAt       DateTime              @default(now())
   denominations   PaymentDenomination[]
-  
+  dutySession     DutySession           @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
+  paymentMethod   PaymentMethod         @relation(fields: [paymentMethodId], references: [id])
+
   @@index([dutySessionId])
   @@index([paymentMethodId])
   @@index([createdAt])
 }
 
-// App settings (single row pattern)
 model Settings {
   id                      Int      @id @default(1)
-  enableDenominationEntry Boolean  @default(true)  // Show denomination grid for cash
-  enableCoinEntry         Boolean  @default(true)  // Show coins lump sum field
+  enableDenominationEntry Boolean  @default(true)
+  enableCoinEntry         Boolean  @default(true)
   updatedAt               DateTime @updatedAt
 }
 
-// Available currency denominations (notes only)
 model Denomination {
-  id        Int     @id @default(autoincrement())
-  value     Int     @unique  //500, 200, 100, 50, 20, 10
-  label     String  // "₹500", etc.
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
-  
+  id                   Int                   @id @default(autoincrement())
+  value                Int                   @unique
+  label                String
+  isActive             Boolean               @default(true)
+  sortOrder            Int                   @default(0)
   paymentDenominations PaymentDenomination[]
-  
+
   @@index([sortOrder])
   @@index([isActive])
 }
 
-// Junction table: which denominations were used in a payment
 model PaymentDenomination {
   id               Int            @id @default(autoincrement())
   sessionPaymentId Int
-  sessionPayment   SessionPayment @relation(fields: [sessionPaymentId], references: [id], onDelete: Cascade)
   denominationId   Int
-  denomination     Denomination   @relation(fields: [denominationId], references: [id])
   count            Int            @default(0)
-  
+  denomination     Denomination   @relation(fields: [denominationId], references: [id])
+  sessionPayment   SessionPayment @relation(fields: [sessionPaymentId], references: [id], onDelete: Cascade)
+
   @@unique([sessionPaymentId, denominationId])
+}
+
+model ShiftEditRequest {
+  id                Int       @id @default(autoincrement())
+  dutySessionId     Int
+  dutySession       DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
+  requestedByUserId Int
+  requestedByUser   User      @relation("EditRequestInitiatedBy", fields: [requestedByUserId], references: [id])
+  reason            String
+  status            String    @default("pending") // "pending" | "approved"
+  approvedByUserId  Int?
+  approvedByUser    User?     @relation("EditRequestApprovedBy", fields: [approvedByUserId], references: [id])
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([dutySessionId])
+  @@index([status])
+}
+
+enum ShiftType {
+  MORNING
+  EVENING
+  NIGHT
 }

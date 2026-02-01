@@ -13,6 +13,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { toast } from "sonner"
+import { EditRequestDialog } from "@/app/shift/components/EditRequestDialog"
+import { LockKeyIcon } from "@hugeicons/core-free-icons"
 
 import { inferRouterOutputs } from '@trpc/server'
 import { AppRouter } from '@/server/trpc/router'
@@ -44,6 +46,8 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
     const [showApproveDialog, setShowApproveDialog] = useState(false)
     const [showRejectDialog, setShowRejectDialog] = useState(false)
+    const [showEditRequestDialog, setShowEditRequestDialog] = useState(false)
+    const [hasPendingRequest, setHasPendingRequest] = useState(!!(shift.editRequests && shift.editRequests.length > 0))
 
 
     const [expandedGroupIds, setExpandedGroupIds] = useState<number[]>([])
@@ -102,6 +106,18 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
         },
         onError: (err) => {
             toast.error(err.message || "Failed to resubmit shift")
+        }
+    })
+
+    const cancelEditMutation = trpc.shiftEditRequest.cancel.useMutation({
+        onSuccess: () => {
+            toast.success("Edit request cancelled")
+            setHasPendingRequest(false)
+            utils.shift.invalidate()
+            if (onVerifySuccess) onVerifySuccess()
+        },
+        onError: (err) => {
+            toast.error(err.message || "Failed to cancel edit request")
         }
     })
 
@@ -218,7 +234,51 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                         <span className="hidden md:inline">{shift.status === 'rejected' ? 'Edit & Resubmit' : 'Edit Shift'}</span>
                     </Button>
                 )}
+
+                {/* Request Edit button: Admin wants to edit a verified shift */}
+                {(isAdmin && shift.status === 'verified') && (
+                    <>
+                        {hasPendingRequest ? (
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    if (confirm("Are you sure you want to cancel this edit request?")) {
+                                        cancelEditMutation.mutate({ requestId: shift.editRequests![0].id })
+                                    }
+                                }}
+                                disabled={cancelEditMutation.isPending}
+                                className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
+                            >
+                                <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                <span className="hidden md:inline">Cancel Edit Request</span>
+                                <span className="md:hidden">Cancel Request</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowEditRequestDialog(true)}
+                                className="gap-2 border-primary text-primary hover:bg-primary hover:text-white"
+                            >
+                                <HugeiconsIcon icon={LockKeyIcon} className="h-4 w-4" />
+                                <span className="hidden md:inline">Request Edit Permission</span>
+                                <span className="md:hidden">Request Edit</span>
+                            </Button>
+                        )}
+                    </>
+                )}
             </div>
+
+            <EditRequestDialog
+                open={showEditRequestDialog}
+                onOpenChange={setShowEditRequestDialog}
+                shiftId={shift.id}
+                shiftType={shift.type}
+                onSuccess={() => {
+                    setHasPendingRequest(true)
+                    utils.shift.invalidate()
+                    if (onVerifySuccess) onVerifySuccess()
+                }}
+            />
 
             {/* Verification Status Alert */}
             {shift.status === 'pending_verification' && (
@@ -267,68 +327,82 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                 </Alert>
             )}
 
-            {/* Admin Verification Controls */}
-            {isAdmin && shift.status === 'pending_verification' && (
-                <Card className="border-primary/50 shadow-sm bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Admin Verification</CardTitle>
-                        <CardDescription>Review the shift details below and verify or reject this submission.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {isRejecting && (
-                            <div className="space-y-2">
-                                <span className="text-sm font-medium">Rejection Reason (Required)</span>
-                                <Textarea
-                                    placeholder="Please explain why this shift is being rejected..."
-                                    value={rejectionNotes}
-                                    onChange={(e) => setRejectionNotes(e.target.value)}
-                                />
-                            </div>
-                        )}
-                        <div className="flex gap-3">
-                            {!isRejecting ? (
-                                <>
-                                    <Button
-                                        className="flex-1"
-                                        onClick={() => setShowApproveDialog(true)}
-                                        disabled={verifyMutation.isPending}
-                                    >
-                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-2 h-4 w-4" />
-                                        Approve Shift
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="flex-1"
-                                        onClick={() => setIsRejecting(true)}
-                                        disabled={verifyMutation.isPending}
-                                    >
-                                        <HugeiconsIcon icon={Cancel01Icon} className="mr-2 h-4 w-4 " />
-                                        Reject Shift
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Button
-                                        variant="destructive"
-                                        className="flex-1"
-                                        onClick={() => setShowRejectDialog(true)}
-                                        disabled={verifyMutation.isPending || !rejectionNotes.trim()}
-                                    >
-                                        Confirm Rejection
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="flex-1"
-                                        onClick={() => setIsRejecting(false)}
-                                    >
-                                        Cancel
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+            {/* Edit Request Pending Alert */}
+            {shift.status === 'verified' && hasPendingRequest && shift.editRequests && shift.editRequests.length > 0 && (
+                <Alert className="bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400">
+                    <HugeiconsIcon icon={InformationCircleIcon} className="h-4 w-4" />
+                    <AlertTitle>Edit Request Pending</AlertTitle>
+                    <AlertDescription>
+                        An edit request was submitted by {shift.editRequests[0].requestedByUser.name || shift.editRequests[0].requestedByUser.username} on {formatDateTime(shift.editRequests[0].createdAt)}.
+                        Awaiting approval from the shift owner.
+                    </AlertDescription>
+                </Alert>
             )}
+
+            {/* Admin Verification Controls */}
+            {
+                isAdmin && shift.status === 'pending_verification' && (
+                    <Card className="border-primary/50 shadow-sm bg-primary/5">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Admin Verification</CardTitle>
+                            <CardDescription>Review the shift details below and verify or reject this submission.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {isRejecting && (
+                                <div className="space-y-2">
+                                    <span className="text-sm font-medium">Rejection Reason (Required)</span>
+                                    <Textarea
+                                        placeholder="Please explain why this shift is being rejected..."
+                                        value={rejectionNotes}
+                                        onChange={(e) => setRejectionNotes(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                            <div className="flex gap-3">
+                                {!isRejecting ? (
+                                    <>
+                                        <Button
+                                            className="flex-1"
+                                            onClick={() => setShowApproveDialog(true)}
+                                            disabled={verifyMutation.isPending}
+                                        >
+                                            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="mr-2 h-4 w-4" />
+                                            Approve Shift
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => setIsRejecting(true)}
+                                            disabled={verifyMutation.isPending}
+                                        >
+                                            <HugeiconsIcon icon={Cancel01Icon} className="mr-2 h-4 w-4 " />
+                                            Reject Shift
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="destructive"
+                                            className="flex-1"
+                                            onClick={() => setShowRejectDialog(true)}
+                                            disabled={verifyMutation.isPending || !rejectionNotes.trim()}
+                                        >
+                                            Confirm Rejection
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => setIsRejecting(false)}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )
+            }
 
             {/* Main Content Sections - Vertically Stacked */}
             <div className="space-y-6">

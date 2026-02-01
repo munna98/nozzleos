@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     CheckmarkCircle02Icon,
     FuelStationIcon,
@@ -367,6 +368,24 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
 
     return (
         <div className="space-y-6">
+            {/* Locked Shift Warning */}
+            {shift.status === 'verified' && isAdmin && (
+                <Alert className="bg-yellow-500/10 border-yellow-500/50 text-yellow-600 dark:text-yellow-400">
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                    <AlertTitle>Shift is Locked</AlertTitle>
+                    <AlertDescription>
+                        This shift is verified and locked. You must request edit permission from the shift owner before making any changes.
+                        <Button
+                            variant="link"
+                            className="p-0 h-auto ml-2 text-yellow-600 dark:text-yellow-400 underline font-medium"
+                            onClick={() => window.location.href = `/reports/shift-history/${shift.id}`}
+                        >
+                            Go to request permission
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Shift Details Update */}
             <Card>
                 <CardHeader>

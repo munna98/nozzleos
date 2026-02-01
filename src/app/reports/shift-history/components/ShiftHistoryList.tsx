@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { UserCircleIcon, Calendar01Icon, TimeQuarterPassIcon, FuelStationIcon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
+import { useState } from "react"
+import { EditRequestAlert } from "./EditRequestAlert"
+import { EditRequestReviewDialog } from "@/app/shift/components/EditRequestReviewDialog"
+import { trpc } from "@/lib/trpc"
 
 import { inferRouterOutputs } from '@trpc/server'
 import { AppRouter } from '@/server/trpc/router'
@@ -22,6 +26,8 @@ interface ShiftHistoryListProps {
 }
 
 export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }: ShiftHistoryListProps) {
+    const [selectedRequest, setSelectedRequest] = useState<any>(null)
+    const utils = trpc.useUtils()
     const formatDate = (dateStr: string | Date) => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('en-GB', {
@@ -64,6 +70,9 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                 const totalCollected = Number(shift.totalPaymentCollected)
                 const shortage = totalCollected - totalSales
 
+                // @ts-ignore - editRequests might not be in types yet
+                const editRequests = shift.editRequests || []
+
                 // Stop propagation for action buttons to prevent card click opening detail
                 const handleAction = (e: React.MouseEvent, action: () => void) => {
                     e.stopPropagation()
@@ -78,6 +87,16 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                     >
                         <CardContent className="p-4">
                             <div className="flex flex-col gap-3">
+                                {/* Edit Request Alerts */}
+                                {editRequests.length > 0 && editRequests.map((req: any) => (
+                                    <div key={req.id} onClick={(e) => e.stopPropagation()}>
+                                        <EditRequestAlert
+                                            request={req}
+                                            onReviewClick={() => setSelectedRequest(req)}
+                                        />
+                                    </div>
+                                ))}
+
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between">
                                     <div>
@@ -167,6 +186,16 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                     </Card>
                 )
             })}
+
+            <EditRequestReviewDialog
+                open={!!selectedRequest}
+                onOpenChange={(open) => !open && setSelectedRequest(null)}
+                request={selectedRequest}
+                onSuccess={() => {
+                    utils.shift.invalidate()
+                    setSelectedRequest(null)
+                }}
+            />
         </div>
     )
 }
