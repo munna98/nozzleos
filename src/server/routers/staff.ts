@@ -25,12 +25,12 @@ export const staffRouter = router({
                 where.startTime = {}
                 if (input.startDate) {
                     const start = new Date(input.startDate)
-                    start.setHours(0, 0, 0, 0)
+                    // start.setHours(0, 0, 0, 0)
                     where.startTime.gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    end.setHours(0, 0, 0, 0)
+                    // end.setHours(0, 0, 0, 0)
                     end.setDate(end.getDate() + 1)
                     where.startTime.lt = end
                 }

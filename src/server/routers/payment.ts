@@ -24,12 +24,12 @@ export const paymentRouter = router({
                 where.createdAt = {}
                 if (input.startDate) {
                     const start = new Date(input.startDate)
-                    start.setHours(0, 0, 0, 0)
+                    // start.setHours(0, 0, 0, 0)
                     where.createdAt.gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    end.setHours(0, 0, 0, 0)
+                    // end.setHours(0, 0, 0, 0)
                     end.setDate(end.getDate() + 1)
                     where.createdAt.lt = end
                 }

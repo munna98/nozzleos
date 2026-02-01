@@ -34,8 +34,17 @@ import { PaymentFilters } from "./components/PaymentFilters"
 
 export default function PaymentTransactionsReport() {
     const router = useRouter()
-    const [fromDate, setFromDate] = useState<Date | undefined>(new Date())
-    const [toDate, setToDate] = useState<Date | undefined>(new Date())
+    const [fromDate, setFromDate] = useState<Date | undefined>(() => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+    })
+    const [toDate, setToDate] = useState<Date | undefined>(() => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+    })
+    const [datePreset, setDatePreset] = useState<string>("today")
     const [paymentMethodId, setPaymentMethodId] = useState<string>("all")
     const [attendantId, setAttendantId] = useState<string>("all")
     const [page, setPage] = useState(0)
@@ -52,6 +61,7 @@ export default function PaymentTransactionsReport() {
         offset: page * limit,
         startDate: fromDate,
         endDate: toDate,
+        datePreset,
         paymentMethodId: paymentMethodId !== "all" && paymentMethodId !== "customer_all" && paymentMethodId !== "standard_all" ? parseInt(paymentMethodId) : undefined,
         isCustomerPayment: paymentMethodId === "customer_all" ? true : (paymentMethodId === "standard_all" ? false : undefined),
         userId: attendantId !== "all" ? parseInt(attendantId) : undefined,
@@ -137,6 +147,8 @@ export default function PaymentTransactionsReport() {
                         setFromDate={handleFromDateChange}
                         toDate={toDate}
                         setToDate={handleToDateChange}
+                        datePreset={datePreset}
+                        setDatePreset={setDatePreset}
                         paymentMethodId={paymentMethodId}
                         setPaymentMethodId={handlePaymentMethodChange}
                         attendantId={attendantId}
@@ -157,6 +169,8 @@ export default function PaymentTransactionsReport() {
                             setFromDate={handleFromDateChange}
                             toDate={toDate}
                             setToDate={handleToDateChange}
+                            datePreset={datePreset}
+                            setDatePreset={setDatePreset}
                             paymentMethodId={paymentMethodId}
                             setPaymentMethodId={handlePaymentMethodChange}
                             attendantId={attendantId}

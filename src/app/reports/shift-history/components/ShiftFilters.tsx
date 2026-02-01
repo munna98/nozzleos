@@ -20,6 +20,7 @@ export interface ShiftFiltersState {
     userNameSearch?: string
     status?: string
     userId?: number
+    datePreset?: string
 }
 
 interface ShiftFiltersProps {
@@ -54,19 +55,22 @@ export function ShiftFilters({
     const handleFilterChange = (updates: Partial<ShiftFiltersState>) => {
         onFiltersChange({
             ...filters,
-            ...updates
+            ...updates,
+            // If user manually changes dates, reset preset to custom
+            datePreset: (updates.startDateFrom || updates.startDateTo) ? 'custom' : (updates.datePreset || filters.datePreset)
         })
     }
 
     const [isCustom, setIsCustom] = useState(false)
 
     const handleDateChange = (field: 'startDateFrom' | 'startDateTo', date?: Date) => {
-        handleFilterChange({ [field]: date })
+        handleFilterChange({ [field]: date, datePreset: 'custom' })
     }
 
     // Determine valid preset based on current dates
     const getPresetValue = () => {
         if (isCustom) return 'custom'
+        if (filters.datePreset === 'custom') return 'custom'
 
         const today = new Date()
         const yesterday = new Date(today)
@@ -79,10 +83,23 @@ export function ShiftFilters({
 
         const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+
         if (filters.startDateFrom && filters.startDateTo) {
             const from = new Date(filters.startDateFrom)
             const to = new Date(filters.startDateTo)
 
+            // If we have an explicit preset stored, check if it still matches the dates
+            if (filters.datePreset) {
+                if (filters.datePreset === 'today' && from.toDateString() === today.toDateString() && to.toDateString() === today.toDateString()) return 'today'
+                if (filters.datePreset === 'yesterday' && from.toDateString() === yesterday.toDateString() && to.toDateString() === yesterday.toDateString()) return 'yesterday'
+                if (filters.datePreset === 'this_week' && from.toDateString() === thisWeekStart.toDateString() && to.toDateString() === today.toDateString()) return 'this_week'
+                if (filters.datePreset === 'this_month' && from.toDateString() === thisMonthStart.toDateString() && to.toDateString() === today.toDateString()) return 'this_month'
+                if (filters.datePreset === 'last_month' && from.toDateString() === lastMonthStart.toDateString() && to.toDateString() === lastMonthEnd.toDateString()) return 'last_month'
+            }
+
+            // Fallback to logic if no preset stored or it doesn't match
             if (from.toDateString() === today.toDateString() && to.toDateString() === today.toDateString()) {
                 return 'today'
             }
@@ -94,6 +111,9 @@ export function ShiftFilters({
             }
             if (from.toDateString() === thisMonthStart.toDateString() && to.toDateString() === today.toDateString()) {
                 return 'this_month'
+            }
+            if (from.toDateString() === lastMonthStart.toDateString() && to.toDateString() === lastMonthEnd.toDateString()) {
+                return 'last_month'
             }
         }
         return 'custom'
@@ -111,39 +131,60 @@ export function ShiftFilters({
 
         const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+
         if (value === 'custom') {
             setIsCustom(true)
+            onFiltersChange({ ...filters, datePreset: 'custom' })
             return
         }
 
         setIsCustom(false)
 
         if (value === 'today') {
+            today.setHours(0, 0, 0, 0)
             onFiltersChange({
                 ...filters,
                 startDateFrom: today,
-                startDateTo: today
+                startDateTo: today,
+                datePreset: 'today'
             })
         } else if (value === 'yesterday') {
+            yesterday.setHours(0, 0, 0, 0)
             onFiltersChange({
                 ...filters,
                 startDateFrom: yesterday,
-                startDateTo: yesterday
+                startDateTo: yesterday,
+                datePreset: 'yesterday'
             })
         } else if (value === 'this_week') {
+            thisWeekStart.setHours(0, 0, 0, 0)
+            today.setHours(0, 0, 0, 0)
             onFiltersChange({
                 ...filters,
                 startDateFrom: thisWeekStart,
-                startDateTo: today
+                startDateTo: today,
+                datePreset: 'this_week'
             })
         } else if (value === 'this_month') {
+            thisMonthStart.setHours(0, 0, 0, 0)
+            today.setHours(0, 0, 0, 0)
             onFiltersChange({
                 ...filters,
                 startDateFrom: thisMonthStart,
-                startDateTo: today
+                startDateTo: today,
+                datePreset: 'this_month'
             })
-        } else {
-            // Custom: keep existing dates (allows user to edit)
+        } else if (value === 'last_month') {
+            lastMonthStart.setHours(0, 0, 0, 0)
+            lastMonthEnd.setHours(0, 0, 0, 0)
+            onFiltersChange({
+                ...filters,
+                startDateFrom: lastMonthStart,
+                startDateTo: lastMonthEnd,
+                datePreset: 'last_month'
+            })
         }
     }
 
@@ -164,6 +205,7 @@ export function ShiftFilters({
                         <SelectItem value="yesterday">Yesterday</SelectItem>
                         <SelectItem value="this_week">This Week</SelectItem>
                         <SelectItem value="this_month">This Month</SelectItem>
+                        <SelectItem value="last_month">Last Month</SelectItem>
                         <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                 </Select>

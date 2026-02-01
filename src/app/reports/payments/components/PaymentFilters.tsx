@@ -21,6 +21,8 @@ interface PaymentFiltersProps {
     setFromDate: (date: Date | undefined) => void
     toDate: Date | undefined
     setToDate: (date: Date | undefined) => void
+    datePreset: string
+    setDatePreset: (val: string) => void
     paymentMethodId: string
     setPaymentMethodId: (val: string) => void
     attendantId: string
@@ -35,6 +37,8 @@ export function PaymentFilters({
     setFromDate,
     toDate,
     setToDate,
+    datePreset,
+    setDatePreset,
     paymentMethodId,
     setPaymentMethodId,
     attendantId,
@@ -47,41 +51,48 @@ export function PaymentFilters({
 
     // Determine valid preset based on current dates
     const getPresetValue = () => {
-        if (isCustom) return 'custom'
+        if (isCustom || datePreset === 'custom') return 'custom'
 
         const today = new Date()
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
 
         const thisWeekStart = new Date(today)
-        // Adjust to Monday (1) or Sunday (0). Let's assume Monday is start of week.
         const day = thisWeekStart.getDay()
-        const diff = thisWeekStart.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
+        const diff = thisWeekStart.getDate() - day + (day === 0 ? -6 : 1)
         thisWeekStart.setDate(diff)
 
         const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
 
         if (fromDate && toDate) {
             const from = fromDate
             const to = toDate
 
+            // Priorities explicit preset if it matches the current dates
+            if (datePreset === 'today' && from.toDateString() === today.toDateString() && to.toDateString() === today.toDateString()) return 'today'
+            if (datePreset === 'yesterday' && from.toDateString() === yesterday.toDateString() && to.toDateString() === yesterday.toDateString()) return 'yesterday'
+            if (datePreset === 'this_week' && from.toDateString() === thisWeekStart.toDateString() && to.toDateString() === today.toDateString()) return 'this_week'
+            if (datePreset === 'this_month' && from.toDateString() === thisMonthStart.toDateString() && to.toDateString() === today.toDateString()) return 'this_month'
+            if (datePreset === 'last_month' && from.toDateString() === lastMonthStart.toDateString() && to.toDateString() === lastMonthEnd.toDateString()) return 'last_month'
+
+            // Fallback to date check
             if (from.toDateString() === today.toDateString() && to.toDateString() === today.toDateString()) {
                 return 'today'
             }
             if (from.toDateString() === yesterday.toDateString() && to.toDateString() === yesterday.toDateString()) {
                 return 'yesterday'
             }
-            // Check for This Week (from start of week to today)
-            // Or usually "This Week" is start of week to end of week?
-            // User likely wants "transactions for this week so far" or "all this week".
-            // Let's set ToDate to Today for "This Week" and "This Month" as it makes sense for reporting "current progress".
-            // Actually, for a *filter*, "This Month" usually implies the whole month range or from 1st to Today.
-            // Let's stick to 1st to Today.
             if (from.toDateString() === thisWeekStart.toDateString() && to.toDateString() === today.toDateString()) {
                 return 'this_week'
             }
             if (from.toDateString() === thisMonthStart.toDateString() && to.toDateString() === today.toDateString()) {
                 return 'this_month'
+            }
+            if (from.toDateString() === lastMonthStart.toDateString() && to.toDateString() === lastMonthEnd.toDateString()) {
+                return 'last_month'
             }
         }
         return 'custom'
@@ -99,6 +110,11 @@ export function PaymentFilters({
 
         const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+
+        setDatePreset(value)
+
         if (value === 'custom') {
             setIsCustom(true)
             return
@@ -107,17 +123,28 @@ export function PaymentFilters({
         setIsCustom(false)
 
         if (value === 'today') {
+            today.setHours(0, 0, 0, 0)
             setFromDate(today)
             setToDate(today)
         } else if (value === 'yesterday') {
+            yesterday.setHours(0, 0, 0, 0)
             setFromDate(yesterday)
             setToDate(yesterday)
         } else if (value === 'this_week') {
+            thisWeekStart.setHours(0, 0, 0, 0)
+            today.setHours(0, 0, 0, 0)
             setFromDate(thisWeekStart)
             setToDate(today)
         } else if (value === 'this_month') {
+            thisMonthStart.setHours(0, 0, 0, 0)
+            today.setHours(0, 0, 0, 0)
             setFromDate(thisMonthStart)
             setToDate(today)
+        } else if (value === 'last_month') {
+            lastMonthStart.setHours(0, 0, 0, 0)
+            lastMonthEnd.setHours(0, 0, 0, 0)
+            setFromDate(lastMonthStart)
+            setToDate(lastMonthEnd)
         }
     }
 
@@ -145,6 +172,7 @@ export function PaymentFilters({
                         <SelectItem value="yesterday">Yesterday</SelectItem>
                         <SelectItem value="this_week">This Week</SelectItem>
                         <SelectItem value="this_month">This Month</SelectItem>
+                        <SelectItem value="last_month">Last Month</SelectItem>
                         <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                 </Select>

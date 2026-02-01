@@ -21,8 +21,17 @@ export default function StaffReportPage() {
     const { user } = useAuth()
     const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
 
-    const [fromDate, setFromDate] = useState<Date | undefined>(new Date())
-    const [toDate, setToDate] = useState<Date | undefined>(new Date())
+    const [fromDate, setFromDate] = useState<Date | undefined>(() => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+    })
+    const [toDate, setToDate] = useState<Date | undefined>(() => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+    })
+    const [datePreset, setDatePreset] = useState<string>("today")
     const [shiftType, setShiftType] = useState<string>("all")
     const [userId, setUserId] = useState<string>("all")
     const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -91,6 +100,8 @@ export default function StaffReportPage() {
                         setFromDate={setFromDate}
                         toDate={toDate}
                         setToDate={setToDate}
+                        datePreset={datePreset}
+                        setDatePreset={setDatePreset}
                         shiftType={shiftType}
                         setShiftType={setShiftType}
                         userId={userId}
@@ -110,6 +121,8 @@ export default function StaffReportPage() {
                             setFromDate={setFromDate}
                             toDate={toDate}
                             setToDate={setToDate}
+                            datePreset={datePreset}
+                            setDatePreset={setDatePreset}
                             shiftType={shiftType}
                             setShiftType={setShiftType}
                             userId={userId}

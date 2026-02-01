@@ -35,8 +35,16 @@ export default function ShiftHistoryPage() {
     // Default to Today's date unless status param provided
     const statusParam = searchParams.get('status')
     const [filters, setFilters] = useState<ShiftFiltersState>({
-        startDateFrom: statusParam ? undefined : new Date(),
-        startDateTo: statusParam ? undefined : new Date(),
+        startDateFrom: statusParam ? undefined : (() => {
+            const d = new Date()
+            d.setHours(0, 0, 0, 0)
+            return d
+        })(),
+        startDateTo: statusParam ? undefined : (() => {
+            const d = new Date()
+            d.setHours(0, 0, 0, 0)
+            return d
+        })(),
         status: statusParam || undefined
     })
     const [filterOpen, setFilterOpen] = useState(false)

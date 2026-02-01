@@ -583,12 +583,12 @@ export const shiftRouter = router({
                 where.startTime = {}
                 if (input.startDateFrom) {
                     const start = new Date(input.startDateFrom)
-                    start.setHours(0, 0, 0, 0)
+                    // start.setHours(0, 0, 0, 0) // Don't override client provided time
                     where.startTime.gte = start
                 }
                 if (input.startDateTo) {
                     const end = new Date(input.startDateTo)
-                    end.setHours(0, 0, 0, 0)
+                    // end.setHours(0, 0, 0, 0) // Don't override client provided time
                     end.setDate(end.getDate() + 1)
                     where.startTime.lt = end
                 }
