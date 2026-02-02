@@ -60,5 +60,34 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         return null
     }
 
+    // Logic to prevent flash of content before redirect
+    let shouldRedirect = false;
+
+    if (!isAuthenticated && pathname !== '/login') {
+        shouldRedirect = true;
+    } else if (isAuthenticated && pathname === '/login') {
+        shouldRedirect = true;
+    } else if (isAuthenticated) {
+        if (user?.role === 'Fuel Attendant') {
+            const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/profile'];
+            const isAllowed = allowedRoutes.some(route => pathname.startsWith(route));
+
+            if (!isAllowed && pathname !== '/') {
+                shouldRedirect = true;
+            } else if (pathname === '/') {
+                shouldRedirect = true;
+            }
+        } else {
+            // Admin / Other roles
+            if (pathname.startsWith('/dashboard')) {
+                shouldRedirect = true;
+            }
+        }
+    }
+
+    if (shouldRedirect) {
+        return null; // Or a spinner if preferred, but null is cleaner for redirects
+    }
+
     return <>{children}</>
 }

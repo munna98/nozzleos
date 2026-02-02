@@ -46,10 +46,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [meQuery.data, meQuery.isLoading])
 
+    useEffect(() => {
+        const channel = new BroadcastChannel('auth-channel')
+
+        channel.onmessage = (event) => {
+            if (event.data.type === 'AUTH_CHANGED') {
+                window.location.reload()
+            }
+        }
+
+        return () => {
+            channel.close()
+        }
+    }, [])
+
     const login = useCallback(async (username: string, password: string): Promise<User> => {
         const result = await loginMutation.mutateAsync({ username, password })
         setUser(result.user)
         utils.invalidate()
+        const channel = new BroadcastChannel('auth-channel')
+        channel.postMessage({ type: 'AUTH_CHANGED' })
+        channel.close()
         return result.user
     }, [loginMutation, utils])
 
@@ -61,6 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setUser(null)
         utils.invalidate()
+        const channel = new BroadcastChannel('auth-channel')
+        channel.postMessage({ type: 'AUTH_CHANGED' })
+        channel.close()
         router.push('/login')
     }, [logoutMutation, utils, router])
 
