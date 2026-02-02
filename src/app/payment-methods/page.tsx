@@ -19,10 +19,22 @@ import { Badge } from "@/components/ui/badge"
 import { AddPaymentMethodDialog } from "@/components/add-payment-method-dialog"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function PaymentMethodsPage() {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [methodToEdit, setMethodToEdit] = useState<PaymentMethod | undefined>(undefined)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [methodToDeleteId, setMethodToDeleteId] = useState<number | null>(null)
 
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
     const utils = trpc.useUtils()
@@ -44,9 +56,20 @@ export default function PaymentMethodsPage() {
         setIsAddDialogOpen(true)
     }
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this payment method?")) return
-        deleteMutation.mutate({ id })
+    const handleDelete = (id: number) => {
+        setMethodToDeleteId(id)
+        setIsDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = () => {
+        if (methodToDeleteId) {
+            deleteMutation.mutate({ id: methodToDeleteId }, {
+                onSuccess: () => {
+                    setIsDeleteDialogOpen(false)
+                    setMethodToDeleteId(null)
+                }
+            })
+        }
     }
 
     const handleDialogSuccess = () => {
@@ -192,6 +215,23 @@ export default function PaymentMethodsPage() {
                 onSuccess={handleDialogSuccess}
                 paymentMethodToEdit={methodToEdit}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the payment method.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setMethodToDeleteId(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

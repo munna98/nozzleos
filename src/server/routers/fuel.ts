@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const fuelRouter = router({
@@ -47,16 +47,16 @@ export const fuelRouter = router({
         }))
         .mutation(async ({ input }) => {
             const { id, syncNozzlePrices, ...data } = input
-            
+
             const updatedFuel = await prisma.fuel.update({ where: { id }, data })
-            
+
             if (syncNozzlePrices && data.price !== undefined) {
                 await prisma.nozzle.updateMany({
                     where: { fuelId: id, deletedAt: null },
                     data: { price: data.price }
                 })
             }
-            
+
             return updatedFuel
         }),
 
@@ -66,10 +66,34 @@ export const fuelRouter = router({
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
-            await prisma.fuel.update({
+            // Check for references
+            const fuel = await prisma.fuel.findUnique({
                 where: { id: input.id },
-                data: { deletedAt: new Date(), isActive: false },
+                include: {
+                    _count: {
+                        select: { nozzles: true }
+                    }
+                }
             })
+
+            if (!fuel) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Fuel not found'
+                })
+            }
+
+            if (fuel._count.nozzles > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete this fuel because it is linked to nozzles. Try deactivating it instead.'
+                })
+            }
+
+            await prisma.fuel.delete({
+                where: { id: input.id }
+            })
+
             return { success: true }
         }),
 })

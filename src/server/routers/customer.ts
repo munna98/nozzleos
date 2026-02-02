@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, adminProcedure, protectedProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
+import { TRPCError } from '@trpc/server'
 
 export const customerRouter = router({
     /**
@@ -103,10 +104,42 @@ export const customerRouter = router({
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
-            await prisma.customer.update({
+            // Check if customer has a payment method with session payments
+            const customer = await prisma.customer.findUnique({
                 where: { id: input.id },
-                data: { deletedAt: new Date(), isActive: false },
+                include: {
+                    paymentMethod: {
+                        include: {
+                            _count: {
+                                select: { sessionPayments: true }
+                            }
+                        }
+                    }
+                }
             })
-            return { success: true }
+
+            if (customer?.paymentMethod && customer.paymentMethod._count.sessionPayments > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete customer because they have recorded payments in shifts. Try deactivating them instead.'
+                })
+            }
+
+            // Perform hard delete within a transaction
+            return await prisma.$transaction(async (tx) => {
+                // Delete linked payment method first if it exists
+                if (customer?.paymentMethod) {
+                    await tx.paymentMethod.delete({
+                        where: { id: customer.paymentMethod.id }
+                    })
+                }
+
+                // Delete the customer
+                await tx.customer.delete({
+                    where: { id: input.id }
+                })
+
+                return { success: true }
+            })
         }),
 })

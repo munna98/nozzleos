@@ -224,7 +224,7 @@ export function PaymentFilters({
                     onValueChange={(val: any) => setPaymentMethodId(val?.id ?? "all")}
                     itemToStringLabel={(item: any) => item?.name ?? ""}
                 >
-                    <ComboboxInput placeholder="Select Method" className="w-full" />
+                    <ComboboxInput placeholder="Select Method" className="w-full" showClear />
                     <ComboboxContent>
                         <ComboboxEmpty>No methods found.</ComboboxEmpty>
                         <ComboboxList>

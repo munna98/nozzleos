@@ -20,6 +20,16 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const getInitials = (name: string) => {
     return name
@@ -34,6 +44,8 @@ const getInitials = (name: string) => {
 export default function EmployeesPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null)
 
     const usersQuery = trpc.user.getAll.useQuery()
     const rolesQuery = trpc.user.getRoles.useQuery()
@@ -64,9 +76,19 @@ export default function EmployeesPage() {
         setIsDialogOpen(true)
     }
 
-    const handleDeleteClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this employee?")) {
-            deleteMutation.mutate({ id })
+    const handleDeleteClick = (id: number) => {
+        setUserIdToDelete(id)
+        setIsDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = () => {
+        if (userIdToDelete) {
+            deleteMutation.mutate({ id: userIdToDelete }, {
+                onSuccess: () => {
+                    setIsDeleteDialogOpen(false)
+                    setUserIdToDelete(null)
+                }
+            })
         }
     }
 
@@ -203,6 +225,23 @@ export default function EmployeesPage() {
                 roles={roles}
                 userToEdit={selectedUser}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the employee record.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setUserIdToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

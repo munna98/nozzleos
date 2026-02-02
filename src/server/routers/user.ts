@@ -156,10 +156,45 @@ export const userRouter = router({
                     message: 'Cannot delete the admin user'
                 })
             }
-            await prisma.user.update({
+
+            // Check for references
+            const user = await prisma.user.findUnique({
                 where: { id: input.id },
-                data: { deletedAt: new Date(), isActive: false },
+                include: {
+                    _count: {
+                        select: {
+                            dutySessions: true,
+                            verifiedSessions: true,
+                            initiatedEditRequests: true,
+                            approvedEditRequests: true,
+                        }
+                    }
+                }
             })
+
+            if (!user) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'User not found'
+                })
+            }
+
+            const refCount = user._count.dutySessions +
+                user._count.verifiedSessions +
+                user._count.initiatedEditRequests +
+                user._count.approvedEditRequests
+
+            if (refCount > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete this employee because they have recorded shift history or requests. Try deactivating them instead.'
+                })
+            }
+
+            await prisma.user.delete({
+                where: { id: input.id }
+            })
+
             return { success: true }
         }),
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const nozzleRouter = router({
@@ -97,10 +97,34 @@ export const nozzleRouter = router({
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
-            await prisma.nozzle.update({
+            // Check for references
+            const nozzle = await prisma.nozzle.findUnique({
                 where: { id: input.id },
-                data: { deletedAt: new Date(), isActive: false },
+                include: {
+                    _count: {
+                        select: { nozzleSessionReadings: true }
+                    }
+                }
             })
+
+            if (!nozzle) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Nozzle not found'
+                })
+            }
+
+            if (nozzle._count.nozzleSessionReadings > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete this nozzle because it has historical readings. Try deactivating it instead.'
+                })
+            }
+
+            await prisma.nozzle.delete({
+                where: { id: input.id }
+            })
+
             return { success: true }
         }),
 })

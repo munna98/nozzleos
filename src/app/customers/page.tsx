@@ -19,6 +19,17 @@ import { AddCustomerDialog } from "@/components/add-customer-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const getInitials = (name: string) => {
     return name
@@ -33,12 +44,18 @@ const getInitials = (name: string) => {
 export default function CustomersPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [customerToDeleteId, setCustomerToDeleteId] = useState<number | null>(null)
 
     const customersQuery = trpc.customer.getAll.useQuery()
     const utils = trpc.useUtils()
     const deleteMutation = trpc.customer.delete.useMutation({
         onSuccess: () => {
             utils.customer.getAll.invalidate()
+            toast.success("Customer deleted successfully")
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete customer")
         }
     })
 
@@ -55,9 +72,19 @@ export default function CustomersPage() {
         setIsDialogOpen(true)
     }
 
-    const handleDeleteClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this customer?")) {
-            deleteMutation.mutate({ id })
+    const handleDeleteClick = (id: number) => {
+        setCustomerToDeleteId(id)
+        setIsDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = () => {
+        if (customerToDeleteId) {
+            deleteMutation.mutate({ id: customerToDeleteId }, {
+                onSuccess: () => {
+                    setIsDeleteDialogOpen(false)
+                    setCustomerToDeleteId(null)
+                }
+            })
         }
     }
 
@@ -182,6 +209,23 @@ export default function CustomersPage() {
                 onSuccess={handleSuccess}
                 customerToEdit={selectedCustomer}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the customer record.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setCustomerToDeleteId(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

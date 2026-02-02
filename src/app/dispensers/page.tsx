@@ -19,6 +19,17 @@ import { AddDispenserDialog } from "@/components/add-dispenser-dialog"
 import { AddNozzleDialog } from "@/components/add-nozzle-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function DispensersPage() {
     const [isDispenserDialogOpen, setIsDispenserDialogOpen] = useState(false)
@@ -27,6 +38,10 @@ export default function DispensersPage() {
     const [selectedNozzle, setSelectedNozzle] = useState<Nozzle | undefined>(undefined)
     const [selectedDispenserId, setSelectedDispenserId] = useState<number | undefined>(undefined)
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+    const [isDispenserDeleteDialogOpen, setIsDispenserDeleteDialogOpen] = useState(false)
+    const [dispenserIdToDelete, setDispenserIdToDelete] = useState<number | null>(null)
+    const [isNozzleDeleteDialogOpen, setIsNozzleDeleteDialogOpen] = useState(false)
+    const [nozzleIdToDelete, setNozzleIdToDelete] = useState<number | null>(null)
 
     const dispensersQuery = trpc.dispenser.getAll.useQuery()
     const utils = trpc.useUtils()
@@ -35,6 +50,10 @@ export default function DispensersPage() {
     const deleteDispenserMutation = trpc.dispenser.delete.useMutation({
         onSuccess: () => {
             utils.dispenser.getAll.invalidate()
+            toast.success("Dispenser deleted successfully")
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete dispenser")
         }
     })
 
@@ -44,6 +63,10 @@ export default function DispensersPage() {
             utils.dispenser.getAll.invalidate()
             // Also invalidate nozzle list if used elsewhere
             utils.nozzle.getAll.invalidate()
+            toast.success("Nozzle deleted successfully")
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete nozzle")
         }
     })
 
@@ -60,9 +83,19 @@ export default function DispensersPage() {
         setIsDispenserDialogOpen(true)
     }
 
-    const handleDeleteDispenserClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this dispenser?")) {
-            deleteDispenserMutation.mutate({ id })
+    const handleDeleteDispenserClick = (id: number) => {
+        setDispenserIdToDelete(id)
+        setIsDispenserDeleteDialogOpen(true)
+    }
+
+    const confirmDeleteDispenser = () => {
+        if (dispenserIdToDelete) {
+            deleteDispenserMutation.mutate({ id: dispenserIdToDelete }, {
+                onSuccess: () => {
+                    setIsDispenserDeleteDialogOpen(false)
+                    setDispenserIdToDelete(null)
+                }
+            })
         }
     }
 
@@ -78,9 +111,19 @@ export default function DispensersPage() {
         setIsNozzleDialogOpen(true)
     }
 
-    const handleDeleteNozzleClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this nozzle?")) {
-            deleteNozzleMutation.mutate({ id })
+    const handleDeleteNozzleClick = (id: number) => {
+        setNozzleIdToDelete(id)
+        setIsNozzleDeleteDialogOpen(true)
+    }
+
+    const confirmDeleteNozzle = () => {
+        if (nozzleIdToDelete) {
+            deleteNozzleMutation.mutate({ id: nozzleIdToDelete }, {
+                onSuccess: () => {
+                    setIsNozzleDeleteDialogOpen(false)
+                    setNozzleIdToDelete(null)
+                }
+            })
         }
     }
 
@@ -343,6 +386,42 @@ export default function DispensersPage() {
                 nozzleToEdit={selectedNozzle}
                 dispenserId={selectedDispenserId}
             />
+
+            <AlertDialog open={isDispenserDeleteDialogOpen} onOpenChange={setIsDispenserDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the dispenser record.
+                            You can only delete dispensers that have no nozzles.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDispenserIdToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteDispenser} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isNozzleDeleteDialogOpen} onOpenChange={setIsNozzleDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the nozzle record.
+                            You can only delete nozzles that have no historical session data.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setNozzleIdToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteNozzle} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

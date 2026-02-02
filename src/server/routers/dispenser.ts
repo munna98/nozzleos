@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const dispenserRouter = router({
@@ -68,10 +68,34 @@ export const dispenserRouter = router({
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input }) => {
-            await prisma.dispenser.update({
+            // Check for references
+            const dispenser = await prisma.dispenser.findUnique({
                 where: { id: input.id },
-                data: { deletedAt: new Date(), isActive: false },
+                include: {
+                    _count: {
+                        select: { nozzles: true }
+                    }
+                }
             })
+
+            if (!dispenser) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Dispenser not found'
+                })
+            }
+
+            if (dispenser._count.nozzles > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete this dispenser because it still has nozzles. Delete or reassign nozzles first, or deactivate the dispenser.'
+                })
+            }
+
+            await prisma.dispenser.delete({
+                where: { id: input.id }
+            })
+
             return { success: true }
         }),
 })

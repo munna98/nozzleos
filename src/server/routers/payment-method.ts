@@ -74,10 +74,26 @@ export const paymentMethodRouter = router({
                     message: 'Cannot delete the Cash payment method'
                 })
             }
-            await prisma.paymentMethod.update({
-                where: { id: input.id },
-                data: { isActive: false },
+
+            // Check if there are any session payments using this method
+            const sessionPaymentsCount = await prisma.sessionPayment.count({
+                where: { paymentMethodId: input.id }
             })
+
+            if (sessionPaymentsCount > 0) {
+                throw new TRPCError({
+                    code: 'PRECONDITION_FAILED',
+                    message: 'Cannot delete this payment method because it has been used in Recorded payments. Try deactivating it instead.'
+                })
+            }
+
+            // Check if this is a customer payment method, if so, we should probably warn or handle it
+            // though usually Customer deletion handles it.
+
+            await prisma.paymentMethod.delete({
+                where: { id: input.id }
+            })
+
             return { success: true }
         }),
 })

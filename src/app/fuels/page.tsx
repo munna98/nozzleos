@@ -18,16 +18,33 @@ import { PlusSignIcon, Delete02Icon, PencilEdit01Icon } from "@hugeicons/core-fr
 import { AddFuelDialog } from "@/components/add-fuel-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function FuelsPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [selectedFuel, setSelectedFuel] = useState<Fuel | undefined>(undefined)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [fuelIdToDelete, setFuelIdToDelete] = useState<number | null>(null)
 
     const fuelsQuery = trpc.fuel.getAll.useQuery()
     const utils = trpc.useUtils()
     const deleteMutation = trpc.fuel.delete.useMutation({
         onSuccess: () => {
             utils.fuel.getAll.invalidate()
+            toast.success("Fuel deleted successfully")
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete fuel")
         }
     })
 
@@ -44,9 +61,19 @@ export default function FuelsPage() {
         setIsDialogOpen(true)
     }
 
-    const handleDeleteClick = async (id: number) => {
-        if (confirm("Are you sure you want to delete this fuel?")) {
-            deleteMutation.mutate({ id })
+    const handleDeleteClick = (id: number) => {
+        setFuelIdToDelete(id)
+        setIsDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = () => {
+        if (fuelIdToDelete) {
+            deleteMutation.mutate({ id: fuelIdToDelete }, {
+                onSuccess: () => {
+                    setIsDeleteDialogOpen(false)
+                    setFuelIdToDelete(null)
+                }
+            })
         }
     }
 
@@ -154,6 +181,23 @@ export default function FuelsPage() {
                 onSuccess={handleSuccess}
                 fuelToEdit={selectedFuel}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the fuel record.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setFuelIdToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} variant="destructive">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

@@ -518,7 +518,7 @@ export function ShiftDashboardStep({
                                         onValueChange={(val: PaymentMethod | null) => setSelectedMethodId(val?.id.toString() ?? "")}
                                         itemToStringLabel={(item: PaymentMethod) => item?.name ?? ""}
                                     >
-                                        <ComboboxInput placeholder="Select Method" />
+                                        <ComboboxInput placeholder="Select Method" showClear />
                                         <ComboboxContent>
                                             <ComboboxEmpty>No items found.</ComboboxEmpty>
                                             <ComboboxList>
