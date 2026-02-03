@@ -23,7 +23,7 @@ export default function DashboardPage() {
 
     // helper to check if domain is public (nozzleos.com or localhost root)
     const hostname = window.location.hostname
-    const isPublic = hostname === 'nozzleos.com' || hostname === 'localhost' || hostname === '127.0.0.1'
+    const isPublic = hostname === 'nozzleos.com' || hostname === 'nozzleos.vercel.app' || hostname === 'localhost' || hostname === '127.0.0.1'
 
     if (!isAuthenticated) {
       if (isPublic) {

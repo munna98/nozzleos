@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 
 /**
@@ -16,6 +16,7 @@ import { toast } from "sonner"
  */
 export default function NewStationPage() {
     const router = useRouter()
+    const [baseDomain, setBaseDomain] = useState("nozzleos.com")
     const [formData, setFormData] = useState({
         name: "",
         slug: "",
@@ -23,6 +24,19 @@ export default function NewStationPage() {
         mobile: "",
         email: "",
     })
+
+    useEffect(() => {
+        const host = window.location.hostname
+        const productionDomains = ['nozzleos.com', 'nozzleos.vercel.app']
+        const matchedDomain = productionDomains.find(d => host.endsWith(d))
+
+        if (matchedDomain) {
+            setBaseDomain(matchedDomain)
+        } else if (host.includes('localhost')) {
+            const port = window.location.port
+            setBaseDomain(`localhost${port ? `:${port}` : ''}`)
+        }
+    }, [])
 
     const createStation = trpc.station.create.useMutation({
         onSuccess: () => {
@@ -120,7 +134,7 @@ export default function NewStationPage() {
                                     }))}
                                     className="flex-1"
                                 />
-                                <span className="text-sm text-muted-foreground">.nozzleos.com</span>
+                                <span className="text-sm text-muted-foreground">.{baseDomain}</span>
                             </div>
                             <p className="text-xs text-muted-foreground">
                                 Only lowercase letters, numbers, and hyphens allowed
@@ -186,7 +200,7 @@ export default function NewStationPage() {
                 <CardContent className="pt-6">
                     <h3 className="font-medium mb-2">What happens when you create a station?</h3>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• A unique subdomain is created ({formData.slug || 'slug'}.nozzleos.com)</li>
+                        <li>• A unique subdomain is created ({formData.slug || 'slug'}.{baseDomain})</li>
                         <li>• Default settings are configured for the station</li>
                         <li>• A Cash payment method is automatically added</li>
                         <li>• An Admin user is auto-created (User/Pass: {formData.slug || 'slug'})</li>

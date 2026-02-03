@@ -27,7 +27,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         const host = window.location.hostname
-        if (host.endsWith('.nozzleos.com') || (host.endsWith('localhost') && host !== 'localhost')) {
+        if (host.endsWith('.nozzleos.com') || host.endsWith('.nozzleos.vercel.app') || (host.endsWith('localhost') && host !== 'localhost')) {
             const parts = host.split('.')
             if (parts.length > 2 || (host.includes('localhost') && parts.length > 1)) {
                 setStationSlug(parts[0])

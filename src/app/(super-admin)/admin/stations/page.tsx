@@ -23,7 +23,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 
 /**
@@ -32,7 +32,21 @@ import { toast } from "sonner"
  */
 export default function StationsPage() {
     const [search, setSearch] = useState("")
+    const [baseDomain, setBaseDomain] = useState("nozzleos.com")
     const { data: stations, isLoading } = trpc.station.getAll.useQuery({ includeInactive: true })
+
+    useEffect(() => {
+        const host = window.location.hostname
+        const productionDomains = ['nozzleos.com', 'nozzleos.vercel.app']
+        const matchedDomain = productionDomains.find(d => host.endsWith(d))
+
+        if (matchedDomain) {
+            setBaseDomain(matchedDomain)
+        } else if (host.includes('localhost')) {
+            const port = window.location.port
+            setBaseDomain(`localhost${port ? `:${port}` : ''}`)
+        }
+    }, [])
 
     const filteredStations = stations?.filter(station =>
         station.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -94,14 +108,14 @@ export default function StationsPage() {
                                             </CardTitle>
                                             <div className="flex items-center gap-2">
                                                 <CardDescription className="text-xs">
-                                                    {station.slug}.nozzleos.com
+                                                    {station.slug}.{baseDomain}
                                                 </CardDescription>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(`${station.slug}.nozzleos.com`)
+                                                        navigator.clipboard.writeText(`${station.slug}.${baseDomain}`)
                                                         toast.success("Station URL copied")
                                                     }}
                                                 >
@@ -126,7 +140,7 @@ export default function StationsPage() {
                                             </DropdownMenuItem>
                                             <DropdownMenuItem asChild>
                                                 <a
-                                                    href={`https://${station.slug}.nozzleos.com`}
+                                                    href={`${window.location.protocol}//${station.slug}.${baseDomain}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                 >
