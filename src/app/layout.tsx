@@ -21,6 +21,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NozzleOS - Fuel Station Management",
   description: "Modern fuel station management system",
+  icons: {
+    icon: "/NozzleOS_dark.png",
+    apple: "/NozzleOS_dark.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -39,8 +40,23 @@ export default function LandingPage() {
                                 <SheetHeader className="p-4 border-b bg-muted/30">
                                     <SheetTitle className="sr-only">NozzleOS Navigation</SheetTitle>
                                     <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-3">
-                                        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-                                            <HugeiconsIcon icon={FuelStationIcon} className="h-5 w-5" />
+                                        <div className="relative h-8 w-8">
+                                            <Image
+                                                src="/NozzleOS_light.png"
+                                                alt="NozzleOS"
+                                                fill
+                                                sizes="32px"
+                                                className="object-contain hidden dark:block"
+                                                priority
+                                            />
+                                            <Image
+                                                src="/NozzleOS_dark.png"
+                                                alt="NozzleOS"
+                                                fill
+                                                sizes="32px"
+                                                className="object-contain block dark:hidden"
+                                                priority
+                                            />
                                         </div>
                                         <span className="font-bold text-lg tracking-tight">NozzleOS</span>
                                     </Link>
@@ -75,9 +91,26 @@ export default function LandingPage() {
                             </SheetContent>
                         </Sheet>
 
-                        <Link className="flex items-center justify-center font-bold text-xl" href="/">
-                            <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6 mr-2 text-primary" />
-                            <span>NozzleOS</span>
+                        <Link className="flex items-center gap-2 group" href="/">
+                            <div className="relative h-8 w-8 group-hover:scale-105 transition-transform">
+                                <Image
+                                    src="/NozzleOS_light.png"
+                                    alt="NozzleOS"
+                                    fill
+                                    sizes="32px"
+                                    className="object-contain hidden dark:block"
+                                    priority
+                                />
+                                <Image
+                                    src="/NozzleOS_dark.png"
+                                    alt="NozzleOS"
+                                    fill
+                                    sizes="32px"
+                                    className="object-contain block dark:hidden"
+                                    priority
+                                />
+                            </div>
+                            <span className="font-bold text-xl tracking-tight">NozzleOS</span>
                         </Link>
                     </div>
 

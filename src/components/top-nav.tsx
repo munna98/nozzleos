@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from '@/lib/auth-context'
 import { useState } from "react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 // import { Button } from "@/components/ui/button" // Removed unused import
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -170,8 +171,23 @@ export function TopNav() {
                                 <SheetTitle className="sr-only">NozzleOS Navigation</SheetTitle>
                                 <div className="p-4 border-b bg-muted/30">
                                     <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-3 group">
-                                        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                                            <HugeiconsIcon icon={FuelStationIcon} className="h-5 w-5" />
+                                        <div className="relative h-8 w-8 group-hover:scale-105 transition-transform">
+                                            <Image
+                                                src="/NozzleOS_light.png"
+                                                alt="NozzleOS"
+                                                fill
+                                                sizes="32px"
+                                                className="object-contain hidden dark:block"
+                                                priority
+                                            />
+                                            <Image
+                                                src="/NozzleOS_dark.png"
+                                                alt="NozzleOS"
+                                                fill
+                                                sizes="32px"
+                                                className="object-contain block dark:hidden"
+                                                priority
+                                            />
                                         </div>
                                         <span className="font-bold text-lg tracking-tight text-foreground">NozzleOS</span>
                                     </Link>
@@ -269,8 +285,26 @@ export function TopNav() {
                         </SheetContent>
                     </Sheet>
 
-                    <Link href="/" className="font-bold text-xl mr-6">
-                        NozzleOS
+                    <Link href="/" className="flex items-center gap-2 group">
+                        <div className="relative h-8 w-8 group-hover:scale-105 transition-transform">
+                            <Image
+                                src="/NozzleOS_light.png"
+                                alt="NozzleOS"
+                                fill
+                                sizes="32px"
+                                className="object-contain hidden dark:block"
+                                priority
+                            />
+                            <Image
+                                src="/NozzleOS_dark.png"
+                                alt="NozzleOS"
+                                fill
+                                sizes="32px"
+                                className="object-contain block dark:hidden"
+                                priority
+                            />
+                        </div>
+                        <span className="font-bold text-xl tracking-tight">NozzleOS</span>
                     </Link>
                 </div>
                 {/* Desktop Navigation */}

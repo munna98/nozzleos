@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { trpc } from '@/lib/trpc'
+import Image from "next/image"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { FuelStationIcon } from "@hugeicons/core-free-icons"
 import { useAuth } from '@/lib/auth-context'
@@ -62,8 +63,23 @@ export default function LoginPage() {
             <div className="flex items-center justify-center p-4 lg:p-8 bg-background">
                 <div className="mx-auto w-full max-w-sm space-y-6">
                     <div className="flex flex-col space-y-2 text-center">
-                        <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                            <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6 text-primary" />
+                        <div className="mx-auto relative h-16 w-16 mb-2">
+                            <Image
+                                src="/NozzleOS_light.png"
+                                alt="NozzleOS"
+                                fill
+                                sizes="64px"
+                                className="object-contain hidden dark:block"
+                                priority
+                            />
+                            <Image
+                                src="/NozzleOS_dark.png"
+                                alt="NozzleOS"
+                                fill
+                                sizes="64px"
+                                className="object-contain block dark:hidden"
+                                priority
+                            />
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">NozzleOS</h1>
                         <div className="text-sm text-muted-foreground">
