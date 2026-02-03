@@ -20,9 +20,12 @@ export const authService = {
     /**
      * Login user and set HTTP-only cookies
      */
-    async login(username: string, password: string) {
-        const user = await prisma.user.findUnique({
-            where: { username },
+    async login(username: string, password: string, stationId: number | null) {
+        const user = await prisma.user.findFirst({
+            where: {
+                username,
+                stationId,
+            },
             include: { role: true },
         })
 
@@ -70,6 +73,7 @@ export const authService = {
                 name: user.name,
                 role: user.role.name,
                 roleId: user.roleId,
+                stationId: user.stationId,
             },
         }
     },
@@ -154,6 +158,7 @@ export const authService = {
                     name: user.name,
                     role: user.role.name,
                     roleId: user.roleId,
+                    stationId: user.stationId,
                 },
             }
         } catch {
@@ -180,6 +185,7 @@ export const authService = {
             name: user.name,
             role: user.role.name,
             roleId: user.roleId,
+            stationId: user.stationId,
         }
     },
 

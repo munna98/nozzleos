@@ -1,14 +1,17 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
+import { router, adminProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const dispenserRouter = router({
     /**
-     * Get all dispensers with nozzles
+     * Get all dispensers with nozzles for the current station
      */
-    getAll: protectedProcedure.query(async () => {
+    getAll: tenantProcedure.query(async ({ ctx }) => {
         return prisma.dispenser.findMany({
-            where: { deletedAt: null },
+            where: {
+                stationId: ctx.stationId,
+                deletedAt: null
+            },
             include: {
                 nozzles: {
                     where: { deletedAt: null },
@@ -20,13 +23,16 @@ export const dispenserRouter = router({
     }),
 
     /**
-     * Get dispenser by ID
+     * Get dispenser by ID (tenant-scoped)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
-            return prisma.dispenser.findUnique({
-                where: { id: input.id },
+        .query(async ({ ctx, input }) => {
+            return prisma.dispenser.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: {
                     nozzles: {
                         include: { fuel: true },
@@ -43,8 +49,28 @@ export const dispenserRouter = router({
             code: z.string().min(1),
             name: z.string().min(1),
         }))
-        .mutation(async ({ input }) => {
-            return prisma.dispenser.create({ data: input })
+        .mutation(async ({ ctx, input }) => {
+            // Check for duplicate dispenser code within the station
+            const existing = await prisma.dispenser.findFirst({
+                where: {
+                    stationId: ctx.stationId,
+                    code: input.code,
+                    deletedAt: null
+                }
+            })
+            if (existing) {
+                throw new TRPCError({
+                    code: 'CONFLICT',
+                    message: `Dispenser code "${input.code}" already exists`
+                })
+            }
+
+            return prisma.dispenser.create({
+                data: {
+                    ...input,
+                    stationId: ctx.stationId,
+                }
+            })
         }),
 
     /**
@@ -57,8 +83,20 @@ export const dispenserRouter = router({
             name: z.string().min(1).optional(),
             isActive: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { id, ...data } = input
+
+            // Verify dispenser belongs to this station
+            const existing = await prisma.dispenser.findFirst({
+                where: { id, stationId: ctx.stationId }
+            })
+            if (!existing) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Dispenser not found'
+                })
+            }
+
             return prisma.dispenser.update({ where: { id }, data })
         }),
 
@@ -67,10 +105,13 @@ export const dispenserRouter = router({
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-            // Check for references
-            const dispenser = await prisma.dispenser.findUnique({
-                where: { id: input.id },
+        .mutation(async ({ ctx, input }) => {
+            // Check for references (tenant-scoped)
+            const dispenser = await prisma.dispenser.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: {
                     _count: {
                         select: { nozzles: true }

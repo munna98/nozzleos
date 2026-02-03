@@ -12,9 +12,9 @@ export const authRouter = router({
             username: z.string().min(1),
             password: z.string().min(1),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
             try {
-                return await authService.login(input.username, input.password)
+                return await authService.login(input.username, input.password, ctx.stationId)
             } catch (error) {
                 console.error('Login error:', error)
                 throw new TRPCError({

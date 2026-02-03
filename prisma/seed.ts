@@ -7,7 +7,14 @@ const prisma = new PrismaClient()
 async function main() {
     console.log('🌱 Starting database seed...')
 
-    // Create roles
+    // ==================== ROLES ====================
+    // Create Super Admin role (global, hidden from station-level queries)
+    const superAdminRole = await prisma.userRole.upsert({
+        where: { name: 'Super Admin' },
+        update: {},
+        create: { name: 'Super Admin' },
+    })
+
     const adminRole = await prisma.userRole.upsert({
         where: { name: 'Admin' },
         update: {},
@@ -26,46 +33,100 @@ async function main() {
         create: { name: 'Fuel Attendant' },
     })
 
-    console.log('✅ Created roles')
+    console.log('✅ Created roles (including Super Admin)')
 
-    // Create admin user
-    const adminPassword = await bcrypt.hash('admin', 10)
-    await prisma.user.upsert({
-        where: { username: 'admin' },
+    // ==================== STATION ====================
+    // Create default station for existing data migration
+    const nkPetroleum = await prisma.station.upsert({
+        where: { slug: 'nk-petroleum' },
         update: {},
         create: {
-            username: 'admin',
-            name: 'Administrator',
-            passwordHash: adminPassword,
+            slug: 'nk-petroleum',
+            name: 'NK Petroleum',
+            location: null,
+            mobile: null,
+            email: null,
+        },
+    })
+    console.log('✅ Created NK Petroleum station')
+
+    // ==================== SUPER ADMIN USER ====================
+    // Global super admin (no stationId) - can't use upsert with null in composite unique
+    const existingSuperAdmin = await prisma.user.findFirst({
+        where: {
+            stationId: null,
+            username: 'superadmin'
+        }
+    })
+
+    const superAdminPassword = await bcrypt.hash('Superadmin', 10)
+
+    if (!existingSuperAdmin) {
+        await prisma.user.create({
+            data: {
+                stationId: null,
+                username: 'superadmin',
+                name: 'Super Administrator',
+                passwordHash: superAdminPassword,
+                roleId: superAdminRole.id,
+            },
+        })
+    } else {
+        await prisma.user.update({
+            where: { id: existingSuperAdmin.id },
+            data: { passwordHash: superAdminPassword }
+        })
+    }
+    console.log('✅ Created super admin user (superadmin / Superadmin)')
+
+    // ==================== STATION ADMIN USER ====================
+    // Station-specific admin for NK Petroleum
+    const stationAdminPassword = await bcrypt.hash('NKpetroleum', 10)
+    await prisma.user.upsert({
+        where: {
+            stationId_username: { stationId: nkPetroleum.id, username: 'nk-petroleum' }
+        },
+        update: {
+            passwordHash: stationAdminPassword,
+        },
+        create: {
+            stationId: nkPetroleum.id,
+            username: 'nk-petroleum',
+            name: 'NK Petroleum Admin',
+            passwordHash: stationAdminPassword,
             roleId: adminRole.id,
         },
     })
-    console.log('✅ Created admin user')
+    console.log('✅ Created station admin user (nk-petroleum / admin)')
 
-    // Create payment methods
+    // ==================== PAYMENT METHODS ====================
+    // Cash payment method for NK Petroleum
     await prisma.paymentMethod.upsert({
-        where: { name: 'Cash' },
+        where: {
+            stationId_name: { stationId: nkPetroleum.id, name: 'Cash' }
+        },
         update: {},
         create: {
+            stationId: nkPetroleum.id,
             name: 'Cash'
         },
     })
-
     console.log('✅ Created payment methods')
 
-    // Create global settings
+    // ==================== STATION SETTINGS ====================
     await prisma.settings.upsert({
-        where: { id: 1 },
+        where: { stationId: nkPetroleum.id },
         update: {},
         create: {
-            id: 1,
+            stationId: nkPetroleum.id,
             enableDenominationEntry: true,
             enableCoinEntry: true,
         },
     })
-    console.log('✅ Created global settings')
+    console.log('✅ Created station settings')
 
-    // Create denominations (Indian currency notes)
+    // ==================== GLOBAL DENOMINATIONS ====================
+    // These are shared across all stations (Indian currency notes)
     const denominations = [
         { value: 500, label: '₹500', sortOrder: 1 },
         { value: 200, label: '₹200', sortOrder: 2 },
@@ -82,9 +143,13 @@ async function main() {
             create: denom,
         })
     }
-    console.log('✅ Created denominations')
+    console.log('✅ Created global denominations')
 
     console.log('🎉 Database seeded successfully!')
+    console.log('')
+    console.log('📋 Login Credentials:')
+    console.log('   Super Admin: superadmin / Superadmin')
+    console.log('   Station Admin (NK Petroleum): nk-petroleum / NKpetroleum')
 }
 
 main()

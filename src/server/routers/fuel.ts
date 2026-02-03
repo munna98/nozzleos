@@ -1,25 +1,33 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
+import { router, adminProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const fuelRouter = router({
     /**
-     * Get all fuels
+     * Get all fuels for the current station
      */
-    getAll: protectedProcedure.query(async () => {
+    getAll: tenantProcedure.query(async ({ ctx }) => {
         return prisma.fuel.findMany({
-            where: { deletedAt: null },
+            where: {
+                stationId: ctx.stationId,
+                deletedAt: null
+            },
             orderBy: { name: 'asc' },
         })
     }),
 
     /**
-     * Get fuel by ID
+     * Get fuel by ID (tenant-scoped)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
-            return prisma.fuel.findUnique({ where: { id: input.id } })
+        .query(async ({ ctx, input }) => {
+            return prisma.fuel.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                }
+            })
         }),
 
     /**
@@ -30,8 +38,28 @@ export const fuelRouter = router({
             name: z.string().min(1),
             price: z.number().min(0),
         }))
-        .mutation(async ({ input }) => {
-            return prisma.fuel.create({ data: input })
+        .mutation(async ({ ctx, input }) => {
+            // Check for duplicate fuel name within the station
+            const existing = await prisma.fuel.findFirst({
+                where: {
+                    stationId: ctx.stationId,
+                    name: input.name,
+                    deletedAt: null
+                }
+            })
+            if (existing) {
+                throw new TRPCError({
+                    code: 'CONFLICT',
+                    message: `Fuel "${input.name}" already exists`
+                })
+            }
+
+            return prisma.fuel.create({
+                data: {
+                    ...input,
+                    stationId: ctx.stationId,
+                }
+            })
         }),
 
     /**
@@ -45,14 +73,29 @@ export const fuelRouter = router({
             isActive: z.boolean().optional(),
             syncNozzlePrices: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { id, syncNozzlePrices, ...data } = input
+
+            // Verify fuel belongs to this station
+            const existingFuel = await prisma.fuel.findFirst({
+                where: { id, stationId: ctx.stationId }
+            })
+            if (!existingFuel) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Fuel not found'
+                })
+            }
 
             const updatedFuel = await prisma.fuel.update({ where: { id }, data })
 
             if (syncNozzlePrices && data.price !== undefined) {
                 await prisma.nozzle.updateMany({
-                    where: { fuelId: id, deletedAt: null },
+                    where: {
+                        fuelId: id,
+                        stationId: ctx.stationId,
+                        deletedAt: null
+                    },
                     data: { price: data.price }
                 })
             }
@@ -65,10 +108,13 @@ export const fuelRouter = router({
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-            // Check for references
-            const fuel = await prisma.fuel.findUnique({
-                where: { id: input.id },
+        .mutation(async ({ ctx, input }) => {
+            // Check for references (tenant-scoped)
+            const fuel = await prisma.fuel.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: {
                     _count: {
                         select: { nozzles: true }

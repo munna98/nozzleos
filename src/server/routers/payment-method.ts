@@ -1,27 +1,33 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
+import { router, adminProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const paymentMethodRouter = router({
     /**
-     * Get all payment methods
+     * Get all payment methods for the current station
      */
-    getAll: protectedProcedure.query(async () => {
+    getAll: tenantProcedure.query(async ({ ctx }) => {
         return prisma.paymentMethod.findMany({
-            where: { isActive: true },
+            where: {
+                stationId: ctx.stationId,
+                isActive: true
+            },
             include: { customer: true },
             orderBy: { name: 'asc' },
         })
     }),
 
     /**
-     * Get payment method by ID
+     * Get payment method by ID (tenant-scoped)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
-            return prisma.paymentMethod.findUnique({
-                where: { id: input.id },
+        .query(async ({ ctx, input }) => {
+            return prisma.paymentMethod.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: { customer: true },
             })
         }),
@@ -34,8 +40,27 @@ export const paymentMethodRouter = router({
             name: z.string().min(1),
             customerId: z.number().optional(),
         }))
-        .mutation(async ({ input }) => {
-            return prisma.paymentMethod.create({ data: input })
+        .mutation(async ({ ctx, input }) => {
+            // Check for duplicate payment method name within the station
+            const existing = await prisma.paymentMethod.findFirst({
+                where: {
+                    stationId: ctx.stationId,
+                    name: input.name
+                }
+            })
+            if (existing) {
+                throw new TRPCError({
+                    code: 'CONFLICT',
+                    message: `Payment method "${input.name}" already exists`
+                })
+            }
+
+            return prisma.paymentMethod.create({
+                data: {
+                    ...input,
+                    stationId: ctx.stationId,
+                }
+            })
         }),
 
     /**
@@ -48,11 +73,22 @@ export const paymentMethodRouter = router({
             customerId: z.number().optional().nullable(),
             isActive: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { id, ...data } = input
 
+            // Verify payment method belongs to this station
+            const existing = await prisma.paymentMethod.findFirst({
+                where: { id, stationId: ctx.stationId }
+            })
+            if (!existing) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Payment method not found'
+                })
+            }
+
             // Prevent deactivating Cash payment method
-            if (id === 1 && data.isActive === false) {
+            if (existing.name === 'Cash' && data.isActive === false) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
                     message: 'Cannot deactivate the Cash payment method'
@@ -67,8 +103,24 @@ export const paymentMethodRouter = router({
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-            if (input.id === 1) {
+        .mutation(async ({ ctx, input }) => {
+            // Verify payment method belongs to this station
+            const paymentMethod = await prisma.paymentMethod.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                }
+            })
+
+            if (!paymentMethod) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Payment method not found'
+                })
+            }
+
+            // Prevent deleting Cash payment method
+            if (paymentMethod.name === 'Cash') {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
                     message: 'Cannot delete the Cash payment method'
@@ -86,9 +138,6 @@ export const paymentMethodRouter = router({
                     message: 'Cannot delete this payment method because it has been used in Recorded payments. Try deactivating it instead.'
                 })
             }
-
-            // Check if this is a customer payment method, if so, we should probably warn or handle it
-            // though usually Customer deletion handles it.
 
             await prisma.paymentMethod.delete({
                 where: { id: input.id }

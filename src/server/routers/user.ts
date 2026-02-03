@@ -1,18 +1,26 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure, TRPCError } from '../trpc/init'
+import { router, adminProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import { authService } from '../services/auth.service'
 import prisma from '@/lib/prisma'
 
 export const userRouter = router({
     /**
-     * Get all users (admin only)
+     * Get all users for the current station (admin only)
+     * Note: Super Admin users are hidden from station-level queries
      */
     getAll: adminProcedure
         .input(z.object({
             role: z.string().optional(),
         }).optional())
-        .query(async ({ input }) => {
-            const where: any = { deletedAt: null }
+        .query(async ({ ctx, input }) => {
+            const where: Record<string, unknown> = {
+                stationId: ctx.stationId,
+                deletedAt: null,
+                // Hide Super Admin users from station-level queries
+                role: {
+                    name: { not: 'Super Admin' }
+                }
+            }
 
             if (input?.role) {
                 where.role = {
@@ -33,7 +41,7 @@ export const userRouter = router({
                 mobile: user.mobile,
                 isActive: user.isActive,
                 address: user.address,
-                role: user.role, // Return the full role object
+                role: user.role,
                 roleId: user.roleId,
                 createdAt: user.createdAt,
                 updatedAt: user.updatedAt,
@@ -41,16 +49,22 @@ export const userRouter = router({
         }),
 
     /**
-     * Get user by ID
+     * Get user by ID (tenant-scoped)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
-            const user = await prisma.user.findUnique({
-                where: { id: input.id },
+        .query(async ({ ctx, input }) => {
+            const user = await prisma.user.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: { role: true },
             })
-            if (!user) throw new Error('User not found')
+            if (!user) throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'User not found'
+            })
             return {
                 id: user.id,
                 username: user.username,
@@ -77,10 +91,37 @@ export const userRouter = router({
             address: z.string().optional(),
             roleId: z.number(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+            // Prevent creating Super Admin users from station-level
+            const role = await prisma.userRole.findUnique({
+                where: { id: input.roleId }
+            })
+            if (role?.name === 'Super Admin') {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot create Super Admin users from station admin'
+                })
+            }
+
+            // Check for duplicate username within the station
+            const existingUser = await prisma.user.findFirst({
+                where: {
+                    stationId: ctx.stationId,
+                    username: input.username,
+                    deletedAt: null
+                }
+            })
+            if (existingUser) {
+                throw new TRPCError({
+                    code: 'CONFLICT',
+                    message: `Username "${input.username}" is already taken`
+                })
+            }
+
             const passwordHash = await authService.hashPassword(input.password)
             const user = await prisma.user.create({
                 data: {
+                    stationId: ctx.stationId,
                     username: input.username,
                     passwordHash,
                     name: input.name,
@@ -114,14 +155,42 @@ export const userRouter = router({
             roleId: z.number().optional(),
             isActive: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { id, password, ...data } = input
 
-            // Prevent deactivating admin user
-            if (id === 1 && data.isActive === false) {
+            // Verify user belongs to this station
+            const existingUser = await prisma.user.findFirst({
+                where: { id, stationId: ctx.stationId },
+                include: { role: true }
+            })
+            if (!existingUser) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'User not found'
+                })
+            }
+
+            // Prevent modifying Super Admin users from station-level
+            if (existingUser.role.name === 'Super Admin') {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
-                    message: 'Cannot deactivate the admin user'
+                    message: 'Cannot modify Super Admin users'
+                })
+            }
+
+            // Prevent deactivating station admin user (first Admin of the station)
+            const stationAdmins = await prisma.user.findMany({
+                where: {
+                    stationId: ctx.stationId,
+                    role: { name: 'Admin' },
+                    deletedAt: null
+                },
+                orderBy: { id: 'asc' }
+            })
+            if (stationAdmins.length === 1 && stationAdmins[0].id === id && data.isActive === false) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot deactivate the only admin user for this station'
                 })
             }
 
@@ -149,18 +218,15 @@ export const userRouter = router({
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-            if (input.id === 1) {
-                throw new TRPCError({
-                    code: 'FORBIDDEN',
-                    message: 'Cannot delete the admin user'
-                })
-            }
-
-            // Check for references
-            const user = await prisma.user.findUnique({
-                where: { id: input.id },
+        .mutation(async ({ ctx, input }) => {
+            // Verify user belongs to this station
+            const user = await prisma.user.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: {
+                    role: true,
                     _count: {
                         select: {
                             dutySessions: true,
@@ -176,6 +242,29 @@ export const userRouter = router({
                 throw new TRPCError({
                     code: 'NOT_FOUND',
                     message: 'User not found'
+                })
+            }
+
+            // Prevent deleting Super Admin users
+            if (user.role.name === 'Super Admin') {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot delete Super Admin users'
+                })
+            }
+
+            // Check if this is the only admin
+            const stationAdmins = await prisma.user.findMany({
+                where: {
+                    stationId: ctx.stationId,
+                    role: { name: 'Admin' },
+                    deletedAt: null
+                }
+            })
+            if (stationAdmins.length === 1 && stationAdmins[0].id === input.id) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Cannot delete the only admin user for this station'
                 })
             }
 
@@ -199,9 +288,14 @@ export const userRouter = router({
         }),
 
     /**
-     * Get all roles
+     * Get all roles (excluding Super Admin for station-level users)
      */
     getRoles: adminProcedure.query(async () => {
-        return prisma.userRole.findMany()
+        return prisma.userRole.findMany({
+            where: {
+                // Hide Super Admin role from station-level dropdowns
+                name: { not: 'Super Admin' }
+            }
+        })
     }),
 })

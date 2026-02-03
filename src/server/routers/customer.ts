@@ -1,28 +1,34 @@
 import { z } from 'zod'
-import { router, adminProcedure, protectedProcedure } from '../trpc/init'
+import { router, adminProcedure, tenantProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
 import { TRPCError } from '@trpc/server'
 
 export const customerRouter = router({
     /**
-     * Get all customers
+     * Get all customers for the current station
      */
-    getAll: protectedProcedure.query(async () => {
+    getAll: tenantProcedure.query(async ({ ctx }) => {
         return prisma.customer.findMany({
-            where: { deletedAt: null },
+            where: {
+                stationId: ctx.stationId,
+                deletedAt: null
+            },
             include: { paymentMethod: true },
             orderBy: { name: 'asc' },
         })
     }),
 
     /**
-     * Get customer by ID
+     * Get customer by ID (tenant-scoped)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
-            return prisma.customer.findUnique({
-                where: { id: input.id },
+        .query(async ({ ctx, input }) => {
+            return prisma.customer.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: { paymentMethod: true },
             })
         }),
@@ -33,20 +39,31 @@ export const customerRouter = router({
     create: adminProcedure
         .input(z.object({
             name: z.string().min(1),
-            email: z.string().email().optional(),
+            email: z.string().email().optional().nullable(),
             phone: z.string().optional(),
             createPaymentMethod: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { createPaymentMethod, ...data } = input
-            const customer = await prisma.customer.create({ data })
+            const customer = await prisma.customer.create({
+                data: {
+                    ...data,
+                    stationId: ctx.stationId,
+                }
+            })
 
             if (createPaymentMethod) {
-                // Check if payment method with same name exists
-                const existing = await prisma.paymentMethod.findUnique({ where: { name: customer.name } })
+                // Check if payment method with same name exists for this station
+                const existing = await prisma.paymentMethod.findFirst({
+                    where: {
+                        stationId: ctx.stationId,
+                        name: customer.name
+                    }
+                })
                 if (!existing) {
                     await prisma.paymentMethod.create({
                         data: {
+                            stationId: ctx.stationId,
                             name: customer.name,
                             customerId: customer.id,
                         }
@@ -63,36 +80,48 @@ export const customerRouter = router({
         .input(z.object({
             id: z.number(),
             name: z.string().min(1).optional(),
-            email: z.string().email().optional(),
+            email: z.string().email().optional().nullable(),
             phone: z.string().optional(),
             isActive: z.boolean().optional(),
             createPaymentMethod: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const { id, createPaymentMethod, ...data } = input
+
+            // Verify customer belongs to this station
+            const existingCustomer = await prisma.customer.findFirst({
+                where: { id, stationId: ctx.stationId }
+            })
+            if (!existingCustomer) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Customer not found'
+                })
+            }
+
             const customer = await prisma.customer.update({ where: { id }, data })
 
             if (createPaymentMethod) {
                 const existing = await prisma.paymentMethod.findUnique({ where: { customerId: id } })
                 if (!existing) {
-                    // Use name, ensure unique
-                    const name = customer.name
-                    const nameExists = await prisma.paymentMethod.findUnique({ where: { name } })
+                    // Check if name exists for this station
+                    const nameExists = await prisma.paymentMethod.findFirst({
+                        where: {
+                            stationId: ctx.stationId,
+                            name: customer.name
+                        }
+                    })
 
                     if (!nameExists) {
                         await prisma.paymentMethod.create({
                             data: {
+                                stationId: ctx.stationId,
                                 name: customer.name,
                                 customerId: customer.id,
                             }
                         })
                     }
                 }
-            } else if (createPaymentMethod === false) {
-                // Check if we should delete it? 
-                // The checkbox says "Use as Payment Method". Unchecking it usually means "remove linkage" or "deactivate"?
-                // For now, let's assuming enabling only.
-                // If specific logic needed for disable, we can add.
             }
 
             return customer
@@ -103,10 +132,13 @@ export const customerRouter = router({
      */
     delete: adminProcedure
         .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-            // Check if customer has a payment method with session payments
-            const customer = await prisma.customer.findUnique({
-                where: { id: input.id },
+        .mutation(async ({ ctx, input }) => {
+            // Verify customer belongs to this station
+            const customer = await prisma.customer.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId
+                },
                 include: {
                     paymentMethod: {
                         include: {
@@ -118,7 +150,14 @@ export const customerRouter = router({
                 }
             })
 
-            if (customer?.paymentMethod && customer.paymentMethod._count.sessionPayments > 0) {
+            if (!customer) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Customer not found'
+                })
+            }
+
+            if (customer.paymentMethod && customer.paymentMethod._count.sessionPayments > 0) {
                 throw new TRPCError({
                     code: 'PRECONDITION_FAILED',
                     message: 'Cannot delete customer because they have recorded payments in shifts. Try deactivating them instead.'
@@ -128,7 +167,7 @@ export const customerRouter = router({
             // Perform hard delete within a transaction
             return await prisma.$transaction(async (tx) => {
                 // Delete linked payment method first if it exists
-                if (customer?.paymentMethod) {
+                if (customer.paymentMethod) {
                     await tx.paymentMethod.delete({
                         where: { id: customer.paymentMethod.id }
                     })

@@ -1,20 +1,20 @@
-import { router, protectedProcedure, adminProcedure } from '../trpc/init'
+import { router, tenantProcedure, adminProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
 import { z } from 'zod'
 
 export const settingsRouter = router({
     /**
-     * Get global settings
+     * Get settings for the current station
      */
-    get: protectedProcedure.query(async () => {
-        // Get or create default settings
+    get: tenantProcedure.query(async ({ ctx }) => {
+        // Get or create default settings for this station
         let settings = await prisma.settings.findUnique({
-            where: { id: 1 },
+            where: { stationId: ctx.stationId },
         })
 
         if (!settings) {
             settings = await prisma.settings.create({
-                data: { id: 1 },
+                data: { stationId: ctx.stationId },
             })
         }
 
@@ -22,19 +22,19 @@ export const settingsRouter = router({
     }),
 
     /**
-     * Update global settings (admin only)
+     * Update settings for the current station (admin only)
      */
     update: adminProcedure
         .input(z.object({
             enableDenominationEntry: z.boolean().optional(),
             enableCoinEntry: z.boolean().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const settings = await prisma.settings.upsert({
-                where: { id: 1 },
+                where: { stationId: ctx.stationId },
                 update: input,
                 create: {
-                    id: 1,
+                    stationId: ctx.stationId,
                     ...input,
                 },
             })

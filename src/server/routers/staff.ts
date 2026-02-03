@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { ShiftType } from '@prisma/client'
-import { router, protectedProcedure } from '../trpc/init'
+import { router, tenantProcedure, adminProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const staffRouter = router({
     /**
-     * Get staff performance report with shift-wise analytics
+     * Get staff performance report with shift-wise analytics (tenant-scoped)
      */
-    getStaffReport: protectedProcedure
+    getStaffReport: tenantProcedure
         .input(z.object({
             startDate: z.date().optional(),
             endDate: z.date().optional(),
@@ -17,22 +17,22 @@ export const staffRouter = router({
         .query(async ({ ctx, input }) => {
             const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
 
-            // Build where clause
-            const where: any = {}
+            // Build where clause with stationId
+            const where: Record<string, unknown> = {
+                stationId: ctx.stationId
+            }
 
             // Date range filter
             if (input.startDate || input.endDate) {
                 where.startTime = {}
                 if (input.startDate) {
-                    const start = new Date(input.startDate)
-                    // start.setHours(0, 0, 0, 0)
-                    where.startTime.gte = start
+                    const start = new Date(input.startDate);
+                    (where.startTime as Record<string, unknown>).gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    // end.setHours(0, 0, 0, 0)
-                    end.setDate(end.getDate() + 1)
-                    where.startTime.lt = end
+                    end.setDate(end.getDate() + 1);
+                    (where.startTime as Record<string, unknown>).lt = end
                 }
             }
 
@@ -88,7 +88,30 @@ export const staffRouter = router({
             })
 
             // Group shifts by user
-            const staffMap = new Map<number, any>()
+            const staffMap = new Map<number, {
+                userId: number,
+                userName: string,
+                shifts: Array<{
+                    id: number,
+                    type: ShiftType,
+                    startTime: Date,
+                    endTime: Date | null,
+                    status: string,
+                    dutyHours: number,
+                    totalFuelSales: number,
+                    totalPaymentsCollected: number,
+                    difference: number,
+                    isShort: boolean,
+                    isExcess: boolean,
+                    fuelBreakdown: Array<{ fuelName: string, quantityInLiters: number, amount: number }>
+                }>,
+                totals: {
+                    totalDutyHours: number,
+                    totalFuelSales: number,
+                    totalPaymentsCollected: number,
+                    totalDifference: number,
+                }
+            }>()
 
             for (const shift of shifts) {
                 const userId = shift.user.id
@@ -107,7 +130,7 @@ export const staffRouter = router({
                     })
                 }
 
-                const staffData = staffMap.get(userId)
+                const staffData = staffMap.get(userId)!
 
                 // Calculate duty hours
                 const dutyHours = shift.endTime
@@ -153,7 +176,7 @@ export const staffRouter = router({
                     startTime: shift.startTime,
                     endTime: shift.endTime,
                     status: shift.status,
-                    dutyHours: Math.round(dutyHours * 100) / 100, // Round to 2 decimals
+                    dutyHours: Math.round(dutyHours * 100) / 100,
                     totalFuelSales: Math.round(totalFuelSales * 100) / 100,
                     totalPaymentsCollected: Math.round(totalPaymentsCollected * 100) / 100,
                     difference: Math.round(difference * 100) / 100,
@@ -226,28 +249,23 @@ export const staffRouter = router({
         }),
 
     /**
-     * Get staff performance chart data for dashboard
-     * Returns shortage/excess comparison for fraud detection
+     * Get staff performance chart data for dashboard (admin-only, tenant-scoped)
      */
-    getPerformanceChartData: protectedProcedure
+    getPerformanceChartData: adminProcedure
         .input(z.object({
             days: z.number().min(1).max(90).default(7),
         }))
         .query(async ({ ctx, input }) => {
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
-            if (!isAdmin) {
-                throw new Error('Only admins can view performance chart data')
-            }
-
             // Calculate date range
             const endDate = new Date()
             const startDate = new Date()
             startDate.setDate(startDate.getDate() - input.days)
             startDate.setHours(0, 0, 0, 0)
 
-            // Get all completed shifts in the period
+            // Get all completed shifts in the period for this station
             const shifts = await prisma.dutySession.findMany({
                 where: {
+                    stationId: ctx.stationId,
                     status: { in: ['pending_verification', 'verified', 'rejected'] },
                     startTime: { gte: startDate, lte: endDate }
                 },
@@ -304,7 +322,7 @@ export const staffRouter = router({
                     isShortage: staff.totalDifference < 0,
                     isExcess: staff.totalDifference > 0,
                 }))
-                .sort((a, b) => a.totalDifference - b.totalDifference) // Worst (most negative) first
+                .sort((a, b) => a.totalDifference - b.totalDifference)
 
             return {
                 chartData,

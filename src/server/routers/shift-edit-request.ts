@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, protectedProcedure, adminProcedure } from '../trpc/init'
+import { router, tenantProcedure, adminProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const shiftEditRequestRouter = router({
@@ -12,16 +12,22 @@ export const shiftEditRequestRouter = router({
             reason: z.string().min(5, "Reason must be at least 5 characters"),
         }))
         .mutation(async ({ ctx, input }) => {
-            const shift = await prisma.dutySession.findUnique({
-                where: { id: input.shiftId },
+            const shift = await prisma.dutySession.findFirst({
+                where: {
+                    id: input.shiftId,
+                    stationId: ctx.stationId
+                },
             })
 
             if (!shift) {
-                throw new Error('Shift not found')
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
             }
 
             if (shift.status !== 'verified') {
-                throw new Error('Edit permission can only be requested for verified shifts')
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'Edit permission can only be requested for verified shifts'
+                })
             }
 
             // Check for existing pending requests
@@ -33,7 +39,10 @@ export const shiftEditRequestRouter = router({
             })
 
             if (existingRequest) {
-                throw new Error('A pending edit request already exists for this shift')
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'A pending edit request already exists for this shift'
+                })
             }
 
             return await prisma.shiftEditRequest.create({
@@ -52,7 +61,7 @@ export const shiftEditRequestRouter = router({
     /**
      * Owner or admin approves the edit request
      */
-    approve: protectedProcedure
+    approve: tenantProcedure
         .input(z.object({
             requestId: z.number(),
         }))
@@ -63,18 +72,26 @@ export const shiftEditRequestRouter = router({
             })
 
             if (!request) {
-                throw new Error('Edit request not found')
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Edit request not found' })
+            }
+
+            // Verify request is for a shift in this station
+            if (request.dutySession.stationId !== ctx.stationId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Edit request not found' })
             }
 
             if (request.status !== 'pending') {
-                throw new Error('Request is no longer pending')
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Request is no longer pending' })
             }
 
             const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
             const isOwner = request.dutySession.userId === ctx.user.id
 
             if (!isAdmin && !isOwner) {
-                throw new Error('Only the shift owner or an admin can approve this request')
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Only the shift owner or an admin can approve this request'
+                })
             }
 
             // Update request status
@@ -101,15 +118,18 @@ export const shiftEditRequestRouter = router({
     /**
      * Get pending requests for user's shifts
      */
-    getPending: protectedProcedure
+    getPending: tenantProcedure
         .input(z.object({
             shiftId: z.number().optional(),
         }))
         .query(async ({ ctx, input }) => {
             const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
 
-            const where: any = {
+            const where: Record<string, unknown> = {
                 status: 'pending',
+                dutySession: {
+                    stationId: ctx.stationId
+                }
             }
 
             if (input.shiftId) {
@@ -118,9 +138,7 @@ export const shiftEditRequestRouter = router({
 
             // If not admin, only see requests for shifts owned by the user
             if (!isAdmin) {
-                where.dutySession = {
-                    userId: ctx.user.id
-                }
+                (where.dutySession as Record<string, unknown>).userId = ctx.user.id
             }
 
             return await prisma.shiftEditRequest.findMany({
@@ -140,22 +158,28 @@ export const shiftEditRequestRouter = router({
     /**
      * View all requests (approved + pending) for a shift
      */
-    getHistory: protectedProcedure
+    getHistory: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
         }))
         .query(async ({ ctx, input }) => {
-            const shift = await prisma.dutySession.findUnique({
-                where: { id: input.shiftId }
+            const shift = await prisma.dutySession.findFirst({
+                where: {
+                    id: input.shiftId,
+                    stationId: ctx.stationId
+                }
             })
 
             if (!shift) {
-                throw new Error('Shift not found')
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
             }
 
             const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
             if (!isAdmin && shift.userId !== ctx.user.id) {
-                throw new Error('You do not have permission to view this history')
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to view this history'
+                })
             }
 
             return await prisma.shiftEditRequest.findMany({
@@ -175,17 +199,26 @@ export const shiftEditRequestRouter = router({
         .input(z.object({
             requestId: z.number(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
             const request = await prisma.shiftEditRequest.findUnique({
                 where: { id: input.requestId },
+                include: { dutySession: true }
             })
 
             if (!request) {
-                throw new Error('Edit request not found')
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Edit request not found' })
+            }
+
+            // Verify request is for a shift in this station
+            if (request.dutySession.stationId !== ctx.stationId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Edit request not found' })
             }
 
             if (request.status !== 'pending') {
-                throw new Error('Only pending requests can be cancelled')
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'Only pending requests can be cancelled'
+                })
             }
 
             await prisma.shiftEditRequest.delete({

@@ -7,9 +7,45 @@ import { FuelRatesPanel } from "./components/FuelRatesPanel"
 import { RecentActivityFeed } from "./components/RecentActivityFeed"
 import { StaffPerformanceChart } from "./components/StaffPerformanceChart"
 import { QuickLinksCard } from "./components/QuickLinksCard"
+import dynamic from 'next/dynamic'
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+
+const LandingPage = dynamic(() => import('@/components/landing/LandingPage'))
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+  const [showLanding, setShowLanding] = useState(false)
+
+  useEffect(() => {
+    if (isLoading) return
+
+    // helper to check if domain is public (nozzleos.com or localhost root)
+    const hostname = window.location.hostname
+    const isPublic = hostname === 'nozzleos.com' || hostname === 'localhost' || hostname === '127.0.0.1'
+
+    if (!isAuthenticated) {
+      if (isPublic) {
+        setShowLanding(true)
+      } else {
+        // If tenant domain and not logged in, redirect to login
+        router.push('/login')
+      }
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading) {
+    return null // Or spinner
+  }
+
+  if (showLanding) {
+    return <LandingPage />
+  }
+
+  // If not authenticated and not landing, we are redirecting, return null
+  if (!user && !showLanding) return null
+
   const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
 
   if (!isAdmin) {

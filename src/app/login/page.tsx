@@ -1,6 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { trpc } from '@/lib/trpc'
+import { HugeiconsIcon } from "@hugeicons/react"
+import { FuelStationIcon } from "@hugeicons/core-free-icons"
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -15,7 +18,25 @@ export default function LoginPage() {
     const { login } = useAuth()
     const router = useRouter()
 
+    // Station Logic
+    const [stationSlug, setStationSlug] = useState<string | null>(null)
+    const { data: station } = trpc.station.getPublicInfo.useQuery(
+        { slug: stationSlug || '' },
+        { enabled: !!stationSlug }
+    )
+
+    useEffect(() => {
+        const host = window.location.hostname
+        if (host.endsWith('.nozzleos.com') || (host.endsWith('localhost') && host !== 'localhost')) {
+            const parts = host.split('.')
+            if (parts.length > 2 || (host.includes('localhost') && parts.length > 1)) {
+                setStationSlug(parts[0])
+            }
+        }
+    }, [])
+
     const handleSubmit = async (e: React.FormEvent) => {
+        // ... (existing submit logic) ...
         e.preventDefault()
         setLoading(true)
 
@@ -42,26 +63,18 @@ export default function LoginPage() {
                 <div className="mx-auto w-full max-w-sm space-y-6">
                     <div className="flex flex-col space-y-2 text-center">
                         <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="h-6 w-6 text-primary"
-                            >
-                                <path d="M3 3v18h18" />
-                                <path d="M18 17V9" />
-                                <path d="M13 17V5" />
-                                <path d="M8 17v-3" />
-                            </svg>
+                            <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6 text-primary" />
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">NozzleOS</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Enter your credentials to login to NozzleOS
-                        </p>
+                        <div className="text-sm text-muted-foreground">
+                            {station ? (
+                                <>
+                                    Enter your credentials to login to <span className="font-bold text-foreground">{station.name}</span>
+                                </>
+                            ) : (
+                                'Enter your credentials to login to NozzleOS'
+                            )}
+                        </div>
                     </div>
 
                     <Card className="border-0 shadow-none sm:border sm:shadow-sm">

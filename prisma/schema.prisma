@@ -8,6 +8,32 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+// ==================== STATION (MULTI-TENANCY) ====================
+
+model Station {
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique   // Subdomain identifier (e.g., "nk-petroleum")
+  name      String               // Display name (e.g., "NK Petroleum")
+  location  String?              // Physical address
+  mobile    String?              // Contact phone number
+  email     String?              // Contact email
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations to all station-specific data
+  users           User[]
+  customers       Customer[]
+  paymentMethods  PaymentMethod[]
+  fuels           Fuel[]
+  dispensers      Dispenser[]
+  nozzles         Nozzle[]
+  dutySessions    DutySession[]
+  settings        Settings?
+}
+
+// ==================== USER & ROLES ====================
+
 model UserRole {
   id    Int    @id @default(autoincrement())
   name  String @unique
@@ -16,7 +42,8 @@ model UserRole {
 
 model User {
   id                    Int                @id @default(autoincrement())
-  username              String             @unique
+  stationId             Int?               // Nullable for Super Admins
+  username              String
   name                  String?
   passwordHash          String
   code                  String?
@@ -27,73 +54,99 @@ model User {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   deletedAt             DateTime?
+  station               Station?           @relation(fields: [stationId], references: [id])
   dutySessions          DutySession[]      @relation("UserSessions")
   verifiedSessions      DutySession[]      @relation("VerifiedSessions")
   initiatedEditRequests ShiftEditRequest[] @relation("EditRequestInitiatedBy")
   approvedEditRequests  ShiftEditRequest[] @relation("EditRequestApprovedBy")
   role                  UserRole           @relation(fields: [roleId], references: [id])
 
+  // For station users: unique username per station
+  // For super admins (null stationId): username must still be unique globally among super admins
+  @@unique([stationId, username])
+  @@index([stationId])
   @@index([roleId, isActive])
   @@index([isActive])
 }
 
+// ==================== CUSTOMERS & PAYMENTS ====================
+
 model Customer {
   id            Int            @id @default(autoincrement())
+  stationId     Int
   name          String
-  email         String?        @unique
+  email         String?
   phone         String?
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
+  station       Station        @relation(fields: [stationId], references: [id])
   paymentMethod PaymentMethod?
 
+  @@unique([stationId, email])
+  @@index([stationId])
   @@index([isActive])
   @@index([phone])
 }
 
 model PaymentMethod {
   id              Int              @id @default(autoincrement())
-  name            String           @unique
+  stationId       Int
+  name            String
   isActive        Boolean          @default(true)
   customerId      Int?             @unique
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  station         Station          @relation(fields: [stationId], references: [id])
   customer        Customer?        @relation(fields: [customerId], references: [id])
   sessionPayments SessionPayment[]
 
+  @@unique([stationId, name])
+  @@index([stationId])
   @@index([isActive])
 }
 
+// ==================== FUELS & EQUIPMENT ====================
+
 model Fuel {
   id        Int       @id @default(autoincrement())
-  name      String    @unique
+  stationId Int
+  name      String
   price     Float     @default(0)
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  station   Station   @relation(fields: [stationId], references: [id])
   nozzles   Nozzle[]
 
+  @@unique([stationId, name])
+  @@index([stationId])
   @@index([isActive])
 }
 
 model Dispenser {
   id        Int       @id @default(autoincrement())
-  code      String    @unique
+  stationId Int
+  code      String
   name      String
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  station   Station   @relation(fields: [stationId], references: [id])
   nozzles   Nozzle[]
 
+  @@unique([stationId, code])
+  @@index([stationId])
   @@index([isActive])
 }
 
 model Nozzle {
   id                    Int                    @id @default(autoincrement())
-  code                  String                 @unique
+  stationId             Int
+  code                  String
   dispenserId           Int
   fuelId                Int
   price                 Float                  @default(0)
@@ -103,17 +156,23 @@ model Nozzle {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deletedAt             DateTime?
+  station               Station                @relation(fields: [stationId], references: [id])
   dispenser             Dispenser              @relation(fields: [dispenserId], references: [id])
   fuel                  Fuel                   @relation(fields: [fuelId], references: [id])
   nozzleSessionReadings NozzleSessionReading[]
 
+  @@unique([stationId, code])
+  @@index([stationId])
   @@index([isActive, isAvailable])
   @@index([dispenserId])
   @@index([fuelId])
 }
 
+// ==================== DUTY SESSIONS ====================
+
 model DutySession {
   id                    Int                    @id @default(autoincrement())
+  stationId             Int
   userId                Int
   type                  ShiftType              @default(MORNING)
   startTime             DateTime               @default(now())
@@ -126,12 +185,14 @@ model DutySession {
   verifiedAt            DateTime?
   verifiedByUserId      Int?
   rejectionNotes        String?
+  station               Station                @relation(fields: [stationId], references: [id])
   user                  User                   @relation("UserSessions", fields: [userId], references: [id])
   verifiedBy            User?                  @relation("VerifiedSessions", fields: [verifiedByUserId], references: [id])
   nozzleReadings        NozzleSessionReading[]
   sessionPayments       SessionPayment[]
   editRequests          ShiftEditRequest[]
 
+  @@index([stationId])
   @@index([userId, status])
   @@index([status, endTime])
   @@index([userId, endTime])
@@ -172,11 +233,15 @@ model SessionPayment {
   @@index([createdAt])
 }
 
+// ==================== SETTINGS & CONFIGURATION ====================
+
 model Settings {
-  id                      Int      @id @default(1)
+  id                      Int      @id @default(autoincrement())
+  stationId               Int      @unique
   enableDenominationEntry Boolean  @default(true)
   enableCoinEntry         Boolean  @default(true)
   updatedAt               DateTime @updatedAt
+  station                 Station  @relation(fields: [stationId], references: [id])
 }
 
 model Denomination {

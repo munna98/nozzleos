@@ -52,6 +52,22 @@ export function TopNav() {
             roles: ['Admin', 'Fuel Attendant', 'Manager'],
             icon: DashboardCircleIcon
         },
+        // Super Admin Routes
+        {
+            href: "/admin",
+            label: "Overview",
+            active: pathname === "/admin",
+            roles: ['Super Admin'],
+            icon: DashboardCircleIcon
+        },
+        {
+            href: "/admin/stations",
+            label: "Stations",
+            active: pathname.startsWith("/admin/stations"),
+            roles: ['Super Admin'],
+            icon: FuelStationIcon
+        },
+        // Standard Routes
         {
             href: "/employees",
             label: "Employees",

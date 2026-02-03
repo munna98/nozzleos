@@ -13,7 +13,8 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         if (isLoading) return
 
-        if (!isAuthenticated && pathname !== '/login') {
+        // Allow access to root '/' for landing page logic (handled in page.tsx)
+        if (!isAuthenticated && pathname !== '/login' && pathname !== '/') {
             router.push('/login')
         } else if (isAuthenticated && pathname === '/login') {
             // Role-based routing after login
@@ -56,14 +57,15 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     }
 
     // If not authenticated and not on login page, don't show children (will redirect)
-    if (!isAuthenticated && pathname !== '/login') {
+    // Exception: Allow '/' to render (for public Landing Page)
+    if (!isAuthenticated && pathname !== '/login' && pathname !== '/') {
         return null
     }
 
     // Logic to prevent flash of content before redirect
     let shouldRedirect = false;
 
-    if (!isAuthenticated && pathname !== '/login') {
+    if (!isAuthenticated && pathname !== '/login' && pathname !== '/') {
         shouldRedirect = true;
     } else if (isAuthenticated && pathname === '/login') {
         shouldRedirect = true;

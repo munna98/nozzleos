@@ -1,12 +1,12 @@
 import { z } from 'zod'
-import { router, protectedProcedure } from '../trpc/init'
+import { router, tenantProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const paymentRouter = router({
     /**
-     * Get payment transactions with filters
+     * Get payment transactions with filters (tenant-scoped)
      */
-    getTransactions: protectedProcedure
+    getTransactions: tenantProcedure
         .input(z.object({
             limit: z.number().min(1).max(100).default(50),
             offset: z.number().min(0).default(0),
@@ -14,24 +14,27 @@ export const paymentRouter = router({
             endDate: z.date().optional(),
             paymentMethodId: z.number().optional().nullable(),
             isCustomerPayment: z.boolean().optional(),
-            userId: z.number().optional(), // Filter by attendant (for admins)
+            userId: z.number().optional(),
         }))
         .query(async ({ input, ctx }) => {
-            const where: any = {}
+            const where: Record<string, unknown> = {
+                // Filter by station via the duty session
+                dutySession: {
+                    stationId: ctx.stationId
+                }
+            }
 
             // Date range filter
             if (input.startDate || input.endDate) {
                 where.createdAt = {}
                 if (input.startDate) {
-                    const start = new Date(input.startDate)
-                    // start.setHours(0, 0, 0, 0)
-                    where.createdAt.gte = start
+                    const start = new Date(input.startDate);
+                    (where.createdAt as Record<string, unknown>).gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    // end.setHours(0, 0, 0, 0)
-                    end.setDate(end.getDate() + 1)
-                    where.createdAt.lt = end
+                    end.setDate(end.getDate() + 1);
+                    (where.createdAt as Record<string, unknown>).lt = end
                 }
             }
 
@@ -40,7 +43,7 @@ export const paymentRouter = router({
                 where.paymentMethodId = input.paymentMethodId
             }
 
-            // Customer payment filter (all methods with a customer)
+            // Customer payment filter
             if (input.isCustomerPayment === true) {
                 where.paymentMethod = {
                     customerId: { not: null }
@@ -53,20 +56,12 @@ export const paymentRouter = router({
 
             // User/Attendant filter
             if (input.userId) {
-                where.dutySession = {
-                    userId: input.userId
-                }
+                (where.dutySession as Record<string, unknown>).userId = input.userId
             }
 
-            // Security: Limit non-admins to their own sessions?
-            // Usually reports are for admins/managers. 
-            // If simple user accesses, maybe restrict to their own?
-            // For now, let's allow "Manager" and "Admin" to see all, others only theirs.
+            // Security: Limit non-admins to their own sessions
             if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
-                where.dutySession = {
-                    ...where.dutySession,
-                    userId: ctx.user.id
-                }
+                (where.dutySession as Record<string, unknown>).userId = ctx.user.id
             }
 
             const [transactions, total] = await Promise.all([
@@ -95,8 +90,7 @@ export const paymentRouter = router({
                 prisma.sessionPayment.count({ where })
             ])
 
-            // Calculate total amount for the filtered range (not just pagination)
-            // This aggregate might be heavy if many rows, but useful for "Total" card
+            // Calculate total amount for the filtered range
             const aggregations = await prisma.sessionPayment.aggregate({
                 where,
                 _sum: {

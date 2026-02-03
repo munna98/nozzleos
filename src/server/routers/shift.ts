@@ -1,15 +1,16 @@
 import { z } from 'zod'
 import { Prisma, ShiftType } from '@prisma/client'
-import { router, protectedProcedure, adminProcedure } from '../trpc/init'
+import { router, tenantProcedure, adminProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
 export const shiftRouter = router({
     /**
      * Get active shift for current user
      */
-    getActive: protectedProcedure.query(async ({ ctx }) => {
+    getActive: tenantProcedure.query(async ({ ctx }) => {
         const shift = await prisma.dutySession.findFirst({
             where: {
+                stationId: ctx.stationId,
                 userId: ctx.user.id,
                 status: 'in_progress',
             },
@@ -40,7 +41,7 @@ export const shiftRouter = router({
     /**
      * Start a new shift
      */
-    start: protectedProcedure
+    start: tenantProcedure
         .input(z.object({
             shiftType: z.nativeEnum(ShiftType),
             nozzleIds: z.array(z.number()).min(1),
@@ -48,20 +49,21 @@ export const shiftRouter = router({
         .mutation(async ({ ctx, input }) => {
             // Check for existing active shift
             const existingShift = await prisma.dutySession.findFirst({
-                where: { userId: ctx.user.id, status: 'in_progress' },
+                where: { stationId: ctx.stationId, userId: ctx.user.id, status: 'in_progress' },
             })
             if (existingShift) {
-                throw new Error('You already have an active shift')
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'You already have an active shift' })
             }
 
-            // Get nozzles with current readings
+            // Get nozzles with current readings (station-scoped)
             const nozzles = await prisma.nozzle.findMany({
-                where: { id: { in: input.nozzleIds } },
+                where: { id: { in: input.nozzleIds }, stationId: ctx.stationId },
             })
 
             // Create shift with nozzle readings
             const shift = await prisma.dutySession.create({
                 data: {
+                    stationId: ctx.stationId,
                     userId: ctx.user.id,
                     type: input.shiftType,
                     nozzleReadings: {
@@ -90,7 +92,7 @@ export const shiftRouter = router({
     /**
      * Update test quantities
      */
-    updateTestQty: protectedProcedure
+    updateTestQty: tenantProcedure
         .input(z.object({
             readings: z.array(z.object({
                 readingId: z.number(),
@@ -110,7 +112,7 @@ export const shiftRouter = router({
     /**
      * Add payment to shift
      */
-    addPayment: protectedProcedure
+    addPayment: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             paymentMethodId: z.number(),
@@ -170,7 +172,7 @@ export const shiftRouter = router({
     /**
      * Update payment
      */
-    updatePayment: protectedProcedure
+    updatePayment: tenantProcedure
         .input(z.object({
             paymentId: z.number(),
             paymentMethodId: z.number().optional(),
@@ -244,7 +246,7 @@ export const shiftRouter = router({
     /**
      * Delete payment
      */
-    deletePayment: protectedProcedure
+    deletePayment: tenantProcedure
         .input(z.object({ paymentId: z.number() }))
         .mutation(async ({ input }) => {
             const payment = await prisma.sessionPayment.findUnique({
@@ -271,7 +273,7 @@ export const shiftRouter = router({
     /**
      * Complete shift with closing readings
      */
-    complete: protectedProcedure
+    complete: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             readings: z.array(z.object({
@@ -360,7 +362,7 @@ export const shiftRouter = router({
     /**
      * Update nozzle reading (Attendant)
      */
-    updateNozzleReading: protectedProcedure
+    updateNozzleReading: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
@@ -409,7 +411,7 @@ export const shiftRouter = router({
     /**
      * Add nozzle to active shift
      */
-    addNozzle: protectedProcedure
+    addNozzle: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             nozzleId: z.number(),
@@ -450,7 +452,7 @@ export const shiftRouter = router({
     /**
      * Remove nozzle from active shift
      */
-    removeNozzle: protectedProcedure
+    removeNozzle: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             nozzleId: z.number(),
@@ -499,7 +501,7 @@ export const shiftRouter = router({
     /**
      * Get shift summary
      */
-    getSummary: protectedProcedure
+    getSummary: tenantProcedure
         .input(z.object({ shiftId: z.number() }))
         .query(async ({ input }) => {
             const shift = await prisma.dutySession.findUnique({
@@ -550,7 +552,7 @@ export const shiftRouter = router({
     /**
      * Get all shifts (for history page) with advanced filtering
      */
-    getAll: protectedProcedure
+    getAll: tenantProcedure
         .input(z.object({
             limit: z.number().min(1).max(100).default(20),
             offset: z.number().min(0).default(0),
@@ -564,8 +566,8 @@ export const shiftRouter = router({
             userNameSearch: z.string().optional(), // Search by name/username
         }))
         .query(async ({ ctx, input }) => {
-            const where: any = {}
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const where: Record<string, unknown> = { stationId: ctx.stationId }
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.isSuperAdmin
 
             // Status filter
             if (input.status) {
@@ -582,15 +584,13 @@ export const shiftRouter = router({
             if (input.startDateFrom || input.startDateTo) {
                 where.startTime = {}
                 if (input.startDateFrom) {
-                    const start = new Date(input.startDateFrom)
-                    // start.setHours(0, 0, 0, 0) // Don't override client provided time
-                    where.startTime.gte = start
+                    const start = new Date(input.startDateFrom);
+                    (where.startTime as Record<string, unknown>).gte = start
                 }
                 if (input.startDateTo) {
                     const end = new Date(input.startDateTo)
-                    // end.setHours(0, 0, 0, 0) // Don't override client provided time
-                    end.setDate(end.getDate() + 1)
-                    where.startTime.lt = end
+                    end.setDate(end.getDate() + 1);
+                    (where.startTime as Record<string, unknown>).lt = end
                 }
             }
 
@@ -599,14 +599,14 @@ export const shiftRouter = router({
                 where.endTime = {}
                 if (input.endDateFrom) {
                     const start = new Date(input.endDateFrom)
-                    start.setHours(0, 0, 0, 0)
-                    where.endTime.gte = start
+                    start.setHours(0, 0, 0, 0);
+                    (where.endTime as Record<string, unknown>).gte = start
                 }
                 if (input.endDateTo) {
                     const end = new Date(input.endDateTo)
                     end.setHours(0, 0, 0, 0)
-                    end.setDate(end.getDate() + 1)
-                    where.endTime.lt = end
+                    end.setDate(end.getDate() + 1);
+                    (where.endTime as Record<string, unknown>).lt = end
                 }
             }
 
@@ -665,7 +665,7 @@ export const shiftRouter = router({
     /**
      * Get shift by ID (for editing or viewing details)
      */
-    getById: protectedProcedure
+    getById: tenantProcedure
         .input(z.object({ id: z.number() }))
         .query(async ({ ctx, input }) => {
             const shift = await prisma.dutySession.findUnique({
@@ -729,10 +729,10 @@ export const shiftRouter = router({
             limit: z.number().min(1).max(100).default(20),
             offset: z.number().min(0).default(0),
         }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
             const [shifts, total] = await Promise.all([
                 prisma.dutySession.findMany({
-                    where: { status: 'pending_verification' },
+                    where: { stationId: ctx.stationId, status: 'pending_verification' },
                     include: {
                         user: { select: { id: true, username: true, name: true } },
                         nozzleReadings: {
@@ -744,7 +744,7 @@ export const shiftRouter = router({
                     skip: input.offset,
                     take: input.limit,
                 }),
-                prisma.dutySession.count({ where: { status: 'pending_verification' } }),
+                prisma.dutySession.count({ where: { stationId: ctx.stationId, status: 'pending_verification' } }),
             ])
 
             return {
@@ -799,7 +799,7 @@ export const shiftRouter = router({
     /**
      * Resubmit rejected shift for verification (user who created it or admin)
      */
-    resubmitForVerification: protectedProcedure
+    resubmitForVerification: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
         }))
@@ -895,7 +895,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update shift details
      */
-    adminUpdateShift: protectedProcedure
+    adminUpdateShift: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
@@ -937,7 +937,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update individual nozzle reading
      */
-    adminUpdateNozzleReading: protectedProcedure
+    adminUpdateNozzleReading: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             readingId: z.number(),
@@ -989,7 +989,7 @@ export const shiftRouter = router({
     /**
      * Admin: Add payment
      */
-    adminAddPayment: protectedProcedure
+    adminAddPayment: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             data: z.object({
@@ -1054,7 +1054,7 @@ export const shiftRouter = router({
     /**
      * Admin: Update payment
      */
-    adminUpdatePayment: protectedProcedure
+    adminUpdatePayment: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             paymentId: z.number(),
@@ -1136,7 +1136,7 @@ export const shiftRouter = router({
     /**
      * Admin: Delete payment
      */
-    adminDeletePayment: protectedProcedure
+    adminDeletePayment: tenantProcedure
         .input(z.object({
             shiftId: z.number(),
             paymentId: z.number(),
@@ -1174,9 +1174,9 @@ export const shiftRouter = router({
      * Get all active (in_progress) shifts for admin dashboard
      */
     getActiveShifts: adminProcedure
-        .query(async () => {
+        .query(async ({ ctx }) => {
             const shifts = await prisma.dutySession.findMany({
-                where: { status: 'in_progress' },
+                where: { stationId: ctx.stationId, status: 'in_progress' },
                 include: {
                     user: { select: { id: true, name: true, username: true } },
                     nozzleReadings: {
@@ -1211,9 +1211,10 @@ export const shiftRouter = router({
         .input(z.object({
             limit: z.number().min(1).max(20).default(10),
         }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
             const shifts = await prisma.dutySession.findMany({
                 where: {
+                    stationId: ctx.stationId,
                     status: { in: ['pending_verification', 'verified', 'rejected'] }
                 },
                 include: {
@@ -1251,10 +1252,10 @@ export const shiftRouter = router({
      * Get dashboard statistics counts
      */
     getDashboardStats: adminProcedure
-        .query(async () => {
+        .query(async ({ ctx }) => {
             const [activeCount, pendingCount] = await Promise.all([
-                prisma.dutySession.count({ where: { status: 'in_progress' } }),
-                prisma.dutySession.count({ where: { status: 'pending_verification' } }),
+                prisma.dutySession.count({ where: { stationId: ctx.stationId, status: 'in_progress' } }),
+                prisma.dutySession.count({ where: { stationId: ctx.stationId, status: 'pending_verification' } }),
             ])
 
             return {
