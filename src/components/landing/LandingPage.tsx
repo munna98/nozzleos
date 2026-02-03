@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -9,21 +10,79 @@ import {
     Shield02Icon,
     FlashIcon,
     UserGroupIcon,
-    Building02Icon
+    Building02Icon,
+    PanelLeftIcon
 } from "@hugeicons/core-free-icons"
 import { Boxes } from "@/components/ui/boxes"
+import { ModeToggle } from "@/components/mode-toggle"
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
 export default function LandingPage() {
+    const [open, setOpen] = useState(false)
+
     return (
         <div className="flex flex-col min-h-screen">
             {/* Header */}
             <header className="sticky top-0 z-50 border-b backdrop-blur-md bg-background/80">
-                <div className="container mx-auto flex h-14 items-center px-4 lg:px-6">
-                    <Link className="flex items-center justify-center font-bold text-xl" href="/">
-                        <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6 mr-2 text-primary" />
-                        <span>NozzleOS</span>
-                    </Link>
-                    <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
+                <div className="container mx-auto flex h-16 items-center px-4 lg:px-6">
+                    <div className="flex items-center gap-2">
+                        {/* Mobile Menu Trigger */}
+                        <Sheet open={open} onOpenChange={setOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon" className="md:hidden">
+                                    <HugeiconsIcon icon={PanelLeftIcon} className="h-5 w-5" />
+                                    <span className="sr-only">Toggle menu</span>
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="w-[280px] p-0 flex flex-col h-full bg-background/95 backdrop-blur-md">
+                                <SheetHeader className="p-4 border-b bg-muted/30">
+                                    <SheetTitle className="sr-only">NozzleOS Navigation</SheetTitle>
+                                    <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                                            <HugeiconsIcon icon={FuelStationIcon} className="h-5 w-5" />
+                                        </div>
+                                        <span className="font-bold text-lg tracking-tight">NozzleOS</span>
+                                    </Link>
+                                </SheetHeader>
+                                <div className="flex-1 py-6 px-4">
+                                    <nav className="flex flex-col gap-4">
+                                        <Link
+                                            href="#features"
+                                            onClick={() => setOpen(false)}
+                                            className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors py-2"
+                                        >
+                                            <HugeiconsIcon icon={FlashIcon} className="h-5 w-5 text-muted-foreground" />
+                                            Features
+                                        </Link>
+                                        <Link
+                                            href="/login"
+                                            onClick={() => setOpen(false)}
+                                            className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors py-2"
+                                        >
+                                            <HugeiconsIcon icon={UserGroupIcon} className="h-5 w-5 text-muted-foreground" />
+                                            Sign In
+                                        </Link>
+                                        <Link
+                                            href="/login"
+                                            onClick={() => setOpen(false)}
+                                            className="mt-4"
+                                        >
+                                            <Button className="w-full h-12">Get Started</Button>
+                                        </Link>
+                                    </nav>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
+
+                        <Link className="flex items-center justify-center font-bold text-xl" href="/">
+                            <HugeiconsIcon icon={FuelStationIcon} className="h-6 w-6 mr-2 text-primary" />
+                            <span>NozzleOS</span>
+                        </Link>
+                    </div>
+
+                    {/* Desktop Navigation */}
+                    <nav className="ml-auto hidden md:flex gap-6 items-center mr-4">
                         <Link className="text-sm font-medium hover:text-primary transition-colors" href="#features">
                             Features
                         </Link>
@@ -34,12 +93,17 @@ export default function LandingPage() {
                             <Button size="sm">Get Started</Button>
                         </Link>
                     </nav>
+
+                    {/* Theme Toggle & Right Actions */}
+                    <div className={cn("flex items-center gap-2", "ml-auto md:ml-0")}>
+                        <ModeToggle />
+                    </div>
                 </div>
             </header>
 
             <main className="flex-1">
                 {/* Hero Section */}
-                <section className="dark relative w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-background overflow-hidden flex flex-col items-center justify-center">
+                <section className="relative w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-background overflow-hidden flex flex-col items-center justify-center">
                     <div className="absolute inset-0 w-full h-full bg-background z-20 [mask-image:radial-gradient(transparent,white)] pointer-events-none" />
 
                     {/* Bottom Blending Gradient */}
@@ -53,16 +117,16 @@ export default function LandingPage() {
                                 <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-400 pb-2">
                                     Fueling Your Fuel Stations.
                                 </h1>
-                                <p className="mx-auto max-w-[700px] text-slate-300 md:text-xl font-light">
+                                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl font-light">
                                     The all-in-one operating system built to manage pumps, payments, and precision at the nozzle.
                                 </p>
                             </div>
-                            <div className="space-x-4">
-                                <Link href="/login">
-                                    <Button size="lg" className="h-12 px-8">Start Free Trial</Button>
+                            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                                <Link href="/login" className="w-full sm:w-auto">
+                                    <Button size="lg" className="h-12 px-8 w-full">Start Free Trial</Button>
                                 </Link>
-                                <Link href="#features">
-                                    <Button variant="outline" size="lg" className="h-12 px-8 text-white border-slate-700 hover:bg-slate-900">Learn More</Button>
+                                <Link href="#features" className="w-full sm:w-auto">
+                                    <Button variant="outline" size="lg" className="h-12 px-8 w-full">Learn More</Button>
                                 </Link>
                             </div>
                         </div>
