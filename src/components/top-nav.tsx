@@ -27,6 +27,7 @@ import {
     UserListIcon,
     FuelStationIcon,
     Settings01Icon,
+    Settings02Icon,
     Invoice01Icon,
     TimeQuarterPassIcon,
     CreditCardIcon,
@@ -103,6 +104,13 @@ export function TopNav() {
             active: pathname.startsWith("/payment-methods"),
             roles: ['Admin'],
             icon: CreditCardIcon
+        },
+        {
+            href: "/appearance",
+            label: "Appearance",
+            active: pathname.startsWith("/appearance"),
+            roles: ['Fuel Attendant', 'Manager'],
+            icon: Settings02Icon
         },
         {
             href: "/settings",

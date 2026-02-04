@@ -27,7 +27,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
             // Role-based access control
             if (user?.role === 'Fuel Attendant') {
                 // Filling attendants allowed routes
-                const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/profile']
+                const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/appearance', '/profile']
                 const isAllowed = allowedRoutes.some(route => pathname.startsWith(route))
 
                 if (!isAllowed && pathname !== '/') {
@@ -71,7 +71,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         shouldRedirect = true;
     } else if (isAuthenticated) {
         if (user?.role === 'Fuel Attendant') {
-            const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/profile'];
+            const allowedRoutes = ['/dashboard', '/shift', '/reports/shift-history', '/appearance', '/profile'];
             const isAllowed = allowedRoutes.some(route => pathname.startsWith(route));
 
             if (!isAllowed && pathname !== '/') {
