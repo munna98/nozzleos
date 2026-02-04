@@ -177,7 +177,10 @@ export default function DispensersPage() {
                                     <TableCell colSpan={6} className="text-center py-10">No dispensers found.</TableCell>
                                 </TableRow>
                             ) : (
-                                dispensers.map((dispenser: Dispenser) => (
+                                dispensers.map((dispenser: Dispenser) => {
+                                    const totalNozzles = dispenser.nozzles?.length || 0
+                                    const availableNozzles = dispenser.nozzles?.filter((n: Nozzle) => n.isAvailable).length || 0
+                                    return (
                                     <React.Fragment key={dispenser.id}>
                                         <TableRow>
                                             <TableCell>
@@ -194,7 +197,7 @@ export default function DispensersPage() {
                                             </TableCell>
                                             <TableCell className="font-medium">{dispenser.code}</TableCell>
                                             <TableCell>{dispenser.name}</TableCell>
-                                            <TableCell>{dispenser.nozzles?.length || 0}</TableCell>
+                                            <TableCell>{availableNozzles}/{totalNozzles}</TableCell>
                                             <TableCell>
                                                 <Badge variant={dispenser.isActive ? "default" : "secondary"}>
                                                     {dispenser.isActive ? "Active" : "Inactive"}
@@ -272,7 +275,8 @@ export default function DispensersPage() {
                                             </TableRow>
                                         )}
                                     </React.Fragment>
-                                ))
+                                    )
+                                })
                             )}
                         </TableBody>
                     </Table>
@@ -286,7 +290,10 @@ export default function DispensersPage() {
                 ) : dispensers.length === 0 ? (
                     <div className="text-center py-10">No dispensers found.</div>
                 ) : (
-                    dispensers.map((dispenser: Dispenser) => (
+                    dispensers.map((dispenser: Dispenser) => {
+                        const totalNozzles = dispenser.nozzles?.length || 0
+                        const availableNozzles = dispenser.nozzles?.filter((n: Nozzle) => n.isAvailable).length || 0
+                        return (
                         <Card key={dispenser.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
@@ -301,7 +308,7 @@ export default function DispensersPage() {
 
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div className="text-muted-foreground">Nozzles:</div>
-                                    <div>{dispenser.nozzles?.length || 0}</div>
+                                    <div>{availableNozzles}/{totalNozzles}</div>
                                 </div>
 
                                 <div className="flex justify-between gap-2 pt-2 border-t mt-2">
@@ -368,7 +375,8 @@ export default function DispensersPage() {
                                 )}
                             </CardContent>
                         </Card>
-                    ))
+                        )
+                    })
                 )}
             </div>
 
