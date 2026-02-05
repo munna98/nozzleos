@@ -210,8 +210,8 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                         <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
                     </Button>
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                                 {shift.type ? (shift.type.charAt(0) + shift.type.slice(1).toLowerCase() + ' Shift') : 'Shift'}
                             </h1>
                             <Badge
@@ -233,7 +233,7 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                                         shift.status.charAt(0).toUpperCase() + shift.status.slice(1)}
                             </Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                        <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-4 text-xs md:text-sm text-muted-foreground mt-1">
                             <span className="flex items-center gap-1">
                                 <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5" />
                                 {formatDateTime(shift.startTime)}
