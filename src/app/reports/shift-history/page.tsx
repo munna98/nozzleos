@@ -24,6 +24,13 @@ import {
     AlertDialogHeader,
     AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 export default function ShiftHistoryPage() {
     const router = useRouter()
@@ -51,7 +58,7 @@ export default function ShiftHistoryPage() {
     const [selectedShiftForVerify, setSelectedShiftForVerify] = useState<any | null>(null)
 
     const [page, setPage] = useState(0)
-    const limit = 10
+    const [limit, setLimit] = useState(10)
 
     // Fetch shifts with filters
     const shiftsQuery = trpc.shift.getAll.useQuery({
@@ -224,6 +231,7 @@ export default function ShiftHistoryPage() {
                 page={page}
                 setPage={setPage}
                 limit={limit}
+                setLimit={setLimit}
             />
 
             {/* Quick Verify Confirmation Dialog */}
@@ -278,7 +286,7 @@ export default function ShiftHistoryPage() {
     )
 }
 
-function ShiftListContent({ query, isAdmin, onViewShift, onVerifyShift, page, setPage, limit }: any) {
+function ShiftListContent({ query, isAdmin, onViewShift, onVerifyShift, page, setPage, limit, setLimit }: any) {
     if (query.isLoading) {
         return <div className="text-center py-12"><Spinner className="size-6 mx-auto" /></div>
     }
@@ -301,25 +309,49 @@ function ShiftListContent({ query, isAdmin, onViewShift, onVerifyShift, page, se
             />
 
             {/* Pagination */}
-            {query.data && query.data.pagination.total > limit && (
-                <div className="flex justify-center gap-2 mt-6">
-                    <Button
-                        variant="outline"
-                        onClick={() => setPage((p: number) => Math.max(0, p - 1))}
-                        disabled={page === 0}
-                    >
-                        Previous
-                    </Button>
-                    <span className="flex items-center px-4 text-sm text-muted-foreground">
-                        Page {page + 1} of {Math.ceil(query.data.pagination.total / limit)}
-                    </span>
-                    <Button
-                        variant="outline"
-                        onClick={() => setPage((p: number) => p + 1)}
-                        disabled={(page + 1) * limit >= query.data.pagination.total}
-                    >
-                        Next
-                    </Button>
+            {query.data && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Rows per page</span>
+                        <Select
+                            value={limit.toString()}
+                            onValueChange={(value) => {
+                                setLimit(Number(value))
+                                setPage(0)
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={limit} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 25, 50].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setPage((p: number) => Math.max(0, p - 1))}
+                            disabled={page === 0}
+                        >
+                            Previous
+                        </Button>
+                        <span className="flex items-center px-4 text-sm text-muted-foreground">
+                            Page {page + 1} of {Math.max(1, Math.ceil(query.data.pagination.total / limit))}
+                        </span>
+                        <Button
+                            variant="outline"
+                            onClick={() => setPage((p: number) => p + 1)}
+                            disabled={(page + 1) * limit >= query.data.pagination.total}
+                        >
+                            Next
+                        </Button>
+                    </div>
                 </div>
             )}
         </>
