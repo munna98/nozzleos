@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { trpc } from "@/lib/trpc"
 import { User, UserRole } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -13,8 +13,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon, Delete02Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import { PlusSignIcon, Delete02Icon, PencilEdit01Icon, Search01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -46,6 +47,9 @@ export default function EmployeesPage() {
     const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const searchInputRef = useRef<HTMLInputElement>(null)
 
     const usersQuery = trpc.user.getAll.useQuery()
     const rolesQuery = trpc.user.getRoles.useQuery()
@@ -65,6 +69,17 @@ export default function EmployeesPage() {
     const roles = rolesQuery.data || []
     // Cast strict boolean to be safe if types differ, or rely on truthiness
     const isLoading = usersQuery.isLoading
+
+    const filteredUsers = users.filter((user: User) => {
+        const query = searchQuery.toLowerCase()
+        return (
+            (user.name?.toLowerCase() || "").includes(query) ||
+            (user.username?.toLowerCase() || "").includes(query) ||
+            (user.role?.name?.toLowerCase() || "").includes(query) ||
+            (user.code?.toLowerCase() || "").includes(query) ||
+            (user.mobile?.toLowerCase() || "").includes(query)
+        )
+    })
 
     const handleAddClick = () => {
         setSelectedUser(undefined)
@@ -99,13 +114,77 @@ export default function EmployeesPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
+            <div className="flex justify-between items-center gap-4">
+                {/* Mobile: Expandable Search */}
+                <div className={`md:hidden ${isSearchOpen ? 'flex-1' : ''}`}>
+                    {isSearchOpen ? (
+                        <div className="relative flex items-center gap-2 w-full">
+                            <HugeiconsIcon
+                                icon={Search01Icon}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                            />
+                            <Input
+                                ref={searchInputRef}
+                                placeholder="Search employees..."
+                                className="pl-9 w-full"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onBlur={() => {
+                                    if (!searchQuery) {
+                                        setIsSearchOpen(false)
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    setSearchQuery("")
+                                    setIsSearchOpen(false)
+                                }}
+                            >
+                                <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
+                    )}
                 </div>
-                <Button onClick={handleAddClick}>
-                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Employee
-                </Button>
+
+                {/* Desktop: Title */}
+                <h2 className="hidden md:block text-3xl font-bold tracking-tight">Employees</h2>
+
+                {/* Mobile: Search + Add Buttons (shown when search is closed) */}
+                {!isSearchOpen && (
+                    <div className="flex md:hidden items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => setIsSearchOpen(true)}>
+                            <HugeiconsIcon icon={Search01Icon} className="h-5 w-5" />
+                        </Button>
+                        <Button onClick={handleAddClick} size="icon">
+                            <HugeiconsIcon icon={PlusSignIcon} className="h-5 w-5" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Desktop: Search + Add Button */}
+                <div className="hidden md:flex items-center gap-2">
+                    <div className="relative w-64">
+                        <HugeiconsIcon
+                            icon={Search01Icon}
+                            className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                        />
+                        <Input
+                            placeholder="Search employees..."
+                            className="pl-9 w-full"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleAddClick}>
+                        <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Employee
+                    </Button>
+                </div>
             </div>
 
             <Card className="hidden md:block">
@@ -126,12 +205,12 @@ export default function EmployeesPage() {
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-10"><Spinner className="size-6 mx-auto" /></TableCell>
                                 </TableRow>
-                            ) : users.length === 0 ? (
+                            ) : filteredUsers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-10">No employees found.</TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user: User) => (
+                                filteredUsers.map((user: User) => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
@@ -172,10 +251,10 @@ export default function EmployeesPage() {
             <div className="space-y-4 md:hidden">
                 {isLoading ? (
                     <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
-                ) : users.length === 0 ? (
+                ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-10">No employees found.</div>
                 ) : (
-                    users.map((user: User) => (
+                    filteredUsers.map((user: User) => (
                         <Card key={user.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
