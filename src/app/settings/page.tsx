@@ -60,8 +60,8 @@ export default function SettingsPage() {
                             {[
                                 { id: 'default', name: 'Default', primary: 'bg-black', bg: 'bg-white' },
                                 { id: 'clean', name: 'Clean Slate', primary: 'bg-[#5f33e1]', bg: 'bg-white' },
-                                { id: 'midnight', name: 'Midnight Bloom', primary: 'bg-[#7c3aed]', bg: 'bg-[#fcf8ff]' },
                                 { id: 'pastel', name: 'Pastel Dreams', primary: 'bg-[#ea98f6]', bg: 'bg-[#fff5fe]' },
+                                { id: 'sunday', name: 'Sunday Afternoon', primary: 'bg-[#d97f4a]', bg: 'bg-[#fef9f5]' },
                             ].map((theme) => (
                                 <button
                                     key={theme.id}

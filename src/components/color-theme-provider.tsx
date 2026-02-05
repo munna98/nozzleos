@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-export type ColorTheme = "default" | "clean" | "midnight" | "pastel"
+export type ColorTheme = "default" | "clean" | "pastel" | "sunday"
 
 interface ColorThemeContextType {
     colorTheme: ColorTheme
