@@ -176,7 +176,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const settings = settingsQuery.data
 
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
-    const isCashPayment = selectedMethod?.id === 1 // Assuming 1 is Cash, generally safe or check name 'Cash'
+    const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
 
     // Unlike active shift, we don't auto-select existing cash payment for editing when selecting method.
     // Admin mode is explicit.

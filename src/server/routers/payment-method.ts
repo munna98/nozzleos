@@ -87,11 +87,11 @@ export const paymentMethodRouter = router({
                 })
             }
 
-            // Prevent deactivating Cash payment method
-            if (existing.name === 'Cash' && data.isActive === false) {
+            // Prevent modifying Cash payment method
+            if (existing.name === 'Cash') {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
-                    message: 'Cannot deactivate the Cash payment method'
+                    message: 'Cannot edit the Cash payment method'
                 })
             }
 

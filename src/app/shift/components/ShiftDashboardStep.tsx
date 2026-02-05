@@ -170,8 +170,8 @@ export function ShiftDashboardStep({
 
     // Check if selected method is Cash and denomination entry is enabled
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
-    const isCashPayment = selectedMethod?.id === 1
-    const existingCashPayment = session.sessionPayments.find(p => p.paymentMethodId === 1)
+    const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
+    const existingCashPayment = session.sessionPayments.find(p => p.paymentMethod.name.toLowerCase() === 'cash')
 
     // Auto-edit existing cash payment when "Cash" is selected
     useEffect(() => {

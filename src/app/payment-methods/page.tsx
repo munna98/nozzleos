@@ -139,10 +139,11 @@ export default function PaymentMethodsPage() {
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => handleEdit(method)}
+                                                    disabled={method.name === 'Cash'}
                                                 >
                                                     <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
                                                 </Button>
-                                                {!method.customerId && (
+                                                {!method.customerId && method.name !== 'Cash' && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -191,10 +192,15 @@ export default function PaymentMethodsPage() {
                                 </div>
 
                                 <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-                                    <Button variant="outline" size="sm" onClick={() => handleEdit(method)}>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEdit(method)}
+                                        disabled={method.name === 'Cash'}
+                                    >
                                         <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4 mr-2" /> Edit
                                     </Button>
-                                    {!method.customerId && (
+                                    {!method.customerId && method.name !== 'Cash' && (
                                         <Button variant="destructive" size="sm" onClick={() => handleDelete(method.id)}>
                                             <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4 mr-2" /> Delete
                                         </Button>
