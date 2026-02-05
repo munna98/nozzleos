@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { PaymentMethod } from "@/lib/api"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
-import { Add01Icon, PencilEdit01Icon, Delete02Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, PencilEdit01Icon, Delete02Icon, Search01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
+import { Input } from "@/components/ui/input"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -35,6 +36,9 @@ export default function PaymentMethodsPage() {
     const [methodToEdit, setMethodToEdit] = useState<PaymentMethod | undefined>(undefined)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [methodToDeleteId, setMethodToDeleteId] = useState<number | null>(null)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const searchInputRef = useRef<HTMLInputElement>(null)
 
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
     const utils = trpc.useUtils()
@@ -50,6 +54,11 @@ export default function PaymentMethodsPage() {
 
     const paymentMethods = paymentMethodsQuery.data || []
     const loading = paymentMethodsQuery.isLoading
+
+    const filteredPaymentMethods = paymentMethods.filter((method: PaymentMethod) => {
+        const query = searchQuery.toLowerCase()
+        return method.name?.toLowerCase().includes(query)
+    })
 
     const handleEdit = (method: PaymentMethod) => {
         setMethodToEdit(method)
@@ -80,17 +89,84 @@ export default function PaymentMethodsPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Payment Methods</h2>
+            <div className="flex justify-between items-center gap-4">
+                {/* Mobile: Expandable Search */}
+                <div className={`md:hidden ${isSearchOpen ? 'flex-1' : ''}`}>
+                    {isSearchOpen ? (
+                        <div className="relative flex items-center gap-2 w-full">
+                            <HugeiconsIcon
+                                icon={Search01Icon}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                            />
+                            <Input
+                                ref={searchInputRef}
+                                placeholder="Search payment methods..."
+                                className="pl-9 w-full"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onBlur={() => {
+                                    if (!searchQuery) {
+                                        setIsSearchOpen(false)
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    setSearchQuery("")
+                                    setIsSearchOpen(false)
+                                }}
+                            >
+                                <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <h2 className="text-3xl font-bold tracking-tight">Payment Methods</h2>
+                    )}
                 </div>
-                <Button onClick={() => {
-                    setMethodToEdit(undefined)
-                    setIsAddDialogOpen(true)
-                }}>
-                    <HugeiconsIcon icon={Add01Icon} className="mr-2 h-4 w-4" />
-                    Add Payment Method
-                </Button>
+
+                {/* Desktop: Title */}
+                <h2 className="hidden md:block text-3xl font-bold tracking-tight">Payment Methods</h2>
+
+                {/* Mobile: Search + Add Buttons (shown when search is closed) */}
+                {!isSearchOpen && (
+                    <div className="flex md:hidden items-center gap-2">
+                        <Button variant="secondary" size="icon" onClick={() => setIsSearchOpen(true)}>
+                            <HugeiconsIcon icon={Search01Icon} className="h-5 w-5" />
+                        </Button>
+                        <Button onClick={() => {
+                            setMethodToEdit(undefined)
+                            setIsAddDialogOpen(true)
+                        }} size="icon">
+                            <HugeiconsIcon icon={Add01Icon} className="h-5 w-5" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Desktop: Search + Add Button */}
+                <div className="hidden md:flex items-center gap-2">
+                    <div className="relative w-64">
+                        <HugeiconsIcon
+                            icon={Search01Icon}
+                            className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                        />
+                        <Input
+                            placeholder="Search payment methods..."
+                            className="pl-9 w-full"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={() => {
+                        setMethodToEdit(undefined)
+                        setIsAddDialogOpen(true)
+                    }}>
+                        <HugeiconsIcon icon={Add01Icon} className="mr-2 h-4 w-4" />
+                        Add Payment Method
+                    </Button>
+                </div>
             </div>
 
             <Card className="hidden md:block">
@@ -111,14 +187,14 @@ export default function PaymentMethodsPage() {
                                         <Spinner className="size-6 mx-auto" />
                                     </TableCell>
                                 </TableRow>
-                            ) : paymentMethods.length === 0 ? (
+                            ) : filteredPaymentMethods.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
                                         No payment methods found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                paymentMethods.map((method: PaymentMethod) => (
+                                filteredPaymentMethods.map((method: PaymentMethod) => (
                                     <TableRow key={method.id}>
                                         <TableCell className="font-medium">{method.name}</TableCell>
                                         <TableCell>
@@ -167,10 +243,10 @@ export default function PaymentMethodsPage() {
             <div className="space-y-4 md:hidden">
                 {loading ? (
                     <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
-                ) : paymentMethods.length === 0 ? (
+                ) : filteredPaymentMethods.length === 0 ? (
                     <div className="text-center py-10">No payment methods found.</div>
                 ) : (
-                    paymentMethods.map((method: PaymentMethod) => (
+                    filteredPaymentMethods.map((method: PaymentMethod) => (
                         <Card key={method.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Customer } from "@/lib/api"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
@@ -13,8 +13,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon, Delete02Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import { PlusSignIcon, Delete02Icon, PencilEdit01Icon, Search01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { AddCustomerDialog } from "@/components/add-customer-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -46,6 +47,9 @@ export default function CustomersPage() {
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [customerToDeleteId, setCustomerToDeleteId] = useState<number | null>(null)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const searchInputRef = useRef<HTMLInputElement>(null)
 
     const customersQuery = trpc.customer.getAll.useQuery()
     const utils = trpc.useUtils()
@@ -61,6 +65,15 @@ export default function CustomersPage() {
 
     const customers = customersQuery.data || []
     const loading = customersQuery.isLoading
+
+    const filteredCustomers = customers.filter((customer: Customer) => {
+        const query = searchQuery.toLowerCase()
+        return (
+            (customer.name?.toLowerCase() || "").includes(query) ||
+            (customer.email?.toLowerCase() || "").includes(query) ||
+            (customer.phone?.toLowerCase() || "").includes(query)
+        )
+    })
 
     const handleAddClick = () => {
         setSelectedCustomer(undefined)
@@ -95,13 +108,77 @@ export default function CustomersPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
+            <div className="flex justify-between items-center gap-4">
+                {/* Mobile: Expandable Search */}
+                <div className={`md:hidden ${isSearchOpen ? 'flex-1' : ''}`}>
+                    {isSearchOpen ? (
+                        <div className="relative flex items-center gap-2 w-full">
+                            <HugeiconsIcon
+                                icon={Search01Icon}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                            />
+                            <Input
+                                ref={searchInputRef}
+                                placeholder="Search customers..."
+                                className="pl-9 w-full"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onBlur={() => {
+                                    if (!searchQuery) {
+                                        setIsSearchOpen(false)
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    setSearchQuery("")
+                                    setIsSearchOpen(false)
+                                }}
+                            >
+                                <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
+                    )}
                 </div>
-                <Button onClick={handleAddClick}>
-                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Customer
-                </Button>
+
+                {/* Desktop: Title */}
+                <h2 className="hidden md:block text-3xl font-bold tracking-tight">Customers</h2>
+
+                {/* Mobile: Search + Add Buttons (shown when search is closed) */}
+                {!isSearchOpen && (
+                    <div className="flex md:hidden items-center gap-2">
+                        <Button variant="secondary" size="icon" onClick={() => setIsSearchOpen(true)}>
+                            <HugeiconsIcon icon={Search01Icon} className="h-5 w-5" />
+                        </Button>
+                        <Button onClick={handleAddClick} size="icon">
+                            <HugeiconsIcon icon={PlusSignIcon} className="h-5 w-5" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Desktop: Search + Add Button */}
+                <div className="hidden md:flex items-center gap-2">
+                    <div className="relative w-64">
+                        <HugeiconsIcon
+                            icon={Search01Icon}
+                            className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                        />
+                        <Input
+                            placeholder="Search customers..."
+                            className="pl-9 w-full"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleAddClick}>
+                        <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Customer
+                    </Button>
+                </div>
             </div>
 
             <Card className="hidden md:block">
@@ -121,12 +198,12 @@ export default function CustomersPage() {
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center py-10"><Spinner className="size-6 mx-auto" /></TableCell>
                                 </TableRow>
-                            ) : customers.length === 0 ? (
+                            ) : filteredCustomers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center py-10">No customers found.</TableCell>
                                 </TableRow>
                             ) : (
-                                customers.map((customer: Customer) => (
+                                filteredCustomers.map((customer: Customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
@@ -163,10 +240,10 @@ export default function CustomersPage() {
             <div className="space-y-4 md:hidden">
                 {loading ? (
                     <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
-                ) : customers.length === 0 ? (
+                ) : filteredCustomers.length === 0 ? (
                     <div className="text-center py-10">No customers found.</div>
                 ) : (
-                    customers.map((customer: Customer) => (
+                    filteredCustomers.map((customer: Customer) => (
                         <Card key={customer.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">

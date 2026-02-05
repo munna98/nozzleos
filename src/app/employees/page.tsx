@@ -158,7 +158,7 @@ export default function EmployeesPage() {
                 {/* Mobile: Search + Add Buttons (shown when search is closed) */}
                 {!isSearchOpen && (
                     <div className="flex md:hidden items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setIsSearchOpen(true)}>
+                        <Button variant="secondary" size="icon" onClick={() => setIsSearchOpen(true)}>
                             <HugeiconsIcon icon={Search01Icon} className="h-5 w-5" />
                         </Button>
                         <Button onClick={handleAddClick} size="icon">
