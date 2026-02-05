@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
+import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon, Delete02Icon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { toast } from "sonner"
 import { EditRequestDialog } from "@/app/shift/components/EditRequestDialog"
@@ -46,6 +46,7 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
     const [showApproveDialog, setShowApproveDialog] = useState(false)
     const [showRejectDialog, setShowRejectDialog] = useState(false)
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [showEditRequestDialog, setShowEditRequestDialog] = useState(false)
     const [hasPendingRequest, setHasPendingRequest] = useState(!!(shift.editRequests && shift.editRequests.length > 0))
 
@@ -121,6 +122,18 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
         }
     })
 
+    const deleteMutation = trpc.shift.delete.useMutation({
+        onSuccess: () => {
+            toast.success("Shift deleted successfully")
+            setShowDeleteDialog(false)
+            if (onBack) onBack() // Go back to list
+            utils.shift.invalidate()
+        },
+        onError: (err) => {
+            toast.error(err.message || "Failed to delete shift")
+        }
+    })
+
     const handleVerify = (approved: boolean) => {
         if (!approved && !isRejecting) {
             setIsRejecting(true)
@@ -155,6 +168,10 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
 
     const handleResubmit = () => {
         resubmitMutation.mutate({ shiftId: shift.id })
+    }
+
+    const handleDelete = () => {
+        deleteMutation.mutate({ shiftId: shift.id })
     }
     const formatDate = (dateStr: string | Date) => {
         const date = new Date(dateStr)
@@ -224,48 +241,62 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                         </div>
                     </div>
                 </div>
-                {/* Edit button: Admin can edit non-verified shifts, Owner can edit rejected shifts */}
-                {((isAdmin && shift.status !== 'verified') || (isShiftOwner && shift.status === 'rejected')) && (
-                    <Button
-                        onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}
-                        className="gap-2"
-                    >
-                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
-                        <span className="hidden md:inline">{shift.status === 'rejected' ? 'Edit & Resubmit' : 'Edit Shift'}</span>
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {/* Edit button: Admin can edit non-verified shifts, Owner can edit rejected shifts */}
+                    {((isAdmin && shift.status !== 'verified') || (isShiftOwner && shift.status === 'rejected')) && (
+                        <Button
+                            onClick={() => window.location.href = `/reports/shift-history/${shift.id}/edit`}
+                            className="gap-2"
+                        >
+                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-4 w-4" />
+                            <span className="hidden md:inline">{shift.status === 'rejected' ? 'Edit & Resubmit' : 'Edit Shift'}</span>
+                        </Button>
+                    )}
 
-                {/* Request Edit button: Admin wants to edit a verified shift */}
-                {(isAdmin && shift.status === 'verified') && (
-                    <>
-                        {hasPendingRequest ? (
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    if (confirm("Are you sure you want to cancel this edit request?")) {
-                                        cancelEditMutation.mutate({ requestId: shift.editRequests![0].id })
-                                    }
-                                }}
-                                disabled={cancelEditMutation.isPending}
-                                className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
-                            >
-                                <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
-                                <span className="hidden md:inline">Cancel Edit Request</span>
-                                <span className="md:hidden">Cancel Request</span>
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowEditRequestDialog(true)}
-                                className="gap-2 border-primary text-primary hover:bg-primary hover:text-white"
-                            >
-                                <HugeiconsIcon icon={LockKeyIcon} className="h-4 w-4" />
-                                <span className="hidden md:inline">Request Edit Permission</span>
-                                <span className="md:hidden">Request Edit</span>
-                            </Button>
-                        )}
-                    </>
-                )}
+                    {/* Request Edit button: Admin wants to edit a verified shift */}
+                    {(isAdmin && shift.status === 'verified') && (
+                        <>
+                            {hasPendingRequest ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        if (confirm("Are you sure you want to cancel this edit request?")) {
+                                            cancelEditMutation.mutate({ requestId: shift.editRequests![0].id })
+                                        }
+                                    }}
+                                    disabled={cancelEditMutation.isPending}
+                                    className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
+                                >
+                                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                    <span className="hidden md:inline">Cancel Edit Request</span>
+                                    <span className="md:hidden">Cancel Request</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowEditRequestDialog(true)}
+                                    className="gap-2 border-primary text-primary hover:bg-primary hover:text-white"
+                                >
+                                    <HugeiconsIcon icon={LockKeyIcon} className="h-4 w-4" />
+                                    <span className="hidden md:inline">Request Edit Permission</span>
+                                    <span className="md:hidden">Request Edit</span>
+                                </Button>
+                            )}
+                        </>
+                    )}
+
+                    {/* Delete button: Admin can delete in_progress or pending_verification shifts */}
+                    {isAdmin && (shift.status === 'in_progress' || shift.status === 'pending_verification') && (
+                        <Button
+                            variant="outline"
+                            className="border-destructive text-destructive hover:bg-destructive hover:text-white"
+                            onClick={() => setShowDeleteDialog(true)}
+                        >
+                            <HugeiconsIcon icon={Delete02Icon} className="h-4 w-4" />
+                            <span className="hidden md:inline ml-2">Delete Shift</span>
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <EditRequestDialog
@@ -744,6 +775,30 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             Reject Shift
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Shift?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this shift? This action cannot be undone.
+                            This will permanently remove the shift session and all associated data including readings and payments.
+                            {shift.status === 'in_progress' && " Associated nozzles will be released."}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={deleteMutation.isPending}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleteMutation.isPending ? "Deleting..." : "Delete Shift"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

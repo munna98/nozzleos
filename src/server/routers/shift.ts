@@ -1263,4 +1263,44 @@ export const shiftRouter = router({
                 pendingVerifications: pendingCount,
             }
         }),
+    /**
+     * Delete shift (admin only)
+     * Only 'in_progress' or 'pending_verification' shifts can be deleted.
+     */
+    delete: adminProcedure
+        .input(z.object({
+            shiftId: z.number(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({
+                where: { id: input.shiftId },
+                include: { nozzleReadings: true }
+            })
+
+            if (!shift) {
+                throw new Error('Shift not found')
+            }
+
+            // Validation: Only allow deleting in_progress or pending_verification
+            if (shift.status !== 'in_progress' && shift.status !== 'pending_verification') {
+                throw new Error(`Cannot delete shift with status '${shift.status}'. Only in-progress or pending verification shifts can be deleted.`)
+            }
+
+            // If shift is in_progress, release the nozzles
+            if (shift.status === 'in_progress') {
+                const nozzleIds = shift.nozzleReadings.map(r => r.nozzleId)
+                if (nozzleIds.length > 0) {
+                    await prisma.nozzle.updateMany({
+                        where: { id: { in: nozzleIds } },
+                        data: { isAvailable: true }
+                    })
+                }
+            }
+
+            await prisma.dutySession.delete({
+                where: { id: input.shiftId }
+            })
+
+            return { success: true }
+        }),
 })
