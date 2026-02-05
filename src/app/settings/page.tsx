@@ -1,7 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
+
 import { trpc } from "@/lib/trpc"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Spinner } from "@/components/ui/spinner"
@@ -15,6 +18,24 @@ export default function SettingsPage() {
     const settingsQuery = trpc.settings.get.useQuery()
     const utils = trpc.useUtils()
 
+    const [localSettings, setLocalSettings] = useState<{
+        enableDenominationEntry: boolean
+        enableCoinEntry: boolean
+    } | null>(null)
+
+    const settings = settingsQuery.data
+    const loading = settingsQuery.isLoading
+
+    // Sync local state with server data when loaded
+    useEffect(() => {
+        if (settings) {
+            setLocalSettings({
+                enableDenominationEntry: settings.enableDenominationEntry ?? true,
+                enableCoinEntry: settings.enableCoinEntry ?? true
+            })
+        }
+    }, [settings])
+
     const updateMutation = trpc.settings.update.useMutation({
         onSuccess: () => {
             utils.settings.get.invalidate()
@@ -25,12 +46,19 @@ export default function SettingsPage() {
         }
     })
 
-    const settings = settingsQuery.data
-    const loading = settingsQuery.isLoading
-
     const handleToggle = (field: 'enableDenominationEntry' | 'enableCoinEntry', value: boolean) => {
-        updateMutation.mutate({ [field]: value })
+        setLocalSettings(prev => prev ? ({ ...prev, [field]: value }) : null)
     }
+
+    const handleSave = () => {
+        if (!localSettings) return
+        updateMutation.mutate(localSettings)
+    }
+
+    const hasChanges = localSettings && settings && (
+        localSettings.enableDenominationEntry !== (settings.enableDenominationEntry ?? true) ||
+        localSettings.enableCoinEntry !== (settings.enableCoinEntry ?? true)
+    )
 
     if (loading) {
         return (
@@ -108,9 +136,9 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 id="denomination-entry"
-                                checked={settings?.enableDenominationEntry ?? true}
+                                checked={localSettings?.enableDenominationEntry ?? true}
                                 onCheckedChange={(checked) => handleToggle('enableDenominationEntry', checked)}
-                                disabled={updateMutation.isPending}
+                                disabled={loading}
                             />
                         </div>
 
@@ -123,12 +151,20 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 id="coin-entry"
-                                checked={settings?.enableCoinEntry ?? true}
+                                checked={localSettings?.enableCoinEntry ?? true}
                                 onCheckedChange={(checked) => handleToggle('enableCoinEntry', checked)}
-                                disabled={updateMutation.isPending || !settings?.enableDenominationEntry}
+                                disabled={loading || !localSettings?.enableDenominationEntry}
                             />
                         </div>
                     </CardContent>
+                    <CardFooter className="border-t px-6 py-4 bg-muted/20 flex justify-end">
+                        <Button
+                            onClick={handleSave}
+                            disabled={!hasChanges || updateMutation.isPending}
+                        >
+                            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
         </div>
