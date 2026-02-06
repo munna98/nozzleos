@@ -139,15 +139,15 @@ export default function ShiftPage() {
         })
     }
 
-    const handleUpdateTestQty = (readingId: number, testQty: number) => {
+    const handleUpdateTestQty = async (readingId: number, testQty: number) => {
         if (!activeShiftQuery.data) return
-        updateReadingMutation.mutate({
+        return updateReadingMutation.mutateAsync({
             shiftId: activeShiftQuery.data.id,
             data: { nozzleReadingId: readingId, testQty }
         })
     }
 
-    const handleUpdateClosingReading = (readingId: number, closingReading: number) => {
+    const handleUpdateClosingReading = async (readingId: number, closingReading: number) => {
         if (!activeShiftQuery.data) return
 
         // Find the reading to validate
@@ -155,17 +155,18 @@ export default function ShiftPage() {
         if (reading) {
             const openingReading = parseFloat(reading.openingReading.toString())
             if (closingReading <= openingReading) {
-                return toast.error("Closing reading must be greater than opening reading")
+                toast.error("Closing reading must be greater than opening reading")
+                return Promise.reject()
             }
         }
 
-        updateReadingMutation.mutate({
+        return updateReadingMutation.mutateAsync({
             shiftId: activeShiftQuery.data.id,
             data: { nozzleReadingId: readingId, closingReading }
         })
     }
 
-    const handleAddOrUpdatePayment = (data: {
+    const handleAddOrUpdatePayment = async (data: {
         methodId: number;
         amount: number;
         paymentId?: number;
@@ -175,7 +176,7 @@ export default function ShiftPage() {
         if (!activeShiftQuery.data) return
 
         if (data.paymentId) {
-            updatePaymentMutation.mutate({
+            return updatePaymentMutation.mutateAsync({
                 paymentId: data.paymentId,
                 paymentMethodId: data.methodId,
                 amount: data.amount,
@@ -183,7 +184,7 @@ export default function ShiftPage() {
                 coinsAmount: data.coinsAmount
             })
         } else {
-            addPaymentMutation.mutate({
+            return addPaymentMutation.mutateAsync({
                 shiftId: activeShiftQuery.data.id,
                 paymentMethodId: data.methodId,
                 amount: data.amount,
@@ -193,10 +194,10 @@ export default function ShiftPage() {
         }
     }
 
-    const handleDeletePayment = (paymentId: number) => {
+    const handleDeletePayment = async (paymentId: number) => {
         if (!activeShiftQuery.data) return
         if (confirm("Are you sure?")) {
-            deletePaymentMutation.mutate({
+            return deletePaymentMutation.mutateAsync({
                 paymentId
             })
         }

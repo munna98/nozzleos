@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,8 @@ import {
     PlusSignIcon,
     InformationCircleIcon,
     ArrowDown01Icon,
-    ArrowUp01Icon
+    ArrowUp01Icon,
+    Loading03Icon
 } from "@hugeicons/core-free-icons"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -73,10 +74,10 @@ interface ShiftDashboardStepProps {
     paymentMethods: PaymentMethod[]
     denominations?: Denomination[]
     settings?: Settings | null
-    onUpdateClosingReading: (readingId: number, closingReading: number) => void
-    onUpdateTestQty: (readingId: number, testQty: number) => void
-    onAddPayment: (data: PaymentData) => void
-    onDeletePayment: (paymentId: number) => void
+    onUpdateClosingReading: (readingId: number, closingReading: number) => Promise<any>
+    onUpdateTestQty: (readingId: number, testQty: number) => Promise<any>
+    onAddPayment: (data: PaymentData) => Promise<any>
+    onDeletePayment: (paymentId: number) => Promise<any>
     onFinishShift: () => void
     isSubmitting?: boolean
     summary?: ShiftSummary
@@ -104,6 +105,13 @@ export function ShiftDashboardStep({
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
 
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
+    const [updatingClosingReadingId, setUpdatingClosingReadingId] = useState<number | null>(null)
+    const [updatingTestQtyId, setUpdatingTestQtyId] = useState<number | null>(null)
+    const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false)
+    const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null)
+
+    const paymentFormRef = useRef<HTMLDivElement>(null)
+    const manualAmountRef = useRef<HTMLInputElement>(null)
 
     // Add Nozzle State
     const [isAddNozzleOpen, setIsAddNozzleOpen] = useState(false)
@@ -212,7 +220,7 @@ export function ShiftDashboardStep({
         }))
     }
 
-    const handleAddPayment = () => {
+    const handleAddPayment = async () => {
         if (!selectedMethodId) return
 
         let amount: number
@@ -235,20 +243,25 @@ export function ShiftDashboardStep({
             if (!amount || amount <= 0) return
         }
 
-        onAddPayment({
-            methodId: parseInt(selectedMethodId),
-            amount,
-            paymentId: editingPaymentId || undefined,
-            denominations: denomsToSend,
-            coinsAmount: coinsToSend
-        })
+        setIsPaymentSubmitting(true)
+        try {
+            await onAddPayment({
+                methodId: parseInt(selectedMethodId),
+                amount,
+                paymentId: editingPaymentId || undefined,
+                denominations: denomsToSend,
+                coinsAmount: coinsToSend
+            })
 
-        // Reset form
-        setSelectedMethodId("")
-        setManualAmount("")
-        setDenominationCounts({})
-        setCoinsAmount("")
-        setEditingPaymentId(null)
+            // Reset form only on success
+            setSelectedMethodId("")
+            setManualAmount("")
+            setDenominationCounts({})
+            setCoinsAmount("")
+            setEditingPaymentId(null)
+        } finally {
+            setIsPaymentSubmitting(false)
+        }
     }
 
     const handleEditPayment = (payment: SessionPayment) => {
@@ -267,6 +280,17 @@ export function ShiftDashboardStep({
 
         // Restore coins
         setCoinsAmount(payment.coinsAmount ? payment.coinsAmount.toString() : "")
+
+        // Scroll to form
+        paymentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+        // Auto-focus amount input if not cash
+        if (payment.paymentMethod.name.toLowerCase() !== 'cash') {
+            setTimeout(() => {
+                manualAmountRef.current?.focus()
+                manualAmountRef.current?.select() // Select text for easy overwriting
+            }, 300)
+        }
     }
 
     const handleCancelEdit = () => {
@@ -400,19 +424,41 @@ export function ShiftDashboardStep({
                                                         defaultValue={parseFloat(reading.testQty.toString())}
                                                         id={`test-qty-${reading.id}`}
                                                         autoFocus
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = parseFloat(e.currentTarget.value) || 0
+                                                                setUpdatingTestQtyId(reading.id)
+                                                                try {
+                                                                    await onUpdateTestQty(reading.id, val)
+                                                                    setEditingTestQtyId(null)
+                                                                } finally {
+                                                                    setUpdatingTestQtyId(null)
+                                                                }
+                                                            }
+                                                        }}
                                                     />
                                                     <Button
                                                         size="icon"
                                                         variant="ghost"
                                                         className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                        onClick={() => {
+                                                        onClick={async () => {
                                                             const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
                                                             const val = parseFloat(input.value) || 0
-                                                            onUpdateTestQty(reading.id, val)
-                                                            setEditingTestQtyId(null)
+                                                            setUpdatingTestQtyId(reading.id)
+                                                            try {
+                                                                await onUpdateTestQty(reading.id, val)
+                                                                setEditingTestQtyId(null)
+                                                            } finally {
+                                                                setUpdatingTestQtyId(null)
+                                                            }
                                                         }}
+                                                        disabled={updatingTestQtyId === reading.id}
                                                     >
-                                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                        {updatingTestQtyId === reading.id ? (
+                                                            <HugeiconsIcon icon={Loading03Icon} className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                        )}
                                                     </Button>
                                                     <Button
                                                         size="icon"
@@ -469,26 +515,41 @@ export function ShiftDashboardStep({
                                                         ? parseFloat(reading.closingReading.toString())
                                                         : ""
                                                 }
-                                                onKeyDown={(e) => {
+                                                onKeyDown={async (e) => {
                                                     if (e.key === 'Enter') {
                                                         const value = parseFloat(e.currentTarget.value)
                                                         if (!isNaN(value)) {
-                                                            onUpdateClosingReading(reading.id, value)
+                                                            setUpdatingClosingReadingId(reading.id)
+                                                            try {
+                                                                await onUpdateClosingReading(reading.id, value)
+                                                            } finally {
+                                                                setUpdatingClosingReadingId(null)
+                                                            }
                                                         }
                                                     }
                                                 }}
                                             />
                                             <Button
-                                                onClick={() => {
+                                                onClick={async () => {
                                                     const input = document.getElementById(`closing-${reading.id}`) as HTMLInputElement
                                                     const value = parseFloat(input.value)
                                                     if (!isNaN(value)) {
-                                                        onUpdateClosingReading(reading.id, value)
+                                                        setUpdatingClosingReadingId(reading.id)
+                                                        try {
+                                                            await onUpdateClosingReading(reading.id, value)
+                                                        } finally {
+                                                            setUpdatingClosingReadingId(null)
+                                                        }
                                                     }
                                                 }}
                                                 size="icon"
+                                                disabled={updatingClosingReadingId === reading.id}
                                             >
-                                                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                {updatingClosingReadingId === reading.id ? (
+                                                    <HugeiconsIcon icon={Loading03Icon} className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                )}
                                             </Button>
                                         </div>
                                     </div>
@@ -505,7 +566,7 @@ export function ShiftDashboardStep({
                             Payments Collected
                         </h3>
 
-                        <Card>
+                        <Card ref={paymentFormRef}>
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm font-medium">Add Payment</CardTitle>
                             </CardHeader>
@@ -597,6 +658,7 @@ export function ShiftDashboardStep({
                                     <div className="space-y-2">
                                         <Label>Amount</Label>
                                         <Input
+                                            ref={manualAmountRef}
                                             type="number"
                                             value={manualAmount}
                                             onChange={(e) => setManualAmount(e.target.value)}
@@ -608,15 +670,28 @@ export function ShiftDashboardStep({
 
                                 <div className="flex gap-2">
                                     {editingPaymentId && (
-                                        <Button variant="outline" className="flex-1" onClick={handleCancelEdit}>
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={handleCancelEdit}
+                                            disabled={isPaymentSubmitting}
+                                        >
                                             Cancel
                                         </Button>
                                     )}
                                     <Button
                                         className="flex-1"
                                         onClick={handleAddPayment}
+                                        disabled={isPaymentSubmitting}
                                     >
-                                        {editingPaymentId ? "Update" : "Add"} Payment
+                                        {isPaymentSubmitting ? (
+                                            <>
+                                                <HugeiconsIcon icon={Loading03Icon} className="mr-2 h-4 w-4 animate-spin" />
+                                                {editingPaymentId ? "Updating..." : "Adding..."}
+                                            </>
+                                        ) : (
+                                            <>{editingPaymentId ? "Update" : "Add"} Payment</>
+                                        )}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -629,7 +704,7 @@ export function ShiftDashboardStep({
                             {(session.sessionPayments || [])
                                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                 .map((payment) => (
-                                    <div key={payment.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm">
+                                    <div key={payment.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm animate-in fade-in-0 duration-200">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-medium text-sm">{payment.paymentMethod?.name}</span>
@@ -668,12 +743,22 @@ export function ShiftDashboardStep({
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.stopPropagation()
-                                                            onDeletePayment(payment.id)
+                                                            setDeletingPaymentId(payment.id)
+                                                            try {
+                                                                await onDeletePayment(payment.id)
+                                                            } finally {
+                                                                setDeletingPaymentId(null)
+                                                            }
                                                         }}
+                                                        disabled={deletingPaymentId === payment.id}
                                                     >
-                                                        <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                                        {deletingPaymentId === payment.id ? (
+                                                            <HugeiconsIcon icon={Loading03Icon} className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                                        )}
                                                     </Button>
                                                 </div>
                                             </div>
@@ -783,7 +868,6 @@ export function ShiftDashboardStep({
                         <DialogTitle>Remove Nozzle</DialogTitle>
                         <DialogDescription>
                             Are you sure you want to remove nozzle {nozzleToRemove?.nozzle.code} from this shift?
-                            This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="bg-amber-50 rounded-md p-3 text-sm text-amber-800 border border-amber-200 my-2 flex gap-2">
