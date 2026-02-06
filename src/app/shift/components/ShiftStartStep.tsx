@@ -102,11 +102,11 @@ export function ShiftStartStep({
                                                     <Badge variant="destructive" className="text-[10px] px-1 h-5">In Use</Badge>
                                                 </div>
                                             )}
-                                            <CardContent className="p-2">
+                                            <CardContent >
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-1.5 min-w-0">
-                                                            <Badge variant="outline" className="h-4 px-1 text-[10px] shrink-0">{nozzle.code}</Badge>
+                                                            <Badge variant="outline" className="h-6 px-2 text-sm font-medium shrink-0">{nozzle.code}</Badge>
                                                             <span className="font-medium text-xs truncate">{nozzle.fuel?.name}</span>
                                                         </div>
                                                         {isSelected && (
@@ -117,13 +117,9 @@ export function ShiftStartStep({
                                                         )}
                                                     </div>
 
-                                                    <div className="flex items-baseline justify-between text-[10px] text-muted-foreground leading-none">
-                                                        <span>{nozzle.dispenser?.code}</span>
-                                                        <span className="font-medium text-foreground">₹{nozzle.price.toFixed(2)}</span>
-                                                    </div>
-
-                                                    <p className="text-xs font-medium leading-none mt-0.5">
-                                                        {nozzle.currentreading.toFixed(1)} L
+                                                    <p className="text-xs font-medium leading-none mt-0.5 flex items-baseline gap-2">
+                                                        <span>{nozzle.currentreading.toFixed(1)} L</span>
+                                                        <span className="text-[10px] text-muted-foreground">₹{nozzle.price.toFixed(2)}</span>
                                                     </p>
                                                 </div>
                                             </CardContent>
