@@ -94,12 +94,85 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NozzleOS - Fuel Station Management",
-  description: "Modern fuel station management system",
-  icons: {
-    icon: "/NozzleOS_dark.png",
-    apple: "/NozzleOS_dark.png",
+  title: "NozzleOS - Petrol Pump Management System | Fuel Station Software",
+  description: "The complete petrol pump management system for modern fuel stations. Better than Petrosoft, Petrobyte, and Petrobunk. Manage shifts, inventory, and staff with NozzleOS.",
+  keywords: [
+    "petrol pump management system",
+    "petrol pump management software",
+    "petrol bunk management system",
+    "petrol bunk management software",
+    "fuel station management system",
+    "gas station software",
+    "pump management system",
+    "petrosoft",
+    "petrobyte",
+    "petrobunk",
+    "petrogem",
+    "nozzleos"
+  ],
+  authors: [{ name: "NozzleOS Team" }],
+  creator: "NozzleOS",
+  publisher: "NozzleOS",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
   },
+  openGraph: {
+    title: "NozzleOS - Smart Petrol Pump Management System",
+    description: "The all-in-one operating system built to manage pumps, payments, and precision at the nozzle. Designed for modern fuel stations.",
+    url: "https://nozzleos.com",
+    siteName: "NozzleOS",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "NozzleOS Dashboard Preview",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NozzleOS - Fuel Station Management System",
+    description: "Complete shift closures in minutes with automated calculations and error detection.",
+    creator: "@nozzleos",
+    images: ["/twitter-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "NozzleOS",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "The all-in-one operating system built to manage pumps, payments, and precision at the nozzle.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Petrol Pump Management",
+    "Shift Handovers",
+    "Real-time Analytics",
+    "Inventory Control",
+    "Staff Management"
+  ]
 };
 
 export default function RootLayout({
@@ -134,6 +207,10 @@ export default function RootLayout({
             </ColorThemeProvider>
           </AuthProvider>
         </TRPCProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </body>
     </html>
   );

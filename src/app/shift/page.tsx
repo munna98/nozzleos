@@ -17,7 +17,7 @@ export default function ShiftPage() {
     const { user } = useAuth()
     const router = useRouter()
     const [step, setStep] = useState(1)
-    const [shiftType, setShiftType] = useState<ShiftType>(ShiftType.MORNING)
+    const [shiftType, setShiftType] = useState<ShiftType | null>(null)
     const [selectedNozzleIds, setSelectedNozzleIds] = useState<number[]>([])
     const [elapsedTime, setElapsedTime] = useState(0)
     const [lastSummary, setLastSummary] = useState<any>(null)
@@ -133,6 +133,8 @@ export default function ShiftPage() {
     const handleStartShift = () => {
         if (selectedNozzleIds.length === 0) return toast.error("Select at least one nozzle")
 
+        if (!shiftType) return toast.error("Please select a shift type")
+
         startShiftMutation.mutate({
             shiftType,
             nozzleIds: selectedNozzleIds
@@ -196,20 +198,27 @@ export default function ShiftPage() {
 
     const handleDeletePayment = async (paymentId: number) => {
         if (!activeShiftQuery.data) return
-        if (confirm("Are you sure?")) {
-            return deletePaymentMutation.mutateAsync({
-                paymentId
-            })
-        }
+        return deletePaymentMutation.mutateAsync({
+            paymentId
+        })
     }
 
-    const handleFinishShiftAttempt = () => {
+    const handleFinishShiftAttempt = (skipReview: boolean = false) => {
         if (!activeShiftQuery.data) return
         const allHaveClosing = activeShiftQuery.data.nozzleReadings.every((r: any) => r.closingReading !== null && r.closingReading !== undefined)
         if (!allHaveClosing) {
             return toast.error("Please enter closing readings for all nozzles")
         }
-        setStep(3)
+
+        if (skipReview) {
+            // Direct submit with empty notes if skipping review
+            completeShiftMutation.mutate({
+                shiftId: activeShiftQuery.data.id,
+                notes: ""
+            })
+        } else {
+            setStep(3)
+        }
     }
 
     const handleSubmitShift = (notes: string) => {
@@ -259,7 +268,9 @@ export default function ShiftPage() {
                     onUpdateTestQty={handleUpdateTestQty}
                     onAddPayment={handleAddOrUpdatePayment}
                     onDeletePayment={handleDeletePayment}
-                    onFinishShift={handleFinishShiftAttempt}
+                    onReview={() => handleFinishShiftAttempt(false)}
+                    onSubmit={() => handleFinishShiftAttempt(true)}
+                    isSubmitting={completeShiftMutation.isPending}
                     summary={summaryQuery.data || lastSummary}
                 />
             )}

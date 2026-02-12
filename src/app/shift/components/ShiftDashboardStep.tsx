@@ -32,6 +32,16 @@ import {
     ComboboxItem,
     ComboboxList,
 } from "@/components/ui/combobox"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { inferRouterOutputs } from "@trpc/server"
 import { trpc } from "@/lib/trpc"
 import type { AppRouter } from "@/server/trpc/router"
@@ -78,7 +88,8 @@ interface ShiftDashboardStepProps {
     onUpdateTestQty: (readingId: number, testQty: number) => Promise<any>
     onAddPayment: (data: PaymentData) => Promise<any>
     onDeletePayment: (paymentId: number) => Promise<any>
-    onFinishShift: () => void
+    onReview: () => void  // Was onFinishShift
+    onSubmit: () => void
     isSubmitting?: boolean
     summary?: ShiftSummary
 }
@@ -93,7 +104,8 @@ export function ShiftDashboardStep({
     onUpdateTestQty,
     onAddPayment,
     onDeletePayment,
-    onFinishShift,
+    onReview,
+    onSubmit,
     isSubmitting,
     summary
 }: ShiftDashboardStepProps) {
@@ -109,6 +121,7 @@ export function ShiftDashboardStep({
     const [updatingTestQtyId, setUpdatingTestQtyId] = useState<number | null>(null)
     const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false)
     const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null)
+    const [paymentToDelete, setPaymentToDelete] = useState<SessionPayment | null>(null)
 
     const paymentFormRef = useRef<HTMLDivElement>(null)
     const manualAmountRef = useRef<HTMLInputElement>(null)
@@ -743,14 +756,9 @@ export function ShiftDashboardStep({
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                        onClick={async (e) => {
+                                                        onClick={(e) => {
                                                             e.stopPropagation()
-                                                            setDeletingPaymentId(payment.id)
-                                                            try {
-                                                                await onDeletePayment(payment.id)
-                                                            } finally {
-                                                                setDeletingPaymentId(null)
-                                                            }
+                                                            setPaymentToDelete(payment)
                                                         }}
                                                         disabled={deletingPaymentId === payment.id}
                                                     >
@@ -786,9 +794,11 @@ export function ShiftDashboardStep({
                                     </div>
                                 ))}
                             {(!session.sessionPayments || session.sessionPayments.length === 0) && (
-                                <p className="text-center text-muted-foreground text-sm py-4">
-                                    No payments recorded yet.
-                                </p>
+                                <Card className="bg-muted/30 border-dashed">
+                                    <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                                        No payments recorded yet.
+                                    </CardContent>
+                                </Card>
                             )}
                         </div>
                     </div>
@@ -817,9 +827,30 @@ export function ShiftDashboardStep({
                         </Card>
                     </div>
 
-                    <div className="pt-6 border-t">
-                        <Button className="w-full" size="lg" onClick={onFinishShift} disabled={isSubmitting}>
-                            {isSubmitting ? "Finishing..." : "Finish Shift"}
+                    <div className="pt-6 border-t flex gap-4">
+                        <Button
+                            className="flex-1"
+                            variant="outline"
+                            size="lg"
+                            onClick={onReview}
+                            disabled={isSubmitting}
+                        >
+                            Review & Finish
+                        </Button>
+                        <Button
+                            className="flex-1"
+                            size="lg"
+                            onClick={onSubmit}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <HugeiconsIcon icon={Loading03Icon} className="mr-2 h-4 w-4 animate-spin" />
+                                    Finishing...
+                                </>
+                            ) : (
+                                "Finish & Submit"
+                            )}
                         </Button>
                     </div>
                 </div>
@@ -886,6 +917,40 @@ export function ShiftDashboardStep({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!paymentToDelete} onOpenChange={(open) => !open && setPaymentToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete this payment record.
+                            {paymentToDelete && (
+                                <span className="mt-2 p-2 bg-muted rounded text-sm font-medium block">
+                                    {paymentToDelete.paymentMethod.name} — ₹{parseFloat(paymentToDelete.amount.toString()).toLocaleString()}
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={async () => {
+                                if (!paymentToDelete) return
+                                setDeletingPaymentId(paymentToDelete.id)
+                                setPaymentToDelete(null) // Close dialog immediately
+                                try {
+                                    await onDeletePayment(paymentToDelete.id)
+                                } finally {
+                                    setDeletingPaymentId(null)
+                                }
+                            }}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

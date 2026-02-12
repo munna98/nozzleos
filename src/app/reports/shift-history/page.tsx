@@ -310,9 +310,9 @@ function ShiftListContent({ query, isAdmin, onViewShift, onVerifyShift, page, se
 
             {/* Pagination */}
             {query.data && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                <div className="flex items-center justify-between gap-2 sm:gap-4 mt-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Rows per page</span>
+                        <span className="hidden sm:inline text-sm text-muted-foreground">Rows per page</span>
                         <Select
                             value={limit.toString()}
                             onValueChange={(value) => {

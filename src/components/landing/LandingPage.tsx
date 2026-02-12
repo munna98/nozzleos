@@ -43,7 +43,7 @@ export default function LandingPage() {
                                         <div className="relative h-8 w-8">
                                             <Image
                                                 src="/NozzleOS_light.png"
-                                                alt="NozzleOS"
+                                                alt="NozzleOS Petrol Pump Management System Logo"
                                                 fill
                                                 sizes="32px"
                                                 className="object-contain hidden dark:block"
@@ -51,7 +51,7 @@ export default function LandingPage() {
                                             />
                                             <Image
                                                 src="/NozzleOS_dark.png"
-                                                alt="NozzleOS"
+                                                alt="NozzleOS Petrol Pump Management System Logo"
                                                 fill
                                                 sizes="32px"
                                                 className="object-contain block dark:hidden"
@@ -95,7 +95,7 @@ export default function LandingPage() {
                             <div className="relative h-8 w-8 group-hover:scale-105 transition-transform">
                                 <Image
                                     src="/NozzleOS_light.png"
-                                    alt="NozzleOS"
+                                    alt="NozzleOS Petrol Pump Management System Logo"
                                     fill
                                     sizes="32px"
                                     className="object-contain hidden dark:block"
@@ -103,7 +103,7 @@ export default function LandingPage() {
                                 />
                                 <Image
                                     src="/NozzleOS_dark.png"
-                                    alt="NozzleOS"
+                                    alt="NozzleOS Petrol Pump Management System Logo"
                                     fill
                                     sizes="32px"
                                     className="object-contain block dark:hidden"
@@ -148,10 +148,10 @@ export default function LandingPage() {
                         <div className="flex flex-col items-center space-y-4 text-center">
                             <div className="space-y-2">
                                 <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-400 pb-2">
-                                    Fueling Your Fuel Stations.
+                                    Smart Petrol Pump Management System.
                                 </h1>
                                 <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl font-light">
-                                    The all-in-one operating system built to manage pumps, payments, and precision at the nozzle.
+                                    The all-in-one petrol pump management software built to manage pumps, payments, and precision at the nozzle.
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
@@ -174,10 +174,10 @@ export default function LandingPage() {
                                 Key Features
                             </div>
                             <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
-                                Everything you need to run your station
+                                Complete Petrol Pump Management System
                             </h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg">
-                                Built with input from station owners and attendants to solve real-world problems.
+                                Built with input from station owners to replace outdated petrol pump management software like Petrobunk and Petrogem.
                             </p>
                         </div>
                         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3">

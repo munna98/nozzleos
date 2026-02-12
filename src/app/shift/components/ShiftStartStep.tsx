@@ -13,7 +13,7 @@ import { Nozzle } from "@/lib/api"
 import { ShiftType } from "@prisma/client"
 
 interface ShiftStartStepProps {
-    shiftType: ShiftType
+    shiftType: ShiftType | null
     setShiftType: (type: ShiftType) => void
     selectedNozzleIds: number[]
     setSelectedNozzleIds: (ids: number[]) => void
@@ -31,7 +31,8 @@ export function ShiftStartStep({
 }: ShiftStartStepProps) {
     const nozzlesQuery = trpc.nozzle.getAll.useQuery()
 
-    const availableNozzles = nozzlesQuery.data?.filter((n: Nozzle) => n.isActive) || []
+    const availableNozzles = nozzlesQuery.data?.filter((n: Nozzle) => n.isActive)
+        .sort((a: Nozzle, b: Nozzle) => a.code.localeCompare(b.code)) || []
 
     const toggleNozzleSelection = (nozzleId: number) => {
         const newIds = selectedNozzleIds.includes(nozzleId)
@@ -56,7 +57,7 @@ export function ShiftStartStep({
                     <div className="space-y-3">
                         <Label>Shift Type</Label>
                         <Tabs
-                            defaultValue={shiftType}
+                            value={shiftType || ""}
                             onValueChange={(val) => setShiftType(val as ShiftType)}
                             className="w-full"
                         >
@@ -143,7 +144,7 @@ export function ShiftStartStep({
             <Button
                 onClick={onStart}
                 className="w-full md:w-auto"
-                disabled={isStarting || selectedNozzleIds.length === 0}
+                disabled={isStarting || selectedNozzleIds.length === 0 || !shiftType}
             >
                 {isStarting ? "Starting..." : "Start Shift"}
             </Button>
