@@ -62,6 +62,25 @@ export function middleware(request: NextRequest) {
         return NextResponse.next()
     }
 
+    // Handle Authenticated Redirects on Root Path
+    if (pathname === '/') {
+        const authToken = request.cookies.get('auth_token')?.value
+        const userRole = request.cookies.get('user_role')?.value
+
+        if (authToken) {
+            const url = request.nextUrl.clone()
+
+            // Default to staff dashboard, but upgrade to admin if role matches
+            if (userRole === 'Admin' || userRole === 'Manager') {
+                url.pathname = '/admin-dashboard'
+            } else {
+                url.pathname = '/dashboard'
+            }
+
+            return NextResponse.redirect(url)
+        }
+    }
+
     // Handle station subdomain routing
     if (subdomain && subdomain !== 'www') {
         // Set station slug in header for the tRPC context to pick up

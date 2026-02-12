@@ -66,6 +66,15 @@ export const authService = {
             maxAge: COOKIE_MAX_AGE,
         })
 
+        // Set a readable cookie for middleware redirection (not httpOnly)
+        cookieStore.set('user_role', user.role.name, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: COOKIE_MAX_AGE,
+        })
+
         return {
             user: {
                 id: user.id,
@@ -94,6 +103,14 @@ export const authService = {
 
         cookieStore.set('refresh_token', '', {
             httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 0,
+        })
+
+        cookieStore.set('user_role', '', {
+            httpOnly: false,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
@@ -145,6 +162,14 @@ export const authService = {
 
             cookieStore.set('refresh_token', newRefreshToken, {
                 httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: COOKIE_MAX_AGE,
+            })
+
+            cookieStore.set('user_role', user.role.name, {
+                httpOnly: false,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
