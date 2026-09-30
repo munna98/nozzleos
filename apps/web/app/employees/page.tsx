@@ -12,6 +12,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PlusSignIcon, Delete02Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { AddEmployeeDialog } from "@/components/add-employee-dialog"
@@ -32,6 +39,7 @@ const getInitials = (name: string) => {
 export default function EmployeesPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined)
+    const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
 
     const usersQuery = trpc.user.getAll.useQuery()
     const rolesQuery = trpc.user.getRoles.useQuery()
@@ -47,6 +55,12 @@ export default function EmployeesPage() {
     const roles = rolesQuery.data || []
     // Cast strict boolean to be safe if types differ, or rely on truthiness
     const isLoading = usersQuery.isLoading
+
+    const filteredUsers = users.filter((user: User) => {
+        if (statusFilter === "active") return user.isActive === true
+        if (statusFilter === "inactive") return user.isActive === false
+        return true
+    })
 
     const handleAddClick = () => {
         setSelectedUser(undefined)
@@ -71,13 +85,25 @@ export default function EmployeesPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-8 px-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
                 </div>
-                <Button onClick={handleAddClick}>
-                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Employee
-                </Button>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <Select value={statusFilter} onValueChange={(val: "all" | "active" | "inactive") => setStatusFilter(val)}>
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Filter Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={handleAddClick}>
+                        <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Employee
+                    </Button>
+                </div>
             </div>
 
             <Card className="hidden md:block">
@@ -98,12 +124,12 @@ export default function EmployeesPage() {
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-10">Loading...</TableCell>
                                 </TableRow>
-                            ) : users.length === 0 ? (
+                            ) : filteredUsers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-10">No employees found.</TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user: User) => (
+                                filteredUsers.map((user: User) => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
@@ -144,10 +170,10 @@ export default function EmployeesPage() {
             <div className="space-y-4 md:hidden">
                 {isLoading ? (
                     <div className="text-center py-10">Loading...</div>
-                ) : users.length === 0 ? (
+                ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-10">No employees found.</div>
                 ) : (
-                    users.map((user: User) => (
+                    filteredUsers.map((user: User) => (
                         <Card key={user.id}>
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between items-start">
@@ -200,3 +226,4 @@ export default function EmployeesPage() {
         </div>
     )
 }
+
