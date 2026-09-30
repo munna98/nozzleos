@@ -1,0 +1,295 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner"
+import { trpc } from "@/lib/trpc"
+import { useRouter } from "next/navigation"
+
+import { ShiftStartStep } from "./components/ShiftStartStep"
+import { ShiftDashboardStep } from "./components/ShiftDashboardStep"
+import { ShiftSummaryStep } from "./components/ShiftSummaryStep"
+import { ShiftSuccessStep } from "./components/ShiftSuccessStep"
+import { ShiftType } from "@prisma/client"
+
+export default function ShiftPage() {
+    const { user } = useAuth()
+    const router = useRouter()
+    const [step, setStep] = useState(1)
+    const [shiftType, setShiftType] = useState<ShiftType | null>(null)
+    const [selectedNozzleIds, setSelectedNozzleIds] = useState<number[]>([])
+    const [elapsedTime, setElapsedTime] = useState(0)
+    const [lastSummary, setLastSummary] = useState<any>(null)
+    const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+    // Data Queries
+    const utils = trpc.useUtils()
+    const activeShiftQuery = trpc.shift.getActive.useQuery(undefined, {
+        retry: false
+    })
+    const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
+    const settingsQuery = trpc.settings.get.useQuery()
+    const denominationsQuery = trpc.denomination.getAll.useQuery()
+
+    const summaryQuery = trpc.shift.getSummary.useQuery(
+        { shiftId: activeShiftQuery.data?.id || 0 },
+        { enabled: (step === 2 || step === 3 || step === 4) && !!activeShiftQuery.data }
+    )
+
+    // Mutations
+    const startShiftMutation = trpc.shift.start.useMutation({
+        onSuccess: (data) => {
+            utils.shift.getActive.invalidate()
+            utils.nozzle.getAll.invalidate() // Nozzles become unavailable
+            toast.success("Shift started successfully", {
+                description: "Shift is now active. You can manage readings and payments."
+            })
+            setStep(2) // Move to Dashboard
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+    const updateReadingMutation = trpc.shift.updateNozzleReading.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+    const addPaymentMutation = trpc.shift.addPayment.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Payment added")
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+    const updatePaymentMutation = trpc.shift.updatePayment.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Payment updated")
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+    const deletePaymentMutation = trpc.shift.deletePayment.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Payment removed")
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+    const completeShiftMutation = trpc.shift.complete.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.nozzle.getAll.invalidate()
+            toast.success("Shift submitted successfully")
+            setStep(4)
+        },
+        onError: (error: any) => toast.error(error.message)
+    })
+
+
+    // Effects
+    // Check for active session and restore state
+    useEffect(() => {
+        if (activeShiftQuery.data && (step === 1 || step === 4)) {
+            // If active session exists and we are at start or success screen, jump to dashboard
+            if (step === 1) setStep(2)
+        }
+    }, [activeShiftQuery.data, step])
+
+    // Persist summary data
+    useEffect(() => {
+        if (summaryQuery.data) {
+            setLastSummary(summaryQuery.data)
+        }
+    }, [summaryQuery.data])
+
+    // Timer
+    useEffect(() => {
+        if (activeShiftQuery.data && (step === 2)) {
+            const updateTimer = () => {
+                const start = new Date(activeShiftQuery.data!.startTime).getTime()
+                const now = new Date().getTime()
+                setElapsedTime(Math.floor((now - start) / 1000))
+            }
+            updateTimer() // Initial call
+            timerRef.current = setInterval(updateTimer, 1000)
+
+            return () => {
+                if (timerRef.current) clearInterval(timerRef.current)
+            }
+        }
+    }, [activeShiftQuery.data, step])
+
+    // Handlers
+    const handleStartShift = () => {
+        if (selectedNozzleIds.length === 0) return toast.error("Select at least one nozzle")
+
+        if (!shiftType) return toast.error("Please select a shift type")
+
+        startShiftMutation.mutate({
+            shiftType,
+            nozzleIds: selectedNozzleIds
+        })
+    }
+
+    const handleUpdateTestQty = async (readingId: number, testQty: number) => {
+        if (!activeShiftQuery.data) return
+        return updateReadingMutation.mutateAsync({
+            shiftId: activeShiftQuery.data.id,
+            data: { nozzleReadingId: readingId, testQty }
+        })
+    }
+
+    const handleUpdateClosingReading = async (readingId: number, closingReading: number) => {
+        if (!activeShiftQuery.data) return
+
+        // Find the reading to validate
+        const reading = activeShiftQuery.data.nozzleReadings.find((r: any) => r.id === readingId)
+        if (reading) {
+            const openingReading = parseFloat(reading.openingReading.toString())
+            if (closingReading <= openingReading) {
+                toast.error("Closing reading must be greater than opening reading")
+                return Promise.reject()
+            }
+        }
+
+        return updateReadingMutation.mutateAsync({
+            shiftId: activeShiftQuery.data.id,
+            data: { nozzleReadingId: readingId, closingReading }
+        })
+    }
+
+    const handleAddOrUpdatePayment = async (data: {
+        methodId: number;
+        amount: number;
+        paymentId?: number;
+        denominations?: { denominationId: number; count: number }[];
+        coinsAmount?: number;
+    }) => {
+        if (!activeShiftQuery.data) return
+
+        if (data.paymentId) {
+            return updatePaymentMutation.mutateAsync({
+                paymentId: data.paymentId,
+                paymentMethodId: data.methodId,
+                amount: data.amount,
+                denominations: data.denominations,
+                coinsAmount: data.coinsAmount
+            })
+        } else {
+            return addPaymentMutation.mutateAsync({
+                shiftId: activeShiftQuery.data.id,
+                paymentMethodId: data.methodId,
+                amount: data.amount,
+                denominations: data.denominations,
+                coinsAmount: data.coinsAmount
+            })
+        }
+    }
+
+    const handleDeletePayment = async (paymentId: number) => {
+        if (!activeShiftQuery.data) return
+        return deletePaymentMutation.mutateAsync({
+            paymentId
+        })
+    }
+
+    const handleFinishShiftAttempt = (skipReview: boolean = false) => {
+        if (!activeShiftQuery.data) return
+        const allHaveClosing = activeShiftQuery.data.nozzleReadings.every((r: any) => r.closingReading !== null && r.closingReading !== undefined)
+        if (!allHaveClosing) {
+            return toast.error("Please enter closing readings for all nozzles")
+        }
+
+        if (skipReview) {
+            // Direct submit with empty notes if skipping review
+            completeShiftMutation.mutate({
+                shiftId: activeShiftQuery.data.id,
+                notes: ""
+            })
+        } else {
+            setStep(3)
+        }
+    }
+
+    const handleSubmitShift = (notes: string) => {
+        if (!activeShiftQuery.data) return
+        completeShiftMutation.mutate({
+            shiftId: activeShiftQuery.data.id,
+            notes
+        })
+    }
+
+    const progressValue = (step / 4) * 100
+    const currentSession = activeShiftQuery.data
+
+    return (
+        <div className="container mx-auto py-6 px-4 max-w-7xl">
+            {/* Progress Indicator */}
+            {step < 4 && (
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-sm font-medium text-muted-foreground">
+                            Step {step} of 4
+                        </h2>
+                    </div>
+                    <Progress value={progressValue} className="h-2" />
+                </div>
+            )}
+
+            {step === 1 && !currentSession && (
+                <ShiftStartStep
+                    shiftType={shiftType}
+                    setShiftType={setShiftType}
+                    selectedNozzleIds={selectedNozzleIds}
+                    setSelectedNozzleIds={setSelectedNozzleIds}
+                    onStart={handleStartShift}
+                    isStarting={startShiftMutation.isPending}
+                />
+            )}
+
+            {step === 2 && currentSession && paymentMethodsQuery.data && (
+                <ShiftDashboardStep
+                    session={currentSession}
+                    elapsedTime={elapsedTime}
+                    paymentMethods={paymentMethodsQuery.data}
+                    denominations={denominationsQuery.data}
+                    settings={settingsQuery.data}
+                    onUpdateClosingReading={handleUpdateClosingReading}
+                    onUpdateTestQty={handleUpdateTestQty}
+                    onAddPayment={handleAddOrUpdatePayment}
+                    onDeletePayment={handleDeletePayment}
+                    onReview={() => handleFinishShiftAttempt(false)}
+                    onSubmit={() => handleFinishShiftAttempt(true)}
+                    isSubmitting={completeShiftMutation.isPending}
+                    summary={summaryQuery.data || lastSummary}
+                />
+            )}
+
+            {step === 3 && (summaryQuery.data || lastSummary) && (
+                <ShiftSummaryStep
+                    summary={summaryQuery.data || lastSummary}
+                    onBack={() => setStep(2)}
+                    onSubmit={handleSubmitShift}
+                    isSubmitting={completeShiftMutation.isPending}
+                />
+            )}
+
+            {step === 4 && (
+                <ShiftSuccessStep
+                    onHome={() => router.push('/')}
+                    summary={lastSummary}
+                />
+            )}
+        </div>
+    )
+}

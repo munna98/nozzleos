@@ -1,0 +1,359 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { trpc } from "@/lib/trpc"
+import { useAuth } from "@/lib/auth-context"
+import { ShiftHistoryList } from "./components/ShiftHistoryList"
+import { ShiftDetailView } from "./components/ShiftDetailView"
+import { ShiftFilters, ShiftFiltersState } from "./components/ShiftFilters"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import { Badge } from "@/components/ui/badge"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowLeft01Icon, FilterIcon } from "@hugeicons/core-free-icons"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "sonner"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+
+export default function ShiftHistoryPage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const { user } = useAuth()
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+
+    const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
+    // Default to Today's date unless status param provided
+    const statusParam = searchParams.get('status')
+    const [filters, setFilters] = useState<ShiftFiltersState>({
+        startDateFrom: statusParam ? undefined : (() => {
+            const d = new Date()
+            d.setHours(0, 0, 0, 0)
+            return d
+        })(),
+        startDateTo: statusParam ? undefined : (() => {
+            const d = new Date()
+            d.setHours(0, 0, 0, 0)
+            return d
+        })(),
+        status: statusParam || undefined
+    })
+    const [filterOpen, setFilterOpen] = useState(false)
+    const [selectedShiftForVerify, setSelectedShiftForVerify] = useState<any | null>(null)
+
+    const [page, setPage] = useState(0)
+    const [limit, setLimit] = useState(10)
+
+    // Fetch shifts with filters
+    const shiftsQuery = trpc.shift.getAll.useQuery({
+        limit,
+        offset: page * limit,
+        status: filters.status,
+        shiftType: filters.shiftType,
+        startDateFrom: filters.startDateFrom,
+        startDateTo: filters.startDateTo,
+        userNameSearch: filters.userNameSearch,
+        userId: filters.userId,
+    })
+
+    // Separate query for pending count (for badge)
+    const pendingCountQuery = trpc.shift.getPendingVerification.useQuery({ limit: 0, offset: 0 }, {
+        enabled: isAdmin,
+        refetchInterval: 30000 // Refresh every 30s
+    })
+
+    // Fetch single shift details
+    const shiftDetailQuery = trpc.shift.getById.useQuery(
+        { id: selectedShiftId! },
+        { enabled: !!selectedShiftId }
+    )
+
+    const handleViewShift = (shiftId: number) => {
+        setSelectedShiftId(shiftId)
+    }
+
+    const handleCloseDetail = () => {
+        setSelectedShiftId(null)
+        // Refresh list when closing detail to reflect any status changes
+        shiftsQuery.refetch()
+        if (isAdmin) pendingCountQuery.refetch()
+    }
+
+    const onVerifySuccess = () => {
+        // Refresh everything on verification
+        shiftDetailQuery.refetch()
+        shiftsQuery.refetch()
+        if (isAdmin) pendingCountQuery.refetch()
+    }
+
+    const handleApplyFilters = (newFilters: ShiftFiltersState) => {
+        setFilters(newFilters)
+        setPage(0) // Reset pagination when filters change
+    }
+
+    const utils = trpc.useUtils()
+    const verifyMutation = trpc.shift.verifyShift.useMutation({
+        onSuccess: () => {
+            utils.shift.invalidate()
+        }
+    })
+
+    const handleVerifyShift = (shift: any) => {
+        setSelectedShiftForVerify(shift)
+    }
+
+    const confirmQuickApproval = () => {
+        if (!selectedShiftForVerify) return
+
+        verifyMutation.mutate({
+            shiftId: selectedShiftForVerify.id,
+            approved: true
+        }, {
+            onSuccess: () => {
+                toast.success("Shift approved successfully")
+                setSelectedShiftForVerify(null)
+                // invalidate is already handled in mutation onSuccess
+            },
+            onError: (err) => {
+                toast.error(err.message)
+            }
+        })
+    }
+
+    // Show detail view if a shift is selected
+    if (selectedShiftId) {
+        if (shiftDetailQuery.isLoading) {
+            return (
+                <div className="container mx-auto py-6 px-4 flex items-center justify-center min-h-[50vh]">
+                    <Spinner className="size-8" />
+                </div>
+            )
+        }
+
+        if (shiftDetailQuery.error) {
+            return (
+                <div className="container mx-auto py-6 px-4 flex flex-col items-center justify-center min-h-[50vh] gap-4">
+                    <div className="text-destructive font-medium">Error loading details</div>
+                    <div className="text-muted-foreground text-sm">{shiftDetailQuery.error.message}</div>
+                    <Button variant="outline" onClick={handleCloseDetail}>
+                        Go Back
+                    </Button>
+                </div>
+            )
+        }
+
+        if (shiftDetailQuery.data) {
+            return (
+                <div className="container mx-auto py-6 px-4 max-w-5xl">
+                    <ShiftDetailView
+                        shift={shiftDetailQuery.data}
+                        isAdmin={isAdmin}
+                        currentUserId={user?.id}
+                        onBack={handleCloseDetail}
+                        onVerifySuccess={onVerifySuccess}
+                    />
+                </div>
+            )
+        }
+    }
+
+    return (
+        <div className="container mx-auto py-10 space-y-6 px-4">
+            {/* Header with Filter Button */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                        <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
+                    </Button>
+                    <h2 className="text-3xl font-bold tracking-tight">Shift History</h2>
+                </div>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFilterOpen(!filterOpen)}
+                    className="md:hidden relative"
+                >
+                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                    {Object.keys(filters).length > 0 && (
+                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                            {Object.keys(filters).length}
+                        </Badge>
+                    )}
+                </Button>
+
+                {/* Desktop Filters (Always Visible, Inline) */}
+                <div className="hidden md:block">
+                    <ShiftFilters
+                        filters={filters}
+                        onFiltersChange={handleApplyFilters}
+                        isAdmin={isAdmin}
+                        className="flex items-center gap-2"
+                    />
+                </div>
+            </div>
+
+            {/* Mobile Filters (Collapsible) */}
+            {filterOpen && (
+                <Card className="md:hidden">
+                    <CardContent className="p-4">
+                        <ShiftFilters
+                            filters={filters}
+                            onFiltersChange={handleApplyFilters}
+                            isAdmin={isAdmin}
+                            className="flex flex-col gap-4"
+                            onOpenChange={setFilterOpen}
+                        />
+                    </CardContent>
+                </Card>
+            )}
+
+            <ShiftListContent
+                query={shiftsQuery}
+                isAdmin={isAdmin}
+                onViewShift={handleViewShift}
+                onVerifyShift={handleVerifyShift}
+                page={page}
+                setPage={setPage}
+                limit={limit}
+                setLimit={setLimit}
+            />
+
+            {/* Quick Verify Confirmation Dialog */}
+            <AlertDialog open={!!selectedShiftForVerify} onOpenChange={(open) => !open && setSelectedShiftForVerify(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Approve Shift?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to approve the {selectedShiftForVerify?.type?.toLowerCase()} shift for {selectedShiftForVerify?.user?.name || selectedShiftForVerify?.user?.username}. This action will mark the shift as verified.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {selectedShiftForVerify && (() => {
+                        const totalFuelSales = selectedShiftForVerify.nozzleReadings.reduce((total: number, reading: any) => {
+                            const dispensed = Number(reading.fuelDispensed?.toString() || 0)
+                            const price = Number(reading.nozzle.price)
+                            return total + (dispensed * price)
+                        }, 0)
+                        const totalCollected = Number(selectedShiftForVerify.totalPaymentCollected)
+                        const shortage = totalCollected - totalFuelSales
+
+                        return (
+                            <div className="mt-3 space-y-1 text-sm px-6">
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Total Fuel Sales:</span>
+                                    <span>₹{totalFuelSales.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Total Collected:</span>
+                                    <span>₹{totalCollected.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Shortage/Excess:</span>
+                                    <span className={shortage > 0 ? 'text-green-600' : shortage < 0 ? 'text-red-600' : ''}>
+                                        {shortage > 0 ? '+' : shortage < 0 ? '-' : ''}₹{Math.abs(shortage).toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        )
+                    })()}
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={verifyMutation.isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmQuickApproval}
+                            disabled={verifyMutation.isPending}
+                        >
+                            Approve Shift
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    )
+}
+
+function ShiftListContent({ query, isAdmin, onViewShift, onVerifyShift, page, setPage, limit, setLimit }: any) {
+    if (query.isLoading) {
+        return <div className="text-center py-12"><Spinner className="size-6 mx-auto" /></div>
+    }
+
+    if (query.data?.sessions.length === 0) {
+        return (
+            <div className="text-center py-12 text-muted-foreground">
+                No shifts found.
+            </div>
+        )
+    }
+
+    return (
+        <>
+            <ShiftHistoryList
+                shifts={query.data?.sessions || []}
+                isAdmin={isAdmin}
+                onViewShift={onViewShift}
+                onVerifyShift={onVerifyShift}
+            />
+
+            {/* Pagination */}
+            {query.data && (
+                <div className="flex items-center justify-between gap-2 sm:gap-4 mt-6">
+                    <div className="flex items-center gap-2">
+                        <span className="hidden sm:inline text-sm text-muted-foreground">Rows per page</span>
+                        <Select
+                            value={limit.toString()}
+                            onValueChange={(value) => {
+                                setLimit(Number(value))
+                                setPage(0)
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={limit} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 25, 50].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setPage((p: number) => Math.max(0, p - 1))}
+                            disabled={page === 0}
+                        >
+                            Previous
+                        </Button>
+                        <span className="flex items-center px-4 text-sm text-muted-foreground">
+                            Page {page + 1} of {Math.max(1, Math.ceil(query.data.pagination.total / limit))}
+                        </span>
+                        <Button
+                            variant="outline"
+                            onClick={() => setPage((p: number) => p + 1)}
+                            disabled={(page + 1) * limit >= query.data.pagination.total}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </>
+    )
+}
