@@ -90,7 +90,7 @@ export const paymentRouter = router({
                 prisma.sessionPayment.count({ where })
             ])
 
-            // Calculate total amount for the filtered range
+            // Calculate aggregations for the filtered range
             const aggregations = await prisma.sessionPayment.aggregate({
                 where,
                 _sum: {
@@ -98,6 +98,100 @@ export const paymentRouter = router({
                 },
                 _count: true
             })
+
+            const totalAmount = Number(aggregations._sum.amount || 0)
+            const totalCount = aggregations._count
+
+            // Payment method breakdown via groupBy
+            const methodGroup = await prisma.sessionPayment.groupBy({
+                by: ['paymentMethodId'],
+                where,
+                _sum: {
+                    amount: true,
+                },
+                _count: {
+                    id: true,
+                },
+            })
+
+            const methodIds = methodGroup.map(g => g.paymentMethodId)
+            const paymentMethods = methodIds.length > 0
+                ? await prisma.paymentMethod.findMany({
+                    where: { id: { in: methodIds } },
+                    select: { id: true, name: true, customerId: true }
+                })
+                : []
+            const methodMap = new Map(paymentMethods.map(m => [m.id, m]))
+
+            let standardTotal = 0
+            let standardCount = 0
+            let customerTotal = 0
+            let customerCount = 0
+
+            const byMethod = methodGroup.map(g => {
+                const method = methodMap.get(g.paymentMethodId)
+                const amount = Number(g._sum.amount || 0)
+                const count = g._count.id
+                const isCustomer = !!method?.customerId
+                if (isCustomer) {
+                    customerTotal += amount
+                    customerCount += count
+                } else {
+                    standardTotal += amount
+                    standardCount += count
+                }
+                return {
+                    paymentMethodId: g.paymentMethodId,
+                    name: method?.name || 'Unknown Method',
+                    isCustomer,
+                    amount,
+                    count,
+                    percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0,
+                }
+            }).sort((a, b) => b.amount - a.amount)
+
+            // Attendant breakdown via findMany
+            const attendantPayments = await prisma.sessionPayment.findMany({
+                where,
+                select: {
+                    amount: true,
+                    dutySession: {
+                        select: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    username: true,
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+
+            const attendantMap = new Map<number, { id: number; name: string; username: string; amount: number; count: number }>()
+            for (const p of attendantPayments) {
+                const u = p.dutySession.user
+                const amt = Number(p.amount)
+                const existing = attendantMap.get(u.id)
+                if (existing) {
+                    existing.amount += amt
+                    existing.count += 1
+                } else {
+                    attendantMap.set(u.id, {
+                        id: u.id,
+                        name: u.name || u.username,
+                        username: u.username,
+                        amount: amt,
+                        count: 1
+                    })
+                }
+            }
+
+            const byAttendant = Array.from(attendantMap.values()).map(att => ({
+                ...att,
+                percentage: totalAmount > 0 ? (att.amount / totalAmount) * 100 : 0
+            })).sort((a, b) => b.amount - a.amount)
 
             return {
                 transactions,
@@ -107,9 +201,16 @@ export const paymentRouter = router({
                     offset: input.offset,
                 },
                 summary: {
-                    totalAmount: Number(aggregations._sum.amount || 0),
-                    totalCount: aggregations._count
+                    totalAmount,
+                    totalCount,
+                    standardTotal,
+                    standardCount,
+                    customerTotal,
+                    customerCount,
+                    byMethod,
+                    byAttendant,
                 }
             }
         })
 })
+
