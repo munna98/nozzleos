@@ -85,11 +85,11 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                     </CardContent>
                 </Card>
 
-                {/* Customer Credit Payments */}
+                {/* Customer Payments */}
                 <Card className="relative overflow-hidden border-l-4 border-l-amber-500 shadow-sm">
                     <CardContent className="p-5 flex items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer Credit</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer Payments</p>
                             <p className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
                                 {formatCurrency(summary.customerTotal)}
                             </p>
@@ -163,7 +163,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                                             <TableCell className="text-center">
                                                 {item.isCustomer ? (
                                                     <Badge variant="outline" className="text-[11px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                                                        Credit / Khata
+                                                        Customer
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
