@@ -385,9 +385,12 @@ export function ShiftDashboardStep({
                             <Card key={reading.id}>
                                 <CardContent className="p-4 space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <Badge>{reading.nozzle.code}</Badge>
                                             <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                            <Badge variant="outline" className="text-xs font-mono font-medium">
+                                                ₹{parseFloat((reading.nozzle.price || reading.nozzle.fuel?.price || 0).toString()).toFixed(2)}/L
+                                            </Badge>
                                         </div>
                                         {reading.closingReading !== null ? (
                                             <Badge variant="default" className="bg-green-500">
