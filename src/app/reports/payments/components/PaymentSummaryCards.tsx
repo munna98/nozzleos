@@ -11,15 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-    Coins01Icon,
-    CreditCardIcon,
-    UserCircleIcon,
-    TrophyIcon,
-    Task01Icon,
-    CheckListIcon,
-} from "@hugeicons/core-free-icons"
+import { Coins, CreditCard, BookOpenCheck, Trophy, User } from "lucide-react"
 
 interface PaymentSummaryCardsProps {
     summary: {
@@ -72,7 +64,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                             <p className="text-xs text-muted-foreground">{summary.totalCount} total transactions</p>
                         </div>
                         <div className="p-3 bg-primary/10 rounded-full text-primary">
-                            <HugeiconsIcon icon={Coins01Icon} className="h-6 w-6" />
+                            <Coins className="h-6 w-6" />
                         </div>
                     </CardContent>
                 </Card>
@@ -88,7 +80,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                             <p className="text-xs text-muted-foreground">{summary.standardCount} transactions</p>
                         </div>
                         <div className="p-3 bg-emerald-500/10 rounded-full text-emerald-600 dark:text-emerald-400">
-                            <HugeiconsIcon icon={CreditCardIcon} className="h-6 w-6" />
+                            <CreditCard className="h-6 w-6" />
                         </div>
                     </CardContent>
                 </Card>
@@ -104,7 +96,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                             <p className="text-xs text-muted-foreground">{summary.customerCount} transactions</p>
                         </div>
                         <div className="p-3 bg-amber-500/10 rounded-full text-amber-600 dark:text-amber-400">
-                            <HugeiconsIcon icon={CheckListIcon} className="h-6 w-6" />
+                            <BookOpenCheck className="h-6 w-6" />
                         </div>
                     </CardContent>
                 </Card>
@@ -122,7 +114,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                             </p>
                         </div>
                         <div className="p-3 bg-blue-500/10 rounded-full text-blue-600 dark:text-blue-400">
-                            <HugeiconsIcon icon={TrophyIcon} className="h-6 w-6" />
+                            <Trophy className="h-6 w-6" />
                         </div>
                     </CardContent>
                 </Card>
@@ -136,7 +128,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                    <HugeiconsIcon icon={CreditCardIcon} className="h-5 w-5 text-primary" />
+                                    <CreditCard className="h-5 w-5 text-primary" />
                                     Breakdown by Payment Method
                                 </CardTitle>
                                 <CardDescription>Collection split across standard and customer methods</CardDescription>
@@ -202,7 +194,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                    <HugeiconsIcon icon={UserCircleIcon} className="h-5 w-5 text-primary" />
+                                    <User className="h-5 w-5 text-primary" />
                                     Breakdown by Fuel Attendant
                                 </CardTitle>
                                 <CardDescription>Collections logged per staff member</CardDescription>
