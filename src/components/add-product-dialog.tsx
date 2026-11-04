@@ -41,7 +41,7 @@ export function AddProductDialog({
     const [code, setCode] = useState("")
     const [name, setName] = useState("")
     const [unit, setUnit] = useState<string>("Pcs")
-    const [rate, setRate] = useState<number>(0)
+    const [rate, setRate] = useState<string>("")
     const [group, setGroup] = useState<string>("Lubes")
     const [isActive, setIsActive] = useState<boolean>(true)
 
@@ -84,13 +84,13 @@ export function AddProductDialog({
                 setCode(productToEdit.code)
                 setName(productToEdit.name)
                 setUnit(productToEdit.unit || "Pcs")
-                setRate(productToEdit.rate || 0)
+                setRate(productToEdit.rate !== undefined && productToEdit.rate !== null ? productToEdit.rate.toString() : "")
                 setGroup(productToEdit.group || "Lubes")
                 setIsActive(productToEdit.isActive ?? true)
             } else {
                 setName("")
                 setUnit("Pcs")
-                setRate(0)
+                setRate("")
                 setGroup("Lubes")
                 setIsActive(true)
                 if (nextCodeQuery.data?.nextCode) {
@@ -118,8 +118,9 @@ export function AddProductDialog({
             return
         }
 
-        if (rate < 0) {
-            toast.error("Rate cannot be negative")
+        const numericRate = rate.trim() === "" ? 0 : parseFloat(rate)
+        if (isNaN(numericRate) || numericRate < 0) {
+            toast.error("Please enter a valid rate (0 or higher)")
             return
         }
 
@@ -129,7 +130,7 @@ export function AddProductDialog({
                 code: code.trim(),
                 name: name.trim(),
                 unit,
-                rate: Number(rate),
+                rate: numericRate,
                 group,
                 isActive,
             })
@@ -138,7 +139,7 @@ export function AddProductDialog({
                 code: code.trim() || undefined,
                 name: name.trim(),
                 unit,
-                rate: Number(rate),
+                rate: numericRate,
                 group,
                 isActive,
             })
@@ -250,8 +251,8 @@ export function AddProductDialog({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={isNaN(rate) ? "" : rate}
-                                onChange={(e) => setRate(parseFloat(e.target.value) || 0)}
+                                value={rate}
+                                onChange={(e) => setRate(e.target.value)}
                                 className="pl-7"
                                 placeholder="0.00"
                                 required
