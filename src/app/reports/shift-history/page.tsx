@@ -229,10 +229,6 @@ export default function ShiftHistoryPage() {
                 summary={shiftsQuery.data?.summary}
                 isLoading={shiftsQuery.isLoading}
                 error={shiftsQuery.error?.message}
-                filters={filters}
-                isAdmin={isAdmin}
-                currentUserName={user?.name || user?.username}
-                onClearFilters={() => handleApplyFilters({})}
                 fallbackSessions={shiftsQuery.data?.sessions}
             />
 

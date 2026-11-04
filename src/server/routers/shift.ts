@@ -720,14 +720,8 @@ export const shiftRouter = router({
             }
 
             const targetUserId = where.userId as number | undefined
-            const hasExtraFilters = !!(input.status || input.shiftType || input.startDateFrom || input.startDateTo || input.endDateFrom || input.endDateTo || input.userNameSearch)
 
-            const allTimeWhere: Record<string, unknown> = {
-                stationId: ctx.stationId,
-                ...(targetUserId ? { userId: targetUserId } : (!isAdmin ? { userId: ctx.user.id } : {}))
-            }
-
-            const [shifts, total, summaryShifts, targetUser, allTimeShifts] = await Promise.all([
+            const [shifts, total, summaryShifts, targetUser] = await Promise.all([
                 prisma.dutySession.findMany({
                     where,
                     include: {
@@ -765,25 +759,9 @@ export const shiftRouter = router({
                     where: { id: targetUserId },
                     select: { id: true, name: true, username: true }
                 }) : Promise.resolve(null),
-                hasExtraFilters ? prisma.dutySession.findMany({
-                    where: allTimeWhere,
-                    select: {
-                        id: true,
-                        status: true,
-                        totalPaymentCollected: true,
-                        nozzleReadings: {
-                            select: {
-                                fuelDispensed: true,
-                                fuelPrice: true,
-                                nozzle: { select: { price: true } },
-                            },
-                        },
-                    },
-                }) : Promise.resolve(null),
             ])
 
             const summary = calculateShiftsSummary(summaryShifts as any, total, targetUser)
-            const allTimeSummary = allTimeShifts ? calculateShiftsSummary(allTimeShifts as any, allTimeShifts.length, targetUser) : summary
 
             return {
                 sessions: shifts, // Client expects 'sessions' property
@@ -792,10 +770,7 @@ export const shiftRouter = router({
                     limit: input.limit,
                     offset: input.offset,
                 },
-                summary: {
-                    ...summary,
-                    allTime: allTimeSummary
-                }
+                summary,
             }
         }),
 
@@ -870,14 +845,8 @@ export const shiftRouter = router({
             }
 
             const targetUserId = where.userId as number | undefined
-            const hasExtraFilters = !!(input.status || input.shiftType || input.startDateFrom || input.startDateTo || input.endDateFrom || input.endDateTo || input.userNameSearch)
 
-            const allTimeWhere: Record<string, unknown> = {
-                stationId: ctx.stationId,
-                ...(targetUserId ? { userId: targetUserId } : (!isAdmin ? { userId: ctx.user.id } : {}))
-            }
-
-            const [summaryShifts, targetUser, allTimeShifts] = await Promise.all([
+            const [summaryShifts, targetUser] = await Promise.all([
                 prisma.dutySession.findMany({
                     where,
                     select: {
@@ -897,30 +866,11 @@ export const shiftRouter = router({
                     where: { id: targetUserId },
                     select: { id: true, name: true, username: true }
                 }) : Promise.resolve(null),
-                hasExtraFilters ? prisma.dutySession.findMany({
-                    where: allTimeWhere,
-                    select: {
-                        id: true,
-                        status: true,
-                        totalPaymentCollected: true,
-                        nozzleReadings: {
-                            select: {
-                                fuelDispensed: true,
-                                fuelPrice: true,
-                                nozzle: { select: { price: true } },
-                            },
-                        },
-                    },
-                }) : Promise.resolve(null),
             ])
 
             const summary = calculateShiftsSummary(summaryShifts as any, summaryShifts.length, targetUser)
-            const allTimeSummary = allTimeShifts ? calculateShiftsSummary(allTimeShifts as any, allTimeShifts.length, targetUser) : summary
 
-            return {
-                ...summary,
-                allTime: allTimeSummary
-            }
+            return summary
         }),
 
 
