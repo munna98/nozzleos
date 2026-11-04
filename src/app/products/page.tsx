@@ -138,9 +138,6 @@ export default function ProductsPage() {
                             {products.length}
                         </Badge>
                     </div>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Manage lubricants, DEF, and other non-fuel inventory items
-                    </p>
                 </div>
                 <Button onClick={handleAddClick}>
                     <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Product
