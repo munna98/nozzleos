@@ -52,7 +52,7 @@ function calculateShiftsSummary(
         let shiftFuelSales = 0
         for (const nr of s.nozzleReadings) {
             const qty = Number(nr.fuelDispensed || 0)
-            const price = Number(nr.fuelPrice && Number(nr.fuelPrice) > 0 ? nr.fuelPrice : nr.nozzle.price)
+            const price = Number(nr.fuelPrice && Number(nr.fuelPrice) > 0 ? nr.fuelPrice : (nr.nozzle?.price ?? 0))
             shiftFuelSales += qty * price
         }
 

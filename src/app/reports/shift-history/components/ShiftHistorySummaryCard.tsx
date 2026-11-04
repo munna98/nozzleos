@@ -1,21 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-    FuelStationIcon,
-    Wallet01Icon,
     AlertCircleIcon,
     CheckmarkCircle02Icon,
-    Coins01Icon,
-    Calendar01Icon,
-    UserCircleIcon,
     ArrowUp01Icon,
-    ArrowDown01Icon,
+    Calendar01Icon,
 } from "@hugeicons/core-free-icons"
 import { inferRouterOutputs } from "@trpc/server"
 import { AppRouter } from "@/server/trpc/router"
@@ -23,23 +15,26 @@ import { ShiftFiltersState } from "./ShiftFilters"
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 export type ShiftHistorySummary = RouterOutput["shift"]["getAll"]["summary"]
+type ShiftSession = RouterOutput["shift"]["getAll"]["sessions"][number]
 
 interface ShiftHistorySummaryCardProps {
     summary?: ShiftHistorySummary
     isLoading?: boolean
+    error?: string
     filters: ShiftFiltersState
     isAdmin: boolean
     currentUserName?: string
     onClearFilters?: () => void
+    fallbackSessions?: ShiftSession[]
 }
 
 export function ShiftHistorySummaryCard({
     summary,
     isLoading = false,
+    error,
     filters,
-    isAdmin,
-    currentUserName,
     onClearFilters,
+    fallbackSessions,
 }: ShiftHistorySummaryCardProps) {
     const [viewMode, setViewMode] = useState<"period" | "allTime">("period")
 
@@ -51,46 +46,87 @@ export function ShiftHistorySummaryCard({
         }).format(amount)
     }
 
-    const getPeriodLabel = () => {
-        if (filters.datePreset === "today") return "Today"
-        if (filters.datePreset === "yesterday") return "Yesterday"
-        if (filters.datePreset === "this_week") return "This Week"
-        if (filters.datePreset === "this_month") return "This Month"
-        if (filters.datePreset === "last_month") return "Last Month"
-        if (filters.startDateFrom || filters.startDateTo) {
-            const from = filters.startDateFrom
-                ? new Date(filters.startDateFrom).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                  })
-                : "Start"
-            const to = filters.startDateTo
-                ? new Date(filters.startDateTo).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                  })
-                : "End"
-            return `${from} - ${to}`
-        }
-        return "All Time"
-    }
+    // Client-side fallback if summary object is not present but sessions are
+    const computedFallback = useMemo(() => {
+        if (!fallbackSessions || fallbackSessions.length === 0) return null
+        let totalSales = 0
+        let totalCollected = 0
+        let totalShortage = 0
+        let totalExcess = 0
+        let shortageCount = 0
+        let excessCount = 0
+        let completedCount = 0
 
-    if (isLoading) {
+        for (const s of fallbackSessions) {
+            if (s.status === "in_progress") continue
+            completedCount++
+            let shiftSales = 0
+            for (const nr of s.nozzleReadings || []) {
+                const qty = Number(nr.fuelDispensed || 0)
+                const price = Number(
+                    (nr as any).fuelPrice && Number((nr as any).fuelPrice) > 0
+                        ? (nr as any).fuelPrice
+                        : ((nr.nozzle as any)?.price ?? 0)
+                )
+                shiftSales += qty * price
+            }
+            const shiftColl = Number(s.totalPaymentCollected || 0)
+            const diff = shiftColl - shiftSales
+            totalSales += shiftSales
+            totalCollected += shiftColl
+            if (diff < -0.01) {
+                totalShortage += Math.abs(diff)
+                shortageCount++
+            } else if (diff > 0.01) {
+                totalExcess += diff
+                excessCount++
+            }
+        }
+        const netDiff = totalCollected - totalSales
+        return {
+            totalShifts: fallbackSessions.length,
+            completedShiftsCount: completedCount,
+            totalFuelSales: Math.round(totalSales * 100) / 100,
+            totalPaymentsCollected: Math.round(totalCollected * 100) / 100,
+            netDifference: Math.round(netDiff * 100) / 100,
+            totalShortage: Math.round(totalShortage * 100) / 100,
+            totalExcess: Math.round(totalExcess * 100) / 100,
+            shortageCount,
+            excessCount,
+            settledCount: completedCount - shortageCount - excessCount,
+            statusCounts: { verified: 0, pending_verification: 0, rejected: 0, in_progress: 0, completed: 0 },
+            targetUser: null,
+            allTime: null,
+        }
+    }, [fallbackSessions])
+
+    // Minimal skeleton loading state to prevent layout shift
+    if (isLoading && !summary && !computedFallback) {
         return (
-            <Card className="border shadow-sm">
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground text-sm">
-                        <Spinner className="size-5" />
-                        <span>Calculating cumulative shift summary...</span>
+            <div className="h-16 w-full rounded-xl border border-border/50 bg-muted/40 animate-pulse flex items-center justify-between px-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-muted-foreground/15" />
+                    <div className="space-y-1.5">
+                        <div className="h-3 w-28 bg-muted-foreground/15 rounded" />
+                        <div className="h-4 w-20 bg-muted-foreground/20 rounded" />
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+                <div className="hidden sm:flex items-center gap-6">
+                    <div className="h-4 w-20 bg-muted-foreground/15 rounded" />
+                    <div className="h-4 w-20 bg-muted-foreground/15 rounded" />
+                    <div className="h-4 w-12 bg-muted-foreground/15 rounded" />
+                </div>
+            </div>
         )
     }
 
-    if (!summary) return null
+    if (error && !summary && !computedFallback) {
+        return null
+    }
 
-    // Determine whether all-time data is available and differs from current period
+    const effectiveSummary = summary || computedFallback
+    if (!effectiveSummary) return null
+
     const hasActiveFilters = !!(
         filters.datePreset ||
         filters.startDateFrom ||
@@ -100,314 +136,138 @@ export function ShiftHistorySummaryCard({
         filters.userNameSearch
     )
 
-    const hasAllTimeToggle = hasActiveFilters && !!summary.allTime
+    // Check if the current filter yielded 0 shifts, but all-time has shifts
+    const periodHasZeroShifts = effectiveSummary.totalShifts === 0
+    const allTimeHasShifts = (effectiveSummary.allTime?.totalShifts ?? 0) > 0
+    const autoShowAllTime = periodHasZeroShifts && allTimeHasShifts
 
-    const activeData = viewMode === "allTime" && summary.allTime ? summary.allTime : summary
+    // Determine which dataset to display
+    const activeData =
+        (viewMode === "allTime" || autoShowAllTime) && effectiveSummary.allTime
+            ? effectiveSummary.allTime
+            : effectiveSummary
+
     const netDifference = activeData.netDifference
     const isShortage = netDifference < -0.01
     const isExcess = netDifference > 0.01
-    const isBalanced = !isShortage && !isExcess
 
-    // Determine title / target user
-    const targetUser = activeData.targetUser
-    let subjectTitle = "My Shifts"
-    if (targetUser) {
-        subjectTitle = targetUser.name || targetUser.username
-    } else if (isAdmin) {
-        subjectTitle = "All Station Attendants"
-    } else if (currentUserName) {
-        subjectTitle = currentUserName
-    }
+    const isShowingAllTime = viewMode === "allTime" || autoShowAllTime
 
     return (
         <Card
-            className={`border shadow-sm overflow-hidden transition-all ${
+            className={`border shadow-2xs overflow-hidden transition-all ${
                 isShortage
-                    ? "border-l-4 border-l-red-500 bg-red-500/[0.02] dark:bg-red-500/[0.04]"
+                    ? "border-l-4 border-l-red-500 bg-red-500/[0.03] dark:bg-red-500/[0.05]"
                     : isExcess
-                    ? "border-l-4 border-l-emerald-500 bg-emerald-500/[0.02] dark:bg-emerald-500/[0.04]"
+                    ? "border-l-4 border-l-emerald-500 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.05]"
                     : "border-l-4 border-l-primary/60 bg-card"
             }`}
         >
-            <CardContent className="p-4 sm:p-6 space-y-5">
-                {/* Header row: Context, Target Staff & Period / All-Time Toggle */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                            <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4 text-primary" />
-                            <span>{subjectTitle}</span>
-                        </div>
-                        <span className="text-muted-foreground/40 hidden sm:inline">•</span>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5" />
-                            <span>
-                                {viewMode === "allTime"
-                                    ? "All-Time Cumulative"
-                                    : `Period: ${getPeriodLabel()}`}
-                            </span>
-                        </div>
-                        {activeData.totalShifts > 0 && (
-                            <Badge variant="outline" className="text-[11px] font-normal px-2 py-0">
-                                {activeData.totalShifts} shift{activeData.totalShifts !== 1 ? "s" : ""}
-                            </Badge>
-                        )}
-                    </div>
-
-                    {/* View Mode Toggle when filters are active */}
-                    {hasAllTimeToggle && (
-                        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/40 self-start sm:self-auto">
-                            <button
-                                type="button"
-                                onClick={() => setViewMode("period")}
-                                className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
-                                    viewMode === "period"
-                                        ? "bg-background text-foreground shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                {getPeriodLabel()}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode("allTime")}
-                                className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
-                                    viewMode === "allTime"
-                                        ? "bg-background text-foreground shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                All-Time Balance
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Primary Hero Section: Cumulative Shortage or Excess */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                    {/* Hero Highlight Card (5 cols on lg) */}
-                    <div
-                        className={`lg:col-span-5 rounded-xl p-4 sm:p-5 flex flex-col justify-between border ${
-                            isShortage
-                                ? "bg-red-500/10 border-red-200 dark:border-red-900/50 dark:bg-red-950/20"
-                                : isExcess
-                                ? "bg-emerald-500/10 border-emerald-200 dark:border-emerald-900/50 dark:bg-emerald-950/20"
-                                : "bg-muted/40 border-border/50"
-                        }`}
-                    >
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                    {viewMode === "allTime"
-                                        ? "All-Time Cumulative Balance"
-                                        : "Cumulative Shortage / Excess"}
-                                </span>
-                                {isShortage && (
-                                    <Badge
-                                        variant="destructive"
-                                        className="gap-1 font-semibold text-xs px-2 py-0.5"
-                                    >
-                                        <HugeiconsIcon icon={ArrowDown01Icon} className="h-3 w-3" />
-                                        Shortage
-                                    </Badge>
-                                )}
-                                {isExcess && (
-                                    <Badge
-                                        variant="default"
-                                        className="gap-1 font-semibold text-xs px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    >
-                                        <HugeiconsIcon icon={ArrowUp01Icon} className="h-3 w-3" />
-                                        Excess
-                                    </Badge>
-                                )}
-                                {isBalanced && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="gap-1 text-xs px-2 py-0.5 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                                    >
-                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3 w-3" />
-                                        Balanced
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <div className="pt-1">
-                                <div
-                                    className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
-                                        isShortage
-                                            ? "text-red-600 dark:text-red-400"
-                                            : isExcess
-                                            ? "text-emerald-600 dark:text-emerald-400"
-                                            : "text-foreground"
-                                    }`}
-                                >
-                                    {isShortage ? "-" : isExcess ? "+" : ""}
-                                    {formatCurrency(Math.abs(netDifference))}
-                                </div>
-                            </div>
-
-                            <p className="text-xs text-muted-foreground pt-1 leading-relaxed">
-                                {isShortage && (
-                                    <>
-                                        Total payment collected is{" "}
-                                        <span className="font-semibold text-red-600 dark:text-red-400">
-                                            {formatCurrency(Math.abs(netDifference))}
-                                        </span>{" "}
-                                        less than metered fuel sales across {activeData.completedShiftsCount} shift
-                                        {activeData.completedShiftsCount !== 1 ? "s" : ""}.
-                                    </>
-                                )}
-                                {isExcess && (
-                                    <>
-                                        Total payment collected has a surplus of{" "}
-                                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                            {formatCurrency(netDifference)}
-                                        </span>{" "}
-                                        above metered fuel sales across {activeData.completedShiftsCount} shift
-                                        {activeData.completedShiftsCount !== 1 ? "s" : ""}.
-                                    </>
-                                )}
-                                {isBalanced && (
-                                    <>
-                                        All cash and digital collections match metered fuel sales exactly across{" "}
-                                        {activeData.completedShiftsCount} shift
-                                        {activeData.completedShiftsCount !== 1 ? "s" : ""}.
-                                    </>
-                                )}
-                            </p>
-                        </div>
-
-                        {/* Breakdown pills inside the hero card */}
-                        <div className="pt-4 mt-3 border-t border-border/40 grid grid-cols-2 gap-2 text-xs">
-                            <div className="flex flex-col">
-                                <span className="text-muted-foreground text-[11px]">Shortage Shifts</span>
-                                <span className="font-semibold text-red-600 dark:text-red-400">
-                                    {activeData.shortageCount} shift{activeData.shortageCount !== 1 ? "s" : ""}{" "}
-                                    ({formatCurrency(activeData.totalShortage)})
-                                </span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-muted-foreground text-[11px]">Excess Shifts</span>
-                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                    {activeData.excessCount} shift{activeData.excessCount !== 1 ? "s" : ""}{" "}
-                                    ({formatCurrency(activeData.totalExcess)})
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Supporting 4-Metric Grid (7 cols on lg) */}
-                    <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-                        {/* 1. Total Fuel Sales */}
-                        <div className="rounded-xl border border-border/60 bg-card p-3.5 sm:p-4 flex flex-col justify-between shadow-2xs hover:border-primary/40 transition-colors">
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span className="text-xs font-medium uppercase tracking-wider">Fuel Sales</span>
-                                <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                                    <HugeiconsIcon icon={FuelStationIcon} className="h-4 w-4" />
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                <div className="text-lg sm:text-2xl font-bold tracking-tight text-foreground">
-                                    {formatCurrency(activeData.totalFuelSales)}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    {activeData.completedShiftsCount} completed shift
-                                    {activeData.completedShiftsCount !== 1 ? "s" : ""}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* 2. Total Payments Collected */}
-                        <div className="rounded-xl border border-border/60 bg-card p-3.5 sm:p-4 flex flex-col justify-between shadow-2xs hover:border-primary/40 transition-colors">
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span className="text-xs font-medium uppercase tracking-wider">Collected</span>
-                                <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                    <HugeiconsIcon icon={Coins01Icon} className="h-4 w-4" />
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                <div className="text-lg sm:text-2xl font-bold tracking-tight text-foreground">
-                                    {formatCurrency(activeData.totalPaymentsCollected)}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    Cash, online & cards
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* 3. Gross Shortages */}
-                        <div className="rounded-xl border border-border/60 bg-card p-3.5 sm:p-4 flex flex-col justify-between shadow-2xs hover:border-red-500/40 transition-colors">
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span className="text-xs font-medium uppercase tracking-wider">Gross Shortage</span>
-                                <div className="p-1.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
-                                    <HugeiconsIcon icon={AlertCircleIcon} className="h-4 w-4" />
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                <div className="text-lg sm:text-2xl font-bold tracking-tight text-red-600 dark:text-red-400">
-                                    {formatCurrency(activeData.totalShortage)}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    {activeData.shortageCount} shift{activeData.shortageCount !== 1 ? "s" : ""} with shortage
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* 4. Gross Excess */}
-                        <div className="rounded-xl border border-border/60 bg-card p-3.5 sm:p-4 flex flex-col justify-between shadow-2xs hover:border-emerald-500/40 transition-colors">
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span className="text-xs font-medium uppercase tracking-wider">Gross Excess</span>
-                                <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                    <HugeiconsIcon icon={Wallet01Icon} className="h-4 w-4" />
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                <div className="text-lg sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                                    {formatCurrency(activeData.totalExcess)}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    {activeData.excessCount} shift{activeData.excessCount !== 1 ? "s" : ""} with excess
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer status summary row */}
-                <div className="pt-3 border-t border-border/40 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <span className="font-medium text-foreground">Shift Status:</span>
-                        <span className="inline-flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                            {activeData.statusCounts.verified} Verified
-                        </span>
-                        {activeData.statusCounts.pending_verification > 0 && (
-                            <span className="inline-flex items-center gap-1">
-                                <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                                {activeData.statusCounts.pending_verification} Pending Review
-                            </span>
-                        )}
-                        {activeData.statusCounts.rejected > 0 && (
-                            <span className="inline-flex items-center gap-1">
-                                <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                                {activeData.statusCounts.rejected} Rejected
-                            </span>
-                        )}
-                        <span className="inline-flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-primary/40"></span>
-                            {activeData.settledCount} Fully Balanced
-                        </span>
-                    </div>
-
-                    {hasActiveFilters && onClearFilters && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onClearFilters}
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
+                    {/* Primary Cumulative Balance */}
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div
+                            className={`p-2 rounded-lg shrink-0 ${
+                                isShortage
+                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                    : isExcess
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-primary/10 text-primary"
+                            }`}
                         >
-                            Reset filters
-                        </Button>
-                    )}
+                            <HugeiconsIcon
+                                icon={
+                                    isShortage
+                                        ? AlertCircleIcon
+                                        : isExcess
+                                        ? ArrowUp01Icon
+                                        : CheckmarkCircle02Icon
+                                }
+                                className="h-5 w-5"
+                            />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs text-muted-foreground font-medium">
+                                    {isShowingAllTime
+                                        ? "All-Time Cumulative Balance"
+                                        : isShortage
+                                        ? "Cumulative Shortage"
+                                        : isExcess
+                                        ? "Cumulative Excess"
+                                        : "Net Balance"}
+                                </span>
+                                {hasActiveFilters && effectiveSummary.allTime && (
+                                    <>
+                                        {autoShowAllTime ? (
+                                            <span className="text-[10px] text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
+                                                (0 in filter)
+                                            </span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setViewMode((v) =>
+                                                        v === "period" ? "allTime" : "period"
+                                                    )
+                                                }
+                                                className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+                                            >
+                                                ({viewMode === "period" ? "View All-Time" : "View Filtered"})
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            <div
+                                className={`text-xl sm:text-2xl font-bold tracking-tight ${
+                                    isShortage
+                                        ? "text-red-600 dark:text-red-400"
+                                        : isExcess
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-foreground"
+                                }`}
+                            >
+                                {isShortage ? "-" : isExcess ? "+" : ""}
+                                {formatCurrency(Math.abs(netDifference))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Compact Metrics Row */}
+                    <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/50 shrink-0">
+                        <div>
+                            <span className="text-[11px] text-muted-foreground block">Fuel Sales</span>
+                            <span className="text-sm font-semibold text-foreground">
+                                {formatCurrency(activeData.totalFuelSales)}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-[11px] text-muted-foreground block">Collected</span>
+                            <span className="text-sm font-semibold text-foreground">
+                                {formatCurrency(activeData.totalPaymentsCollected)}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-[11px] text-muted-foreground block">Shifts</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-semibold text-foreground">
+                                    {activeData.completedShiftsCount}
+                                </span>
+                                {autoShowAllTime && onClearFilters && (
+                                    <button
+                                        type="button"
+                                        onClick={onClearFilters}
+                                        className="text-[10px] text-primary hover:underline cursor-pointer"
+                                        title="Clear date filters to view all shifts in list"
+                                    >
+                                        (View all)
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </CardContent>
         </Card>

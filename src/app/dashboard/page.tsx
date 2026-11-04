@@ -16,14 +16,7 @@ export default function DashboardPage() {
         retry: false
     })
 
-    const shiftSummaryQuery = trpc.shift.getHistorySummary.useQuery({}, {
-        retry: false
-    })
-
     const hasActiveShift = !!activeShiftQuery.data
-    const netDiff = shiftSummaryQuery.data?.netDifference ?? 0
-    const isShortage = netDiff < -0.01
-    const isExcess = netDiff > 0.01
 
     return (
         <div className="container mx-auto py-10 px-4">
@@ -74,25 +67,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        {shiftSummaryQuery.data && shiftSummaryQuery.data.totalShifts > 0 && (
-                            <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/60 border border-border/40">
-                                <span className="text-muted-foreground">Cumulative Balance:</span>
-                                <span className={`font-semibold ${
-                                    isShortage
-                                        ? 'text-red-600 dark:text-red-400'
-                                        : isExcess
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-foreground'
-                                }`}>
-                                    {isShortage
-                                        ? `Shortage: -₹${Math.abs(netDiff).toFixed(2)}`
-                                        : isExcess
-                                        ? `Excess: +₹${netDiff.toFixed(2)}`
-                                        : 'Balanced (₹0.00)'}
-                                </span>
-                            </div>
-                        )}
+                    <CardContent>
                         <Button variant="outline" className="w-full" size="lg">
                             View History
                         </Button>
