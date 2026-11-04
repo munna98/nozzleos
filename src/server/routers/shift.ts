@@ -3,6 +3,94 @@ import { Prisma, ShiftType } from '@prisma/client'
 import { router, tenantProcedure, adminProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
+interface ShiftForSummary {
+    id: number
+    status: string
+    totalPaymentCollected: Prisma.Decimal | number
+    nozzleReadings: Array<{
+        fuelDispensed: Prisma.Decimal | number | null
+        fuelPrice: Prisma.Decimal | number | null
+        nozzle: {
+            price: Prisma.Decimal | number
+        }
+    }>
+}
+
+function calculateShiftsSummary(
+    summaryShifts: ShiftForSummary[],
+    totalCount: number,
+    targetUser: { id: number; name: string | null; username: string } | null = null
+) {
+    let totalFuelSales = 0
+    let totalPaymentsCollected = 0
+    let totalShortage = 0
+    let totalExcess = 0
+    let shortageCount = 0
+    let excessCount = 0
+    let settledCount = 0
+    let completedShiftsCount = 0
+
+    const statusCounts = {
+        verified: 0,
+        pending_verification: 0,
+        rejected: 0,
+        in_progress: 0,
+        completed: 0,
+    }
+
+    for (const s of summaryShifts) {
+        if (s.status in statusCounts) {
+            statusCounts[s.status as keyof typeof statusCounts]++
+        }
+
+        // Only calculate financials for non-in-progress shifts
+        if (s.status === 'in_progress') {
+            continue
+        }
+
+        completedShiftsCount++
+        let shiftFuelSales = 0
+        for (const nr of s.nozzleReadings) {
+            const qty = Number(nr.fuelDispensed || 0)
+            const price = Number(nr.fuelPrice && Number(nr.fuelPrice) > 0 ? nr.fuelPrice : nr.nozzle.price)
+            shiftFuelSales += qty * price
+        }
+
+        const shiftPayment = Number(s.totalPaymentCollected || 0)
+        const diff = shiftPayment - shiftFuelSales
+
+        totalFuelSales += shiftFuelSales
+        totalPaymentsCollected += shiftPayment
+
+        if (diff < -0.01) {
+            totalShortage += Math.abs(diff)
+            shortageCount++
+        } else if (diff > 0.01) {
+            totalExcess += diff
+            excessCount++
+        } else {
+            settledCount++
+        }
+    }
+
+    const netDifference = totalPaymentsCollected - totalFuelSales
+
+    return {
+        totalShifts: totalCount,
+        completedShiftsCount,
+        totalFuelSales: Math.round(totalFuelSales * 100) / 100,
+        totalPaymentsCollected: Math.round(totalPaymentsCollected * 100) / 100,
+        netDifference: Math.round(netDifference * 100) / 100,
+        totalShortage: Math.round(totalShortage * 100) / 100,
+        totalExcess: Math.round(totalExcess * 100) / 100,
+        shortageCount,
+        excessCount,
+        settledCount,
+        statusCounts,
+        targetUser,
+    }
+}
+
 export const shiftRouter = router({
     /**
      * Get active shift for current user
@@ -631,7 +719,15 @@ export const shiftRouter = router({
                 where.userId = ctx.user.id
             }
 
-            const [shifts, total] = await Promise.all([
+            const targetUserId = where.userId as number | undefined
+            const hasExtraFilters = !!(input.status || input.shiftType || input.startDateFrom || input.startDateTo || input.endDateFrom || input.endDateTo || input.userNameSearch)
+
+            const allTimeWhere: Record<string, unknown> = {
+                stationId: ctx.stationId,
+                ...(targetUserId ? { userId: targetUserId } : (!isAdmin ? { userId: ctx.user.id } : {}))
+            }
+
+            const [shifts, total, summaryShifts, targetUser, allTimeShifts] = await Promise.all([
                 prisma.dutySession.findMany({
                     where,
                     include: {
@@ -650,7 +746,44 @@ export const shiftRouter = router({
                     take: input.limit,
                 }),
                 prisma.dutySession.count({ where }),
+                prisma.dutySession.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        status: true,
+                        totalPaymentCollected: true,
+                        nozzleReadings: {
+                            select: {
+                                fuelDispensed: true,
+                                fuelPrice: true,
+                                nozzle: { select: { price: true } },
+                            },
+                        },
+                    },
+                }),
+                targetUserId ? prisma.user.findUnique({
+                    where: { id: targetUserId },
+                    select: { id: true, name: true, username: true }
+                }) : Promise.resolve(null),
+                hasExtraFilters ? prisma.dutySession.findMany({
+                    where: allTimeWhere,
+                    select: {
+                        id: true,
+                        status: true,
+                        totalPaymentCollected: true,
+                        nozzleReadings: {
+                            select: {
+                                fuelDispensed: true,
+                                fuelPrice: true,
+                                nozzle: { select: { price: true } },
+                            },
+                        },
+                    },
+                }) : Promise.resolve(null),
             ])
+
+            const summary = calculateShiftsSummary(summaryShifts as any, total, targetUser)
+            const allTimeSummary = allTimeShifts ? calculateShiftsSummary(allTimeShifts as any, allTimeShifts.length, targetUser) : summary
 
             return {
                 sessions: shifts, // Client expects 'sessions' property
@@ -658,7 +791,135 @@ export const shiftRouter = router({
                     total,
                     limit: input.limit,
                     offset: input.offset,
+                },
+                summary: {
+                    ...summary,
+                    allTime: allTimeSummary
                 }
+            }
+        }),
+
+    /**
+     * Get shift history summary (aggregated metrics, cumulative shortage/excess)
+     */
+    getHistorySummary: tenantProcedure
+        .input(z.object({
+            status: z.string().optional(),
+            shiftType: z.nativeEnum(ShiftType).optional(),
+            startDateFrom: z.date().optional(),
+            startDateTo: z.date().optional(),
+            endDateFrom: z.date().optional(),
+            endDateTo: z.date().optional(),
+            userId: z.number().optional(),
+            userNameSearch: z.string().optional(),
+        }))
+        .query(async ({ ctx, input }) => {
+            const where: Record<string, unknown> = { stationId: ctx.stationId }
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.isSuperAdmin
+
+            if (input.status) {
+                where.status = input.status
+            }
+            if (input.shiftType) {
+                where.type = input.shiftType
+            }
+
+            if (input.startDateFrom || input.startDateTo) {
+                where.startTime = {}
+                if (input.startDateFrom) {
+                    const start = new Date(input.startDateFrom)
+                    ;(where.startTime as Record<string, unknown>).gte = start
+                }
+                if (input.startDateTo) {
+                    const end = new Date(input.startDateTo)
+                    end.setDate(end.getDate() + 1)
+                    ;(where.startTime as Record<string, unknown>).lt = end
+                }
+            }
+
+            if (input.endDateFrom || input.endDateTo) {
+                where.endTime = {}
+                if (input.endDateFrom) {
+                    const start = new Date(input.endDateFrom)
+                    start.setHours(0, 0, 0, 0)
+                    ;(where.endTime as Record<string, unknown>).gte = start
+                }
+                if (input.endDateTo) {
+                    const end = new Date(input.endDateTo)
+                    end.setHours(0, 0, 0, 0)
+                    end.setDate(end.getDate() + 1)
+                    ;(where.endTime as Record<string, unknown>).lt = end
+                }
+            }
+
+            if (isAdmin && input.userNameSearch) {
+                where.user = {
+                    OR: [
+                        { name: { contains: input.userNameSearch, mode: 'insensitive' } },
+                        { username: { contains: input.userNameSearch, mode: 'insensitive' } },
+                    ],
+                }
+            }
+
+            if (input.userId) {
+                if (isAdmin) {
+                    where.userId = input.userId
+                }
+            } else if (!isAdmin) {
+                where.userId = ctx.user.id
+            }
+
+            const targetUserId = where.userId as number | undefined
+            const hasExtraFilters = !!(input.status || input.shiftType || input.startDateFrom || input.startDateTo || input.endDateFrom || input.endDateTo || input.userNameSearch)
+
+            const allTimeWhere: Record<string, unknown> = {
+                stationId: ctx.stationId,
+                ...(targetUserId ? { userId: targetUserId } : (!isAdmin ? { userId: ctx.user.id } : {}))
+            }
+
+            const [summaryShifts, targetUser, allTimeShifts] = await Promise.all([
+                prisma.dutySession.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        status: true,
+                        totalPaymentCollected: true,
+                        nozzleReadings: {
+                            select: {
+                                fuelDispensed: true,
+                                fuelPrice: true,
+                                nozzle: { select: { price: true } },
+                            },
+                        },
+                    },
+                }),
+                targetUserId ? prisma.user.findUnique({
+                    where: { id: targetUserId },
+                    select: { id: true, name: true, username: true }
+                }) : Promise.resolve(null),
+                hasExtraFilters ? prisma.dutySession.findMany({
+                    where: allTimeWhere,
+                    select: {
+                        id: true,
+                        status: true,
+                        totalPaymentCollected: true,
+                        nozzleReadings: {
+                            select: {
+                                fuelDispensed: true,
+                                fuelPrice: true,
+                                nozzle: { select: { price: true } },
+                            },
+                        },
+                    },
+                }) : Promise.resolve(null),
+            ])
+
+            const summary = calculateShiftsSummary(summaryShifts as any, summaryShifts.length, targetUser)
+            const allTimeSummary = allTimeShifts ? calculateShiftsSummary(allTimeShifts as any, allTimeShifts.length, targetUser) : summary
+
+            return {
+                ...summary,
+                allTime: allTimeSummary
             }
         }),
 

@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { ShiftHistoryList } from "./components/ShiftHistoryList"
 import { ShiftDetailView } from "./components/ShiftDetailView"
 import { ShiftFilters, ShiftFiltersState } from "./components/ShiftFilters"
+import { ShiftHistorySummaryCard } from "./components/ShiftHistorySummaryCard"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
@@ -222,6 +223,16 @@ export default function ShiftHistoryPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Shift History Summary Card */}
+            <ShiftHistorySummaryCard
+                summary={shiftsQuery.data?.summary}
+                isLoading={shiftsQuery.isLoading}
+                filters={filters}
+                isAdmin={isAdmin}
+                currentUserName={user?.name || user?.username}
+                onClearFilters={() => handleApplyFilters({})}
+            />
 
             <ShiftListContent
                 query={shiftsQuery}
