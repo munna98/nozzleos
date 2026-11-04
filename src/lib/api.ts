@@ -127,6 +127,28 @@ export interface DispenserDto {
     isActive?: boolean;
 }
 
+export interface Product {
+    id: number;
+    stationId?: number;
+    code: string;
+    name: string;
+    unit: string;
+    rate: number;
+    group: string;
+    isActive: boolean;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+}
+
+export interface ProductDto {
+    code: string;
+    name: string;
+    unit: string;
+    rate: number;
+    group: string;
+    isActive?: boolean;
+}
+
 export interface NozzleDto {
     code: string;
     dispenserId: number;

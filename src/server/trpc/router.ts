@@ -13,6 +13,7 @@ import { paymentRouter } from '../routers/payment'
 import { staffRouter } from '../routers/staff'
 import { shiftEditRequestRouter } from '../routers/shift-edit-request'
 import { stationRouter } from '../routers/station'
+import { productRouter } from '../routers/product'
 
 export const appRouter = router({
     auth: authRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
     fuel: fuelRouter,
     dispenser: dispenserRouter,
     nozzle: nozzleRouter,
+    product: productRouter,
     paymentMethod: paymentMethodRouter,
     payment: paymentRouter,
     shift: shiftRouter,

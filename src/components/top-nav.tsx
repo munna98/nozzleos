@@ -35,6 +35,7 @@ import {
     Logout01Icon,
     UserIcon,
     DropletIcon,
+    PackageIcon,
     UserMultipleIcon
 } from "@hugeicons/core-free-icons"
 
@@ -97,6 +98,13 @@ export function TopNav() {
             active: pathname.startsWith("/dispensers"),
             roles: ['Admin'],
             icon: FuelStationIcon
+        },
+        {
+            href: "/products",
+            label: "Products",
+            active: pathname.startsWith("/products"),
+            roles: ['Admin', 'Manager'],
+            icon: PackageIcon
         },
         {
             href: "/payment-methods",

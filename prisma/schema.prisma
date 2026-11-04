@@ -28,6 +28,7 @@ model Station {
   fuels           Fuel[]
   dispensers      Dispenser[]
   nozzles         Nozzle[]
+  products        Product[]
   dutySessions    DutySession[]
   settings        Settings?
 }
@@ -166,6 +167,28 @@ model Nozzle {
   @@index([isActive, isAvailable])
   @@index([dispenserId])
   @@index([fuelId])
+}
+
+// ==================== PRODUCTS ====================
+
+model Product {
+  id        Int       @id @default(autoincrement())
+  stationId Int
+  code      String
+  name      String
+  unit      String    // "Pcs", "L"
+  rate      Float     @default(0)
+  group     String    // "Lubes", "Def", "other"
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  station   Station   @relation(fields: [stationId], references: [id])
+
+  @@unique([stationId, code])
+  @@index([stationId])
+  @@index([isActive])
+  @@index([group])
 }
 
 // ==================== DUTY SESSIONS ====================
