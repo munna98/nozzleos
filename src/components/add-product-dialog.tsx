@@ -40,9 +40,9 @@ export function AddProductDialog({
 }: AddProductDialogProps) {
     const [code, setCode] = useState("")
     const [name, setName] = useState("")
-    const [unit, setUnit] = useState<string>("Pcs")
+    const [unit, setUnit] = useState<string>("")
     const [rate, setRate] = useState<string>("")
-    const [group, setGroup] = useState<string>("Lubes")
+    const [group, setGroup] = useState<string>("")
     const [isActive, setIsActive] = useState<boolean>(true)
 
     const utils = trpc.useUtils()
@@ -83,15 +83,15 @@ export function AddProductDialog({
             if (productToEdit) {
                 setCode(productToEdit.code)
                 setName(productToEdit.name)
-                setUnit(productToEdit.unit || "Pcs")
+                setUnit(productToEdit.unit || "")
                 setRate(productToEdit.rate !== undefined && productToEdit.rate !== null ? productToEdit.rate.toString() : "")
-                setGroup(productToEdit.group || "Lubes")
+                setGroup(productToEdit.group || "")
                 setIsActive(productToEdit.isActive ?? true)
             } else {
                 setName("")
-                setUnit("Pcs")
+                setUnit("")
                 setRate("")
-                setGroup("Lubes")
+                setGroup("")
                 setIsActive(true)
                 if (nextCodeQuery.data?.nextCode) {
                     setCode(nextCodeQuery.data.nextCode)
@@ -115,6 +115,16 @@ export function AddProductDialog({
 
         if (!name.trim()) {
             toast.error("Please enter a product name")
+            return
+        }
+
+        if (!group) {
+            toast.error("Please select a group")
+            return
+        }
+
+        if (!unit) {
+            toast.error("Please select a unit")
             return
         }
 
@@ -208,7 +218,7 @@ export function AddProductDialog({
                             <Label htmlFor="group" className="text-sm font-medium">
                                 Group <span className="text-destructive">*</span>
                             </Label>
-                            <Select value={group} onValueChange={setGroup}>
+                            <Select value={group || undefined} onValueChange={setGroup}>
                                 <SelectTrigger id="group" className="w-full">
                                     <SelectValue placeholder="Select group" />
                                 </SelectTrigger>
@@ -225,7 +235,7 @@ export function AddProductDialog({
                             <Label htmlFor="unit" className="text-sm font-medium">
                                 Unit <span className="text-destructive">*</span>
                             </Label>
-                            <Select value={unit} onValueChange={setUnit}>
+                            <Select value={unit || undefined} onValueChange={setUnit}>
                                 <SelectTrigger id="unit" className="w-full">
                                     <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
