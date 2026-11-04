@@ -72,7 +72,7 @@ export function PendingVerificationsPanel() {
                             let totalSales = 0
                             for (const reading of session.nozzleReadings) {
                                 const qty = Number(reading.fuelDispensed || 0)
-                                const price = Number(reading.nozzle.price)
+                                const price = Number((reading as any).fuelPrice && Number((reading as any).fuelPrice) > 0 ? (reading as any).fuelPrice : reading.nozzle.price)
                                 totalSales += qty * price
                             }
 

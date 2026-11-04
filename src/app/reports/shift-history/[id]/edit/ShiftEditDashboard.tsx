@@ -474,6 +474,9 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                     <div className="flex items-center gap-2">
                                         <Badge>{reading.nozzle.code}</Badge>
                                         <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                        <Badge variant="outline" className="text-xs">
+                                            ₹{parseFloat(reading.price?.toString() || reading.fuelPrice?.toString() || reading.nozzle.price.toString()).toFixed(2)}/L
+                                        </Badge>
                                     </div>
                                 </div>
 

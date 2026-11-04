@@ -58,7 +58,8 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
     const calculateTotalSales = (readings: ShiftSession['nozzleReadings']) => {
         return readings.reduce((total: number, reading) => {
             const dispensed = Number(reading.fuelDispensed?.toString() || 0)
-            const price = Number(reading.nozzle.price)
+            const rawFuelPrice = (reading as any).fuelPrice
+            const price = Number(rawFuelPrice && Number(rawFuelPrice) > 0 ? rawFuelPrice : reading.nozzle.price)
             return total + (dispensed * price)
         }, 0)
     }

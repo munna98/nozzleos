@@ -207,6 +207,7 @@ model NozzleSessionReading {
   testQty        Decimal     @default(0) @db.Decimal(10, 2)
   closingReading Decimal?    @db.Decimal(10, 2)
   fuelDispensed  Decimal     @default(0) @db.Decimal(10, 2)
+  fuelPrice      Decimal     @default(0) @db.Decimal(10, 2)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   dutySession    DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)

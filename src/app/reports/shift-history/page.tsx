@@ -246,7 +246,7 @@ export default function ShiftHistoryPage() {
                     {selectedShiftForVerify && (() => {
                         const totalFuelSales = selectedShiftForVerify.nozzleReadings.reduce((total: number, reading: any) => {
                             const dispensed = Number(reading.fuelDispensed?.toString() || 0)
-                            const price = Number(reading.nozzle.price)
+                            const price = Number(reading.fuelPrice && Number(reading.fuelPrice) > 0 ? reading.fuelPrice : reading.nozzle.price)
                             return total + (dispensed * price)
                         }, 0)
                         const totalCollected = Number(selectedShiftForVerify.totalPaymentCollected)

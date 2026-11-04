@@ -547,6 +547,7 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                                     <tr>
                                         <th className="text-left p-3 font-medium">Nozzle</th>
                                         <th className="text-left p-3 font-medium">Fuel</th>
+                                        <th className="text-right p-3 font-medium">Rate</th>
                                         <th className="text-right p-3 font-medium">Opening</th>
                                         <th className="text-right p-3 font-medium">Closing</th>
                                         <th className="text-right p-3 font-medium">Test Qty</th>
@@ -561,6 +562,9 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                                                 <Badge variant="outline">{reading.nozzle.code}</Badge>
                                             </td>
                                             <td className="p-3">{reading.nozzle.fuel.name}</td>
+                                            <td className="p-3 text-right text-muted-foreground">
+                                                ₹{parseFloat(reading.price?.toString() || reading.fuelPrice?.toString() || reading.nozzle.price.toString()).toFixed(2)}
+                                            </td>
                                             <td className="p-3 text-right text-muted-foreground">
                                                 {parseFloat(reading.openingReading?.toString() || '0').toFixed(2)}
                                             </td>
@@ -581,7 +585,7 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                                         </tr>
                                     ))}
                                     <tr className="border-t bg-muted/30 font-medium">
-                                        <td colSpan={6} className="p-3 text-right">Total Fuel Sales</td>
+                                        <td colSpan={7} className="p-3 text-right">Total Fuel Sales</td>
                                         <td className="p-3 text-right">₹{shift.totalFuelSales.toFixed(2)}</td>
                                     </tr>
                                 </tbody>
@@ -596,6 +600,9 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                                         <div className="flex items-center gap-2">
                                             <Badge variant="outline">{reading.nozzle.code}</Badge>
                                             <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                @ ₹{parseFloat(reading.price?.toString() || reading.fuelPrice?.toString() || reading.nozzle.price.toString()).toFixed(2)}
+                                            </span>
                                         </div>
                                         <div className="font-bold">
                                             ₹{reading.amount.toFixed(2)}

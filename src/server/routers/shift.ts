@@ -67,9 +67,10 @@ export const shiftRouter = router({
                     userId: ctx.user.id,
                     type: input.shiftType,
                     nozzleReadings: {
-                        create: nozzles.map((nozzle: { id: number; currentreading: number }) => ({
+                        create: nozzles.map((nozzle: { id: number; currentreading: number; price: number }) => ({
                             nozzleId: nozzle.id,
                             openingReading: new Prisma.Decimal(nozzle.currentreading),
+                            fuelPrice: new Prisma.Decimal(nozzle.price),
                         })),
                     },
                 },
@@ -437,6 +438,7 @@ export const shiftRouter = router({
                     dutySessionId: input.shiftId,
                     nozzleId: input.nozzleId,
                     openingReading: new Prisma.Decimal(nozzle.currentreading),
+                    fuelPrice: new Prisma.Decimal(nozzle.price),
                 },
             })
 
@@ -521,17 +523,16 @@ export const shiftRouter = router({
             })
             if (!shift) throw new Error('Shift not found')
 
-            // Calculate total sales
             // Calculate total sales and enrich readings
             let totalFuelSales = 0
             const enrichedReadings = shift.nozzleReadings.map((reading: any) => {
                 const qty = Number(reading.fuelDispensed || 0)
-                const price = Number(reading.nozzle.price)
+                const price = Number(reading.fuelPrice && Number(reading.fuelPrice) > 0 ? reading.fuelPrice : reading.nozzle.price)
                 const amount = qty * price
                 totalFuelSales += amount
                 return {
                     ...reading,
-                    price: reading.nozzle.price,
+                    price,
                     amount
                 }
             })
@@ -699,12 +700,12 @@ export const shiftRouter = router({
             let totalFuelSales = 0
             const enrichedReadings = shift.nozzleReadings.map((reading: any) => {
                 const qty = Number(reading.fuelDispensed || 0)
-                const price = Number(reading.nozzle.price)
+                const price = Number(reading.fuelPrice && Number(reading.fuelPrice) > 0 ? reading.fuelPrice : reading.nozzle.price)
                 const amount = qty * price
                 totalFuelSales += amount
                 return {
                     ...reading,
-                    price: reading.nozzle.price,
+                    price,
                     amount
                 }
             })
@@ -945,6 +946,7 @@ export const shiftRouter = router({
                 openingReading: z.number().optional(),
                 closingReading: z.number().optional(),
                 testQty: z.number().optional(),
+                fuelPrice: z.number().min(0).optional(),
             })
         }))
         .mutation(async ({ ctx, input }) => {
@@ -968,9 +970,10 @@ export const shiftRouter = router({
             const reading = await prisma.nozzleSessionReading.update({
                 where: { id: input.readingId },
                 data: {
-                    openingReading: input.data.openingReading ? new Prisma.Decimal(input.data.openingReading) : undefined,
-                    closingReading: input.data.closingReading ? new Prisma.Decimal(input.data.closingReading) : undefined,
-                    testQty: input.data.testQty ? new Prisma.Decimal(input.data.testQty) : undefined,
+                    openingReading: input.data.openingReading !== undefined ? new Prisma.Decimal(input.data.openingReading) : undefined,
+                    closingReading: input.data.closingReading !== undefined ? new Prisma.Decimal(input.data.closingReading) : undefined,
+                    testQty: input.data.testQty !== undefined ? new Prisma.Decimal(input.data.testQty) : undefined,
+                    fuelPrice: input.data.fuelPrice !== undefined ? new Prisma.Decimal(input.data.fuelPrice) : undefined,
                 }
             })
 
@@ -1232,7 +1235,7 @@ export const shiftRouter = router({
                 let totalFuelSales = 0
                 for (const reading of shift.nozzleReadings) {
                     const qty = Number(reading.fuelDispensed || 0)
-                    const price = Number(reading.nozzle.price)
+                    const price = Number((reading as any).fuelPrice && Number((reading as any).fuelPrice) > 0 ? (reading as any).fuelPrice : reading.nozzle.price)
                     totalFuelSales += qty * price
                 }
 

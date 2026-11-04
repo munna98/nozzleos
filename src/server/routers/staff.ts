@@ -143,7 +143,7 @@ export const staffRouter = router({
 
                 for (const reading of shift.nozzleReadings) {
                     const qty = Number(reading.fuelDispensed || 0)
-                    const price = Number(reading.nozzle.price)
+                    const price = Number((reading as any).fuelPrice && Number((reading as any).fuelPrice) > 0 ? (reading as any).fuelPrice : reading.nozzle.price)
                     const amount = qty * price
                     totalFuelSales += amount
 
@@ -293,7 +293,7 @@ export const staffRouter = router({
                 let totalFuelSales = 0
                 for (const reading of shift.nozzleReadings) {
                     const qty = Number(reading.fuelDispensed || 0)
-                    const price = Number(reading.nozzle.price)
+                    const price = Number((reading as any).fuelPrice && Number((reading as any).fuelPrice) > 0 ? (reading as any).fuelPrice : reading.nozzle.price)
                     totalFuelSales += qty * price
                 }
 
