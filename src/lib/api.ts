@@ -149,6 +149,25 @@ export interface ProductDto {
     isActive?: boolean;
 }
 
+export interface SessionProduct {
+    id: number;
+    dutySessionId: number;
+    productId: number;
+    product?: Product;
+    quantity: number;
+    price: number;
+    amount: number;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+}
+
+export interface CreateSessionProductDto {
+    shiftId: number;
+    productId: number;
+    quantity: number;
+    price?: number;
+}
+
 export interface NozzleDto {
     code: string;
     dispenserId: number;

@@ -21,7 +21,8 @@ import {
     InformationCircleIcon,
     ArrowDown01Icon,
     ArrowUp01Icon,
-    Loading03Icon
+    Loading03Icon,
+    PackageIcon
 } from "@hugeicons/core-free-icons"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -55,6 +56,8 @@ type SessionPayment = NonNullable<ShiftSession['sessionPayments']>[number]
 type Denomination = RouterOutputs['denomination']['getAll'][number]
 type Settings = RouterOutputs['settings']['get']
 type ShiftSummary = RouterOutputs['shift']['getSummary']
+type SessionProduct = NonNullable<ShiftSession['sessionProducts']>[number]
+type Product = RouterOutputs['product']['getAll'][number]
 
 // Pre-calculate totals for grouping
 interface PaymentMethodSummary {
@@ -179,6 +182,167 @@ export function ShiftDashboardStep({
         setNozzleToRemove(reading)
         setIsRemoveNozzleOpen(true)
     }
+
+    // Product Sales State
+    const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+    const [selectedProductId, setSelectedProductId] = useState<string>("")
+    const [saleQuantity, setSaleQuantity] = useState<string>("1")
+    const [customPrice, setCustomPrice] = useState<string>("")
+    const [editingProductSale, setEditingProductSale] = useState<SessionProduct | null>(null)
+    const [productSaleToDelete, setProductSaleToDelete] = useState<SessionProduct | null>(null)
+    const [deletingProductSaleId, setDeletingProductSaleId] = useState<number | null>(null)
+
+    const productsQuery = trpc.product.getAll.useQuery({ activeOnly: true })
+    const availableProducts = productsQuery.data || []
+
+    const selectedProduct = useMemo(() => {
+        return availableProducts.find((p: Product) => p.id.toString() === selectedProductId)
+    }, [availableProducts, selectedProductId])
+
+    const addProductSaleMutation = trpc.shift.addProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Product sale recorded")
+            setIsAddProductOpen(false)
+            resetProductSaleForm()
+        },
+        onError: (error) => toast.error(error.message)
+    })
+
+    const updateProductSaleMutation = trpc.shift.updateProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Product sale updated")
+            setIsAddProductOpen(false)
+            resetProductSaleForm()
+        },
+        onError: (error) => toast.error(error.message)
+    })
+
+    const deleteProductSaleMutation = trpc.shift.deleteProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getActive.invalidate()
+            utils.shift.getSummary.invalidate()
+            toast.success("Product sale removed")
+            setProductSaleToDelete(null)
+            setDeletingProductSaleId(null)
+        },
+        onError: (error) => {
+            toast.error(error.message)
+            setDeletingProductSaleId(null)
+        }
+    })
+
+    const resetProductSaleForm = () => {
+        setSelectedProductId("")
+        setSaleQuantity("1")
+        setCustomPrice("")
+        setEditingProductSale(null)
+    }
+
+    const handleOpenAddProduct = () => {
+        resetProductSaleForm()
+        setIsAddProductOpen(true)
+    }
+
+    const handleEditProductSale = (sale: SessionProduct) => {
+        setEditingProductSale(sale)
+        setSelectedProductId(sale.productId.toString())
+        setSaleQuantity(parseFloat(sale.quantity.toString()).toString())
+        setCustomPrice(parseFloat(sale.price.toString()).toString())
+        setIsAddProductOpen(true)
+    }
+
+    const handleSaveProductSale = (e: React.FormEvent) => {
+        e.preventDefault()
+        const qty = parseFloat(saleQuantity)
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid quantity greater than 0")
+            return
+        }
+
+        const price = customPrice ? parseFloat(customPrice) : undefined
+        if (price !== undefined && (isNaN(price) || price < 0)) {
+            toast.error("Please enter a valid price (0 or higher)")
+            return
+        }
+
+        if (editingProductSale) {
+            updateProductSaleMutation.mutate({
+                id: editingProductSale.id,
+                quantity: qty,
+                price: price,
+            })
+        } else {
+            if (!selectedProductId) {
+                toast.error("Please select a product")
+                return
+            }
+            addProductSaleMutation.mutate({
+                shiftId: session.id,
+                productId: parseInt(selectedProductId),
+                quantity: qty,
+                price: price,
+            })
+        }
+    }
+
+    const handleConfirmDeleteProductSale = () => {
+        if (!productSaleToDelete) return
+        setDeletingProductSaleId(productSaleToDelete.id)
+        deleteProductSaleMutation.mutate({ id: productSaleToDelete.id })
+    }
+
+    const getGroupBadgeClass = (group?: string) => {
+        const g = group?.toLowerCase() || ''
+        if (g === "lubes") {
+            return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+        }
+        if (g === "def") {
+            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+        }
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+    }
+
+    const totalProductSales = useMemo(() => {
+        return (session.sessionProducts || []).reduce((sum: number, sp: SessionProduct) => {
+            return sum + (parseFloat(sp.amount?.toString() || '0') || 0)
+        }, 0)
+    }, [session.sessionProducts])
+
+    const totalProductQuantity = useMemo(() => {
+        return (session.sessionProducts || []).reduce((sum: number, sp: SessionProduct) => {
+            return sum + (parseFloat(sp.quantity?.toString() || '0') || 0)
+        }, 0)
+    }, [session.sessionProducts])
+
+    const lubesSales = useMemo(() => {
+        return (session.sessionProducts || [])
+            .filter((sp: SessionProduct) => sp.product?.group?.toLowerCase() === 'lubes')
+            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
+    }, [session.sessionProducts])
+
+    const defSales = useMemo(() => {
+        return (session.sessionProducts || [])
+            .filter((sp: SessionProduct) => sp.product?.group?.toLowerCase() === 'def')
+            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
+    }, [session.sessionProducts])
+
+    const otherSales = useMemo(() => {
+        return (session.sessionProducts || [])
+            .filter((sp: SessionProduct) => {
+                const g = sp.product?.group?.toLowerCase()
+                return g !== 'lubes' && g !== 'def'
+            })
+            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
+    }, [session.sessionProducts])
+
+    const totalFuelSales = summary?.totalFuelSales ?? 0
+    const totalShiftSales = totalFuelSales + totalProductSales
+    const totalCollected = session.sessionPayments?.reduce((sum: number, p: SessionPayment) => sum + parseFloat(p.amount.toString()), 0) || 0
+    const liveShortage = totalCollected - totalShiftSales
 
     const handleConfirmRemoveNozzle = () => {
         if (!nozzleToRemove) return
@@ -359,6 +523,7 @@ export function ShiftDashboardStep({
                         </div>
                         <div className="text-right">
                             <p className="text-sm text-muted-foreground">Nozzles: {session.nozzleReadings.length}</p>
+                            <p className="text-sm text-muted-foreground">Products: {session.sessionProducts?.length || 0}</p>
                             <p className="text-sm text-muted-foreground">Payments: {session.sessionPayments?.length || 0}</p>
                         </div>
                     </div>
@@ -572,6 +737,102 @@ export function ShiftDashboardStep({
                                 </CardContent>
                             </Card>
                         ))}
+
+                    {/* Products Sold Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <HugeiconsIcon icon={PackageIcon} />
+                                Products Sold
+                            </h3>
+                            <Button variant="outline" size="sm" onClick={handleOpenAddProduct}>
+                                <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
+                                Record Product
+                            </Button>
+                        </div>
+
+                        {(session.sessionProducts || []).length > 0 ? (
+                            <div className="space-y-3">
+                                {session.sessionProducts.map((sale: SessionProduct) => (
+                                    <Card key={sale.id}>
+                                        <CardContent className="p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                                    <span className="font-medium">{sale.product?.name}</span>
+                                                    <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
+                                                        {sale.product?.group || 'Other'}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => handleEditProductSale(sale)}
+                                                        title="Edit Sale"
+                                                    >
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => setProductSaleToDelete(sale)}
+                                                        disabled={deletingProductSaleId === sale.id}
+                                                        title="Remove Sale"
+                                                    >
+                                                        {deletingProductSaleId === sale.id ? (
+                                                            <HugeiconsIcon icon={Loading03Icon} className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-3 text-sm">
+                                                <div>
+                                                    <p className="text-muted-foreground">Quantity</p>
+                                                    <p className="font-medium">
+                                                        {parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Rate</p>
+                                                    <p className="font-medium">
+                                                        ₹{parseFloat(sale.price.toString()).toFixed(2)}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Total Amount</p>
+                                                    <p className="font-bold text-primary">
+                                                        ₹{parseFloat(sale.amount.toString()).toFixed(2)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <Card className="border-dashed bg-muted/20">
+                                <CardContent className="p-6 text-center space-y-2">
+                                    <div className="mx-auto w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                                        <HugeiconsIcon icon={PackageIcon} className="h-5 w-5" />
+                                    </div>
+                                    <p className="text-sm font-medium">No products sold recorded</p>
+                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                                        Record lubes, DEF, or other packaged items sold by staff during this shift.
+                                    </p>
+                                    <Button variant="outline" size="sm" onClick={handleOpenAddProduct} className="mt-2">
+                                        <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
+                                        Record Product
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 </div>
 
                 {/* Right: Payments */}
@@ -816,14 +1077,14 @@ export function ShiftDashboardStep({
                             </CardContent>
                         </Card>
 
-                        <Card className={`${summary && summary.shortage < 0 ? 'bg-destructive/10 border-destructive/20' : summary && summary.shortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'} h-12 flex flex-col justify-center overflow-hidden`}>
+                        <Card className={`${liveShortage < 0 ? 'bg-destructive/10 border-destructive/20' : liveShortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'} h-12 flex flex-col justify-center overflow-hidden`}>
                             <CardContent className="p-1 text-center">
                                 <div className="flex flex-col items-center justify-center">
                                     <p className="text-[10px] text-muted-foreground font-semibold leading-none mb-1">
-                                        {summary && summary.shortage < 0 ? 'Shortage' : summary && summary.shortage > 0 ? 'Excess' : 'Status'}
+                                        {liveShortage < 0 ? 'Shortage' : liveShortage > 0 ? 'Excess' : 'Status'}
                                     </p>
-                                    <p className={`text-base font-bold leading-none ${summary && summary.shortage < 0 ? 'text-destructive' : summary && summary.shortage > 0 ? 'text-green-600' : ''}`}>
-                                        {summary ? `₹${Math.abs(summary.shortage).toFixed(2)}` : '₹0.00'}
+                                    <p className={`text-base font-bold leading-none ${liveShortage < 0 ? 'text-destructive' : liveShortage > 0 ? 'text-green-600' : ''}`}>
+                                        ₹{Math.abs(liveShortage).toFixed(2)}
                                     </p>
                                 </div>
                             </CardContent>
@@ -858,6 +1119,56 @@ export function ShiftDashboardStep({
                     </div>
                 </div>
             </div>
+
+            {/* Product Sales Summary Card at Bottom */}
+            <Card className="border shadow-sm">
+                <CardHeader className="pb-3 border-b bg-muted/20">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                                <HugeiconsIcon icon={PackageIcon} className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-base font-semibold">Product Sales Summary</CardTitle>
+                                <CardDescription className="text-xs">
+                                    Summary of non-fuel inventory items sold during this shift
+                                </CardDescription>
+                            </div>
+                        </div>
+                        <Badge variant="secondary" className="font-mono text-xs">
+                            {session.sessionProducts?.length || 0} {(session.sessionProducts?.length === 1) ? 'item' : 'items'}
+                        </Badge>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="p-3 bg-muted/40 rounded-lg border">
+                            <p className="text-xs text-muted-foreground font-medium">Total Products Sold</p>
+                            <p className="text-xl font-bold mt-1">
+                                {totalProductQuantity.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">units</span>
+                            </p>
+                        </div>
+                        <div className="p-3 bg-muted/40 rounded-lg border">
+                            <p className="text-xs text-muted-foreground font-medium">Lubes Revenue</p>
+                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                                ₹{lubesSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-muted/40 rounded-lg border">
+                            <p className="text-xs text-muted-foreground font-medium">DEF Revenue</p>
+                            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                ₹{defSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                            <p className="text-xs text-primary font-medium">Total Product Sales</p>
+                            <p className="text-xl font-bold text-primary mt-1">
+                                ₹{totalProductSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Add Nozzle Dialog */}
             <Dialog open={isAddNozzleOpen} onOpenChange={setIsAddNozzleOpen}>
@@ -948,6 +1259,161 @@ export function ShiftDashboardStep({
                                     setDeletingPaymentId(null)
                                 }
                             }}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Add / Edit Product Sale Dialog */}
+            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingProductSale ? "Edit Product Sale" : "Record Product Sale"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingProductSale
+                                ? "Update the quantity or rate for this recorded product sale."
+                                : "Select a product and enter the quantity sold during this shift."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSaveProductSale} className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="product-select">Product</Label>
+                            <Select
+                                value={selectedProductId}
+                                onValueChange={(val) => {
+                                    setSelectedProductId(val)
+                                    const prod = availableProducts.find((p: Product) => p.id.toString() === val)
+                                    if (prod && !customPrice) {
+                                        setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                    }
+                                }}
+                                disabled={!!editingProductSale}
+                            >
+                                <SelectTrigger id="product-select">
+                                    <SelectValue placeholder="Select a product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableProducts.map((product: Product) => (
+                                        <SelectItem key={product.id} value={product.id.toString()}>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="text-xs font-mono">{product.code}</Badge>
+                                                <span>{product.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                    {availableProducts.length === 0 && (
+                                        <SelectItem value="none" disabled>No active products available</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {selectedProduct && (
+                            <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Standard Rate:</span>
+                                    <span className="font-medium">₹{parseFloat(selectedProduct.rate.toString()).toFixed(2)} / {selectedProduct.unit}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Group:</span>
+                                    <span className="capitalize font-medium">{selectedProduct.group}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="product-quantity">
+                                    Quantity {selectedProduct ? `(${selectedProduct.unit})` : ''}
+                                </Label>
+                                <Input
+                                    id="product-quantity"
+                                    type="number"
+                                    step="any"
+                                    min="0.01"
+                                    placeholder="1"
+                                    value={saleQuantity}
+                                    onChange={(e) => setSaleQuantity(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="product-price">
+                                    Rate (₹)
+                                </Label>
+                                <Input
+                                    id="product-price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder={selectedProduct ? parseFloat(selectedProduct.rate.toString()).toFixed(2) : "0.00"}
+                                    value={customPrice}
+                                    onChange={(e) => setCustomPrice(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Total Preview */}
+                        <div className="pt-2 border-t flex justify-between items-center">
+                            <span className="text-sm font-medium text-muted-foreground">Total Sale Amount:</span>
+                            <span className="text-lg font-bold text-primary">
+                                ₹{(((parseFloat(saleQuantity) || 0) * (customPrice ? (parseFloat(customPrice) || 0) : (selectedProduct ? parseFloat(selectedProduct.rate.toString()) : 0)))).toFixed(2)}
+                            </span>
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    !selectedProductId ||
+                                    addProductSaleMutation.isPending ||
+                                    updateProductSaleMutation.isPending
+                                }
+                            >
+                                {addProductSaleMutation.isPending || updateProductSaleMutation.isPending ? (
+                                    <>
+                                        <HugeiconsIcon icon={Loading03Icon} className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    editingProductSale ? "Update Sale" : "Save Sale"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Product Sale Confirmation Dialog */}
+            <AlertDialog open={!!productSaleToDelete} onOpenChange={(open) => !open && setProductSaleToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Product Sale?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove this product sale from the shift?
+                            {productSaleToDelete && (
+                                <span className="mt-2 p-2 bg-muted rounded text-sm font-medium block">
+                                    {productSaleToDelete.product?.name} ({parseFloat(productSaleToDelete.quantity.toString())} {productSaleToDelete.product?.unit}) — ₹{parseFloat(productSaleToDelete.amount.toString()).toFixed(2)}
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleConfirmDeleteProductSale}
                         >
                             Delete
                         </AlertDialogAction>

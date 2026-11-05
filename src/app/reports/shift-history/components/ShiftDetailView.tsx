@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon, Delete02Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons"
+import { ArrowLeft01Icon, FuelStationIcon, MoneyReceive01Icon, PackageIcon, PencilEdit01Icon, Calendar01Icon, UserCircleIcon, CheckmarkCircle02Icon, Cancel01Icon, InformationCircleIcon, RefreshIcon, ArrowDown01Icon, ArrowUp01Icon, Delete02Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { toast } from "sonner"
 import { EditRequestDialog } from "@/app/shift/components/EditRequestDialog"
@@ -196,6 +196,17 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
         })
     }
 
+
+    const getGroupBadgeClass = (group?: string) => {
+        const g = group?.toLowerCase() || ''
+        if (g === "lubes") {
+            return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+        }
+        if (g === "def") {
+            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+        }
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+    }
 
     const formatDateTime = (dateStr: string | Date) => {
         return `${formatDate(dateStr)} at ${formatTime(dateStr)}`
@@ -508,11 +519,17 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
             {/* Main Content Sections - Vertically Stacked */}
             <div className="space-y-6">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <Card>
                         <CardContent className="p-4 text-center">
-                            <p className="text-muted-foreground text-sm mb-1">Total Fuel Sales</p>
+                            <p className="text-muted-foreground text-sm mb-1">Fuel Sales</p>
                             <p className="text-2xl font-bold">₹{shift.totalFuelSales.toFixed(2)}</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardContent className="p-4 text-center">
+                            <p className="text-muted-foreground text-sm mb-1">Product Sales</p>
+                            <p className="text-2xl font-bold text-primary">₹{(shift.totalProductSales || 0).toFixed(2)}</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -636,6 +653,104 @@ export function ShiftDetailView({ shift, isAdmin, currentUserId, onBack, onVerif
                             <div className="rounded-lg bg-muted/30 p-4 flex justify-between items-center font-bold">
                                 <span>Total Fuel Sales</span>
                                 <span>₹{shift.totalFuelSales.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Products Sold Breakdown */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <HugeiconsIcon icon={PackageIcon} className="h-5 w-5" />
+                            Products Sold Breakdown
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {/* Desktop View (Table) */}
+                        <div className="hidden md:block rounded-lg border overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                    <tr>
+                                        <th className="text-left p-3 font-medium">Code</th>
+                                        <th className="text-left p-3 font-medium">Product</th>
+                                        <th className="text-left p-3 font-medium">Group</th>
+                                        <th className="text-right p-3 font-medium">Qty</th>
+                                        <th className="text-right p-3 font-medium">Rate</th>
+                                        <th className="text-right p-3 font-medium">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {((shift.sessionProducts || []) as any[]).map((sale: any) => (
+                                        <tr key={sale.id} className="border-t">
+                                            <td className="p-3">
+                                                <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                            </td>
+                                            <td className="p-3 font-medium">{sale.product?.name}</td>
+                                            <td className="p-3">
+                                                <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
+                                                    {sale.product?.group || 'Other'}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-3 text-right font-medium">
+                                                {parseFloat(sale.quantity?.toString() || '0')} {sale.product?.unit || 'Pcs'}
+                                            </td>
+                                            <td className="p-3 text-right text-muted-foreground">
+                                                ₹{parseFloat(sale.price?.toString() || '0').toFixed(2)}
+                                            </td>
+                                            <td className="p-3 text-right font-medium">
+                                                ₹{parseFloat(sale.amount?.toString() || '0').toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!shift.sessionProducts || shift.sessionProducts.length === 0) && (
+                                        <tr className="border-t">
+                                            <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                                                No products sold recorded for this shift
+                                            </td>
+                                        </tr>
+                                    )}
+                                    <tr className="border-t bg-muted/30 font-medium">
+                                        <td colSpan={5} className="p-3 text-right">Total Product Sales</td>
+                                        <td className="p-3 text-right font-bold text-primary">₹{(shift.totalProductSales || 0).toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile View (Cards) */}
+                        <div className="md:hidden space-y-3">
+                            {((shift.sessionProducts || []) as any[]).map((sale: any) => (
+                                <div key={sale.id} className="rounded-lg border p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                            <span className="font-medium">{sale.product?.name}</span>
+                                        </div>
+                                        <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
+                                            {sale.product?.group || 'Other'}
+                                        </Badge>
+                                    </div>
+                                    <Separator />
+                                    <div className="grid grid-cols-3 gap-2 text-sm">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground mb-1">Quantity</p>
+                                            <p className="font-medium">{parseFloat(sale.quantity?.toString() || '0')} {sale.product?.unit || 'Pcs'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs text-muted-foreground mb-1">Rate</p>
+                                            <p>₹{parseFloat(sale.price?.toString() || '0').toFixed(2)}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                                            <p className="font-bold text-primary">₹{parseFloat(sale.amount?.toString() || '0').toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="rounded-lg bg-muted/30 p-4 flex justify-between items-center font-bold">
+                                <span>Total Product Sales</span>
+                                <span className="text-primary">₹{(shift.totalProductSales || 0).toFixed(2)}</span>
                             </div>
                         </div>
                     </CardContent>

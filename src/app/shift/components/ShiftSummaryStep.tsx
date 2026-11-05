@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { FuelStationIcon, MoneyReceive01Icon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
+import { FuelStationIcon, MoneyReceive01Icon, ArrowDown01Icon, ArrowUp01Icon, PackageIcon } from "@hugeicons/core-free-icons"
 import type { inferRouterOutputs } from "@trpc/server"
 import type { AppRouter } from "@/server/trpc/router"
 import { useMemo } from "react"
@@ -18,6 +18,7 @@ type RouterOutputs = inferRouterOutputs<AppRouter>
 type ShiftSummary = NonNullable<RouterOutputs['shift']['getSummary']>
 type SummaryNozzleReading = ShiftSummary['nozzleReadings'][number]
 type SummaryPayment = ShiftSummary['sessionPayments'][number]
+type SummaryProduct = ShiftSummary['sessionProducts'][number]
 
 interface PaymentMethodSummary {
     methodId: number
@@ -77,6 +78,17 @@ export function ShiftSummaryStep({
 
 
 
+    const getGroupBadgeClass = (group?: string) => {
+        const g = group?.toLowerCase() || ''
+        if (g === "lubes") {
+            return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+        }
+        if (g === "def") {
+            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+        }
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+    }
+
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <Card>
@@ -86,11 +98,17 @@ export function ShiftSummaryStep({
                 </CardHeader>
                 <CardContent className="space-y-6">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <Card>
                             <CardContent className="p-4 text-center">
-                                <p className="text-muted-foreground mb-1">Total Fuel Sales</p>
+                                <p className="text-muted-foreground mb-1">Fuel Sales</p>
                                 <p className="text-2xl font-bold">₹{summary.totalFuelSales.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4 text-center">
+                                <p className="text-muted-foreground mb-1">Product Sales</p>
+                                <p className="text-2xl font-bold text-primary">₹{summary.totalProductSales.toFixed(2)}</p>
                             </CardContent>
                         </Card>
                         <Card>
@@ -202,6 +220,111 @@ export function ShiftSummaryStep({
                             </Card>
                         </div>
                     </div>
+
+                    <Separator />
+
+                    {/* Products Sold Breakdown */}
+                    <div className="space-y-3">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <HugeiconsIcon icon={PackageIcon} className="h-4 w-4" />
+                            Products Sold Breakdown
+                        </h3>
+
+                        {/* Desktop View (Table) */}
+                        <div className="hidden md:block rounded-md border overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                    <tr>
+                                        <th className="text-left p-3 font-medium">Code</th>
+                                        <th className="text-left p-3 font-medium">Product</th>
+                                        <th className="text-left p-3 font-medium">Group</th>
+                                        <th className="text-right p-3 font-medium">Qty</th>
+                                        <th className="text-right p-3 font-medium">Rate</th>
+                                        <th className="text-right p-3 font-medium">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(summary.sessionProducts || []).map((sale: SummaryProduct) => (
+                                        <tr key={sale.id} className="border-t">
+                                            <td className="p-3">
+                                                <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                            </td>
+                                            <td className="p-3 font-medium">{sale.product?.name}</td>
+                                            <td className="p-3">
+                                                <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
+                                                    {sale.product?.group || 'Other'}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-3 text-right font-medium">
+                                                {parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}
+                                            </td>
+                                            <td className="p-3 text-right text-muted-foreground">
+                                                ₹{parseFloat(sale.price.toString()).toFixed(2)}
+                                            </td>
+                                            <td className="p-3 text-right font-medium">
+                                                ₹{parseFloat(sale.amount.toString()).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!summary.sessionProducts || summary.sessionProducts.length === 0) && (
+                                        <tr className="border-t">
+                                            <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                                                No products recorded for this shift
+                                            </td>
+                                        </tr>
+                                    )}
+                                    <tr className="border-t bg-muted/30 font-medium">
+                                        <td colSpan={5} className="p-3 text-right">Total Product Sales</td>
+                                        <td className="p-3 text-right font-bold text-primary">₹{summary.totalProductSales.toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile View (Cards) */}
+                        <div className="md:hidden space-y-3">
+                            {(summary.sessionProducts || []).map((sale: SummaryProduct) => (
+                                <Card key={sale.id}>
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                                <span className="font-medium">{sale.product?.name}</span>
+                                            </div>
+                                            <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
+                                                {sale.product?.group || 'Other'}
+                                            </Badge>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Quantity</p>
+                                                <p className="font-medium">{parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-xs text-muted-foreground mb-1">Rate</p>
+                                                <p>₹{parseFloat(sale.price.toString()).toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                                                <p className="font-bold text-primary">₹{parseFloat(sale.amount.toString()).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            <Card className="bg-muted/30">
+                                <CardContent className="p-4 flex justify-between items-center font-bold">
+                                    <span>Total Product Sales</span>
+                                    <span className="text-primary">₹{summary.totalProductSales.toFixed(2)}</span>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+
+                    <Separator />
 
                     {/* Payment-wise Breakdown */}
                     <div className="space-y-3">

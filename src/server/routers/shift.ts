@@ -14,6 +14,9 @@ interface ShiftForSummary {
             price: Prisma.Decimal | number
         }
     }>
+    sessionProducts?: Array<{
+        amount: Prisma.Decimal | number
+    }>
 }
 
 function calculateShiftsSummary(
@@ -22,6 +25,7 @@ function calculateShiftsSummary(
     targetUser: { id: number; name: string | null; username: string } | null = null
 ) {
     let totalFuelSales = 0
+    let totalProductSales = 0
     let totalPaymentsCollected = 0
     let totalShortage = 0
     let totalExcess = 0
@@ -56,10 +60,19 @@ function calculateShiftsSummary(
             shiftFuelSales += qty * price
         }
 
+        let shiftProductSales = 0
+        if (s.sessionProducts) {
+            for (const sp of s.sessionProducts) {
+                shiftProductSales += Number(sp.amount || 0)
+            }
+        }
+
+        const shiftTotalSales = shiftFuelSales + shiftProductSales
         const shiftPayment = Number(s.totalPaymentCollected || 0)
-        const diff = shiftPayment - shiftFuelSales
+        const diff = shiftPayment - shiftTotalSales
 
         totalFuelSales += shiftFuelSales
+        totalProductSales += shiftProductSales
         totalPaymentsCollected += shiftPayment
 
         if (diff < -0.01) {
@@ -73,12 +86,15 @@ function calculateShiftsSummary(
         }
     }
 
-    const netDifference = totalPaymentsCollected - totalFuelSales
+    const totalSales = totalFuelSales + totalProductSales
+    const netDifference = totalPaymentsCollected - totalSales
 
     return {
         totalShifts: totalCount,
         completedShiftsCount,
         totalFuelSales: Math.round(totalFuelSales * 100) / 100,
+        totalProductSales: Math.round(totalProductSales * 100) / 100,
+        totalSales: Math.round(totalSales * 100) / 100,
         totalPaymentsCollected: Math.round(totalPaymentsCollected * 100) / 100,
         netDifference: Math.round(netDifference * 100) / 100,
         totalShortage: Math.round(totalShortage * 100) / 100,
@@ -109,6 +125,12 @@ export const shiftRouter = router({
                             include: { fuel: true, dispenser: true },
                         },
                     },
+                },
+                sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
                 },
                 sessionPayments: {
                     include: {
@@ -335,6 +357,106 @@ export const shiftRouter = router({
     /**
      * Delete payment
      */
+    /**
+     * Add product sale to shift
+     */
+    addProductSale: tenantProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            productId: z.number(),
+            quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+            price: z.number().min(0).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findFirst({
+                where: { id: input.shiftId, stationId: ctx.stationId }
+            })
+            if (!shift) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
+            if (shift.status !== 'in_progress') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot add products to a shift that is not in progress' })
+            }
+
+            const product = await prisma.product.findFirst({
+                where: { id: input.productId, stationId: ctx.stationId, deletedAt: null }
+            })
+            if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+
+            const priceToUse = input.price !== undefined ? input.price : product.rate
+            const amount = input.quantity * priceToUse
+
+            const sessionProduct = await prisma.sessionProduct.create({
+                data: {
+                    dutySessionId: input.shiftId,
+                    productId: input.productId,
+                    quantity: new Prisma.Decimal(input.quantity),
+                    price: new Prisma.Decimal(priceToUse),
+                    amount: new Prisma.Decimal(amount),
+                },
+                include: { product: true }
+            })
+
+            return sessionProduct
+        }),
+
+    /**
+     * Update product sale
+     */
+    updateProductSale: tenantProcedure
+        .input(z.object({
+            id: z.number(),
+            quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+            price: z.number().min(0).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const existing = await prisma.sessionProduct.findUnique({
+                where: { id: input.id },
+                include: { dutySession: true, product: true }
+            })
+            if (!existing || existing.dutySession.stationId !== ctx.stationId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
+            }
+            if (existing.dutySession.status !== 'in_progress') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shift is not in progress' })
+            }
+
+            const priceToUse = input.price !== undefined ? input.price : Number(existing.price)
+            const amount = input.quantity * priceToUse
+
+            return prisma.sessionProduct.update({
+                where: { id: input.id },
+                data: {
+                    quantity: new Prisma.Decimal(input.quantity),
+                    price: new Prisma.Decimal(priceToUse),
+                    amount: new Prisma.Decimal(amount),
+                },
+                include: { product: true }
+            })
+        }),
+
+    /**
+     * Delete product sale
+     */
+    deleteProductSale: tenantProcedure
+        .input(z.object({ id: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+            const existing = await prisma.sessionProduct.findUnique({
+                where: { id: input.id },
+                include: { dutySession: true }
+            })
+            if (!existing || existing.dutySession.stationId !== ctx.stationId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
+            }
+            if (existing.dutySession.status !== 'in_progress') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shift is not in progress' })
+            }
+
+            await prisma.sessionProduct.delete({
+                where: { id: input.id }
+            })
+
+            return { success: true }
+        }),
+
     deletePayment: tenantProcedure
         .input(z.object({ paymentId: z.number() }))
         .mutation(async ({ input }) => {
@@ -441,7 +563,13 @@ export const shiftRouter = router({
                     nozzleReadings: {
                         include: { nozzle: { include: { fuel: true, dispenser: true } } },
                     },
-                    sessionPayments: { include: { paymentMethod: true } },
+                    sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                sessionPayments: { include: { paymentMethod: true } },
                 },
             })
 
@@ -600,7 +728,13 @@ export const shiftRouter = router({
                     nozzleReadings: {
                         include: { nozzle: { include: { fuel: true } } },
                     },
-                    sessionPayments: {
+                    sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                sessionPayments: {
                         include: {
                             paymentMethod: true,
                             denominations: { include: { denomination: true } },
@@ -626,11 +760,29 @@ export const shiftRouter = router({
             })
 
             const totalCollected = Number(shift.totalPaymentCollected)
-            const shortage = totalCollected - totalFuelSales
+            let totalProductSales = 0
+            const enrichedProducts = (shift.sessionProducts || []).map((sp: any) => {
+                const qty = Number(sp.quantity || 0)
+                const price = Number(sp.price || 0)
+                const amount = Number(sp.amount || (qty * price))
+                totalProductSales += amount
+                return {
+                    ...sp,
+                    quantity: qty,
+                    price,
+                    amount
+                }
+            })
+
+            const totalShiftSales = totalFuelSales + totalProductSales
+            const shortage = totalCollected - totalShiftSales
 
             return {
                 ...shift,
                 nozzleReadings: enrichedReadings,
+                sessionProducts: enrichedProducts,
+                totalProductSales,
+                totalShiftSales,
                 totalFuelSales,
                 totalCollected,
                 shortage,
@@ -729,7 +881,13 @@ export const shiftRouter = router({
                         nozzleReadings: {
                             include: { nozzle: { include: { fuel: true } } },
                         },
-                        sessionPayments: { include: { paymentMethod: true } },
+                        sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                sessionPayments: { include: { paymentMethod: true } },
                         editRequests: {
                             where: { status: "pending" },
                             include: { requestedByUser: { select: { id: true, name: true, username: true } } }
@@ -752,6 +910,9 @@ export const shiftRouter = router({
                                 fuelPrice: true,
                                 nozzle: { select: { price: true } },
                             },
+                        },
+                        sessionProducts: {
+                            select: { amount: true },
                         },
                     },
                 }),
@@ -860,6 +1021,9 @@ export const shiftRouter = router({
                                 nozzle: { select: { price: true } },
                             },
                         },
+                        sessionProducts: {
+                            select: { amount: true },
+                        },
                     },
                 }),
                 targetUserId ? prisma.user.findUnique({
@@ -887,7 +1051,13 @@ export const shiftRouter = router({
                     nozzleReadings: {
                         include: { nozzle: { include: { fuel: true, dispenser: true } } },
                     },
-                    sessionPayments: {
+                    sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                sessionPayments: {
                         include: {
                             paymentMethod: true,
                             denominations: { include: { denomination: true } },
@@ -922,11 +1092,29 @@ export const shiftRouter = router({
             })
 
             const totalCollected = Number(shift.totalPaymentCollected)
-            const shortage = totalCollected - totalFuelSales
+            let totalProductSales = 0
+            const enrichedProducts = (shift.sessionProducts || []).map((sp: any) => {
+                const qty = Number(sp.quantity || 0)
+                const price = Number(sp.price || 0)
+                const amount = Number(sp.amount || (qty * price))
+                totalProductSales += amount
+                return {
+                    ...sp,
+                    quantity: qty,
+                    price,
+                    amount
+                }
+            })
+
+            const totalShiftSales = totalFuelSales + totalProductSales
+            const shortage = totalCollected - totalShiftSales
 
             return {
                 ...shift,
                 nozzleReadings: enrichedReadings,
+                sessionProducts: enrichedProducts,
+                totalProductSales,
+                totalShiftSales,
                 totalFuelSales,
                 totalCollected,
                 shortage,
@@ -950,7 +1138,13 @@ export const shiftRouter = router({
                         nozzleReadings: {
                             include: { nozzle: { include: { fuel: true } } },
                         },
-                        sessionPayments: { include: { paymentMethod: true } },
+                        sessionProducts: {
+                    include: {
+                        product: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                sessionPayments: { include: { paymentMethod: true } },
                     },
                     orderBy: { endTime: 'desc' },
                     skip: input.offset,

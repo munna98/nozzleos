@@ -184,6 +184,7 @@ model Product {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   station   Station   @relation(fields: [stationId], references: [id])
+  sessionProducts SessionProduct[]
 
   @@unique([stationId, code])
   @@index([stationId])
@@ -213,6 +214,7 @@ model DutySession {
   verifiedBy            User?                  @relation("VerifiedSessions", fields: [verifiedByUserId], references: [id])
   nozzleReadings        NozzleSessionReading[]
   sessionPayments       SessionPayment[]
+  sessionProducts       SessionProduct[]
   editRequests          ShiftEditRequest[]
 
   @@index([stationId])
@@ -254,6 +256,23 @@ model SessionPayment {
 
   @@index([dutySessionId])
   @@index([paymentMethodId])
+  @@index([createdAt])
+}
+
+model SessionProduct {
+  id            Int         @id @default(autoincrement())
+  dutySessionId Int
+  productId     Int
+  quantity      Decimal     @default(1) @db.Decimal(10, 2)
+  price         Decimal     @default(0) @db.Decimal(10, 2)
+  amount        Decimal     @default(0) @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  dutySession   DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id])
+
+  @@index([dutySessionId])
+  @@index([productId])
   @@index([createdAt])
 }
 
