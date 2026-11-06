@@ -68,15 +68,24 @@ export function PendingVerificationsPanel() {
                 ) : (
                     <>
                         {sessions.map((session) => {
-                            // Calculate total sales
-                            let totalSales = 0
+                            // Calculate fuel sales
+                            let totalFuelSales = 0
                             for (const reading of session.nozzleReadings) {
                                 const qty = Number(reading.fuelDispensed || 0)
                                 const price = Number((reading as any).fuelPrice && Number((reading as any).fuelPrice) > 0 ? (reading as any).fuelPrice : reading.nozzle.price)
-                                totalSales += qty * price
+                                totalFuelSales += qty * price
                             }
 
-                            const difference = Number(session.totalPaymentCollected) - totalSales
+                            // Calculate product sales
+                            let totalProductSales = 0
+                            for (const sp of (session as any).sessionProducts || []) {
+                                totalProductSales += Number(sp.amount || 0)
+                            }
+
+                            const totalShiftSales = totalFuelSales + totalProductSales
+                            const difference = Number(session.totalPaymentCollected) - totalShiftSales
+                            const isShortage = difference < -0.01
+                            const isExcess = difference > 0.01
 
                             return (
                                 <div
@@ -89,11 +98,11 @@ export function PendingVerificationsPanel() {
                                             <div className="font-medium text-sm">
                                                 {session.user.name || session.user.username}
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
                                                 <span>{session.type}</span>
                                                 <span>•</span>
-                                                <span className={difference < 0 ? "text-red-500 font-bold" : difference > 0 ? "text-green-500 font-bold" : ""}>
-                                                    {difference > 0 ? "+" : difference < 0 ? "-" : ""}₹{Math.abs(Math.round(difference)).toLocaleString()}
+                                                <span className={isShortage ? "text-red-600 dark:text-red-400 font-semibold" : isExcess ? "text-green-600 dark:text-green-400 font-semibold" : "font-medium"}>
+                                                    {difference > 0 ? "+" : difference < 0 ? "-" : ""}₹{Math.abs(difference).toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
