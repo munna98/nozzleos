@@ -153,6 +153,13 @@ export function TopNav() {
                     active: pathname.startsWith("/reports/staff-performance"),
                     roles: ['Admin', 'Manager'],
                     icon: UserGroupIcon
+                },
+                {
+                    href: "/reports/products",
+                    label: "Product Sales",
+                    active: pathname.startsWith("/reports/products"),
+                    roles: ['Admin', 'Manager'],
+                    icon: PackageIcon
                 }
             ]
         },

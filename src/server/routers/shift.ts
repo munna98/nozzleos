@@ -1579,6 +1579,148 @@ export const shiftRouter = router({
         }),
 
     /**
+     * Admin: Add product sale
+     */
+    adminAddProductSale: tenantProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            productId: z.number(),
+            quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+            price: z.number().min(0).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have permission to edit this shift' })
+            }
+
+            if (shift.status === 'verified') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot edit a verified shift' })
+            }
+
+            const product = await prisma.product.findFirst({
+                where: { id: input.productId, stationId: ctx.stationId, deletedAt: null }
+            })
+            if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+
+            const priceToUse = input.price !== undefined ? input.price : product.rate
+            const amount = input.quantity * priceToUse
+
+            const sessionProduct = await prisma.sessionProduct.create({
+                data: {
+                    dutySessionId: input.shiftId,
+                    productId: input.productId,
+                    quantity: new Prisma.Decimal(input.quantity),
+                    price: new Prisma.Decimal(priceToUse),
+                    amount: new Prisma.Decimal(amount),
+                },
+                include: { product: true }
+            })
+
+            return sessionProduct
+        }),
+
+    /**
+     * Admin: Update product sale
+     */
+    adminUpdateProductSale: tenantProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            id: z.number(),
+            productId: z.number().optional(),
+            quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+            price: z.number().min(0).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have permission to edit this shift' })
+            }
+
+            if (shift.status === 'verified') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot edit a verified shift' })
+            }
+
+            const existing = await prisma.sessionProduct.findUnique({
+                where: { id: input.id },
+                include: { product: true }
+            })
+            if (!existing || existing.dutySessionId !== input.shiftId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
+            }
+
+            const productIdToUse = input.productId || existing.productId
+            const product = await prisma.product.findFirst({
+                where: { id: productIdToUse, stationId: ctx.stationId, deletedAt: null }
+            })
+            if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+
+            const priceToUse = input.price !== undefined ? input.price : (input.productId && input.productId !== existing.productId ? product.rate : Number(existing.price))
+            const amount = input.quantity * priceToUse
+
+            return prisma.sessionProduct.update({
+                where: { id: input.id },
+                data: {
+                    productId: productIdToUse,
+                    quantity: new Prisma.Decimal(input.quantity),
+                    price: new Prisma.Decimal(priceToUse),
+                    amount: new Prisma.Decimal(amount),
+                },
+                include: { product: true }
+            })
+        }),
+
+    /**
+     * Admin: Delete product sale
+     */
+    adminDeleteProductSale: tenantProcedure
+        .input(z.object({
+            shiftId: z.number(),
+            id: z.number(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
+            if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
+
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isOwner = shift.userId === ctx.user.id
+            const isRejected = shift.status === 'rejected'
+
+            if (!isAdmin && !(isOwner && isRejected)) {
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have permission to edit this shift' })
+            }
+
+            if (shift.status === 'verified') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot edit a verified shift' })
+            }
+
+            const existing = await prisma.sessionProduct.findUnique({
+                where: { id: input.id }
+            })
+            if (!existing || existing.dutySessionId !== input.shiftId) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
+            }
+
+            await prisma.sessionProduct.delete({
+                where: { id: input.id }
+            })
+
+            return { success: true }
+        }),
+
+    /**
      * Get all active (in_progress) shifts for admin dashboard
      */
     getActiveShifts: adminProcedure

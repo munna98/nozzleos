@@ -19,7 +19,9 @@ import {
     Settings01Icon,
     TimeQuarterPassIcon,
     ArrowDown01Icon,
-    ArrowUp01Icon
+    ArrowUp01Icon,
+    PackageIcon,
+    Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import {
     Select,
@@ -37,6 +39,16 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
     Combobox,
     ComboboxContent,
@@ -57,6 +69,8 @@ type ShiftDetail = NonNullable<RouterOutput['shift']['getById']>
 type PaymentMethod = RouterOutput['paymentMethod']['getAll'][number]
 type Denomination = RouterOutput['denomination']['getAll'][number]
 type Payment = NonNullable<ShiftDetail['sessionPayments']>[number]
+type SessionProduct = NonNullable<ShiftDetail['sessionProducts']>[number]
+type Product = RouterOutput['product']['getAll'][number]
 
 // Pre-calculate totals for grouping
 interface PaymentMethodSummary {
@@ -86,6 +100,15 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const [editingOpeningId, setEditingOpeningId] = useState<number | null>(null)
     const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false)
 
+    // Product Sales State
+    const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+    const [selectedProductId, setSelectedProductId] = useState<string>("")
+    const [saleQuantity, setSaleQuantity] = useState<string>("1")
+    const [customPrice, setCustomPrice] = useState<string>("" )
+    const [editingProductSale, setEditingProductSale] = useState<SessionProduct | null>(null)
+    const [productSaleToDelete, setProductSaleToDelete] = useState<SessionProduct | null>(null)
+    const [deletingProductSaleId, setDeletingProductSaleId] = useState<number | null>(null)
+
     // Shift Details State
     const [shiftDetails, setShiftDetails] = useState({
         shiftType: shift.type,
@@ -99,6 +122,12 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
     const denominationsQuery = trpc.denomination.getAll.useQuery()
     const settingsQuery = trpc.settings.get.useQuery()
+    const productsQuery = trpc.product.getAll.useQuery({ activeOnly: true })
+
+    const availableProducts = productsQuery.data || []
+    const selectedProduct = useMemo(() => {
+        return availableProducts.find((p: Product) => p.id.toString() === selectedProductId)
+    }, [availableProducts, selectedProductId])
 
     // Mutations
     const updateShiftMutation = trpc.shift.adminUpdateShift.useMutation({
@@ -144,6 +173,39 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
         onError: (err) => toast.error(err.message)
     })
 
+    const addProductSaleMutation = trpc.shift.adminAddProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getById.invalidate({ id: shift.id })
+            toast.success("Product sale recorded")
+            setIsAddProductOpen(false)
+            resetProductSaleForm()
+        },
+        onError: (err) => toast.error(err.message)
+    })
+
+    const updateProductSaleMutation = trpc.shift.adminUpdateProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getById.invalidate({ id: shift.id })
+            toast.success("Product sale updated")
+            setIsAddProductOpen(false)
+            resetProductSaleForm()
+        },
+        onError: (err) => toast.error(err.message)
+    })
+
+    const deleteProductSaleMutation = trpc.shift.adminDeleteProductSale.useMutation({
+        onSuccess: () => {
+            utils.shift.getById.invalidate({ id: shift.id })
+            toast.success("Product sale removed")
+            setProductSaleToDelete(null)
+            setDeletingProductSaleId(null)
+        },
+        onError: (err) => {
+            toast.error(err.message)
+            setDeletingProductSaleId(null)
+        }
+    })
+
     const finishShiftMutation = trpc.shift.complete.useMutation({
         onSuccess: () => {
             utils.shift.getById.invalidate({ id: shift.id })
@@ -170,6 +232,71 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
         setEditingPaymentId(null)
     }
 
+    const resetProductSaleForm = () => {
+        setSelectedProductId("")
+        setSaleQuantity("1")
+        setCustomPrice("")
+        setEditingProductSale(null)
+    }
+
+    const handleOpenAddProduct = () => {
+        resetProductSaleForm()
+        setIsAddProductOpen(true)
+    }
+
+    const handleEditProductSale = (sale: SessionProduct) => {
+        setEditingProductSale(sale)
+        setSelectedProductId(sale.productId.toString())
+        setSaleQuantity(parseFloat(sale.quantity.toString()).toString())
+        setCustomPrice(parseFloat(sale.price.toString()).toString())
+        setIsAddProductOpen(true)
+    }
+
+    const handleSaveProductSale = (e: React.FormEvent) => {
+        e.preventDefault()
+        const qty = parseFloat(saleQuantity)
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid quantity greater than 0")
+            return
+        }
+
+        const price = customPrice ? parseFloat(customPrice) : undefined
+        if (price !== undefined && (isNaN(price) || price < 0)) {
+            toast.error("Please enter a valid price (0 or higher)")
+            return
+        }
+
+        if (editingProductSale) {
+            updateProductSaleMutation.mutate({
+                shiftId: shift.id,
+                id: editingProductSale.id,
+                productId: selectedProductId ? parseInt(selectedProductId) : undefined,
+                quantity: qty,
+                price: price,
+            })
+        } else {
+            if (!selectedProductId) {
+                toast.error("Please select a product")
+                return
+            }
+            addProductSaleMutation.mutate({
+                shiftId: shift.id,
+                productId: parseInt(selectedProductId),
+                quantity: qty,
+                price: price,
+            })
+        }
+    }
+
+    const handleConfirmDeleteProductSale = () => {
+        if (!productSaleToDelete) return
+        setDeletingProductSaleId(productSaleToDelete.id)
+        deleteProductSaleMutation.mutate({
+            shiftId: shift.id,
+            id: productSaleToDelete.id,
+        })
+    }
+
     // Payment Logic Helpers
     const paymentMethods = paymentMethodsQuery.data || []
     const denominations = denominationsQuery.data || []
@@ -177,9 +304,6 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
 
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
     const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
-
-    // Unlike active shift, we don't auto-select existing cash payment for editing when selecting method.
-    // Admin mode is explicit.
 
     const showDenominations = isCashPayment && settings?.enableDenominationEntry && denominations.length > 0
     const showCoins = showDenominations && settings?.enableCoinEntry
@@ -249,7 +373,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
 
         if (showDenominations) {
             amount = calculatedTotal
-            if (amount <= 0 && !editingPaymentId) return // Allow 0 update? maybe not.
+            if (amount <= 0 && !editingPaymentId) return
 
             denomsToSend = Object.entries(denominationCounts)
                 .filter(([, count]) => count > 0)
@@ -269,7 +393,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                 paymentId: editingPaymentId,
                 data: {
                     amount,
-                    paymentMethodId: parseInt(selectedMethodId), // Allow changing method
+                    paymentMethodId: parseInt(selectedMethodId),
                     denominations: denomsToSend,
                     coinsAmount: coinsToSend
                 }
@@ -319,8 +443,6 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
         setIsFinishDialogOpen(true)
     }
 
-
-
     // Calculate method totals
     const methodSummaries = useMemo(() => {
         const summaries: Record<number, PaymentMethodSummary> = {}
@@ -357,14 +479,105 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     }
 
     // Calculations for summary display
-    const totalCollected = shift.sessionPayments?.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0) || 0
-    const shortage = shift.shortage // Already present in getById response
+    const totalFuelSales = useMemo(() => {
+        return shift.nozzleReadings.reduce((sum: number, r: any) => {
+            const qty = Number(r.fuelDispensed || 0)
+            const price = Number(r.price ?? r.fuelPrice ?? r.nozzle?.price ?? 0)
+            return sum + (qty * price)
+        }, 0)
+    }, [shift.nozzleReadings])
+
+    const totalProductSales = useMemo(() => {
+        return (shift.sessionProducts || []).reduce((sum: number, sp: any) => {
+            return sum + (parseFloat(sp.amount?.toString() || '0') || 0)
+        }, 0)
+    }, [shift.sessionProducts])
+
+    const totalShiftSales = totalFuelSales + totalProductSales
+
+    const totalCollected = useMemo(() => {
+        return (shift.sessionPayments || []).reduce((sum: number, p: any) => {
+            return sum + parseFloat(p.amount.toString())
+        }, 0)
+    }, [shift.sessionPayments])
+
+    const liveShortage = totalCollected - totalShiftSales
 
     const elapsedTime = useMemo(() => {
         const start = new Date(shift.startTime).getTime()
         const end = shift.endTime ? new Date(shift.endTime).getTime() : Date.now()
         return Math.floor((end - start) / 1000)
     }, [shift.startTime, shift.endTime])
+
+    // Products Sold Section
+    const productsSoldSection = (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <HugeiconsIcon icon={PackageIcon} />
+                    Products Sold
+                </h3>
+                <Button variant="outline" size="sm" onClick={handleOpenAddProduct}>
+                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
+                    Product sales
+                </Button>
+            </div>
+
+            {(shift.sessionProducts || []).length > 0 ? (
+                <div className="space-y-2">
+                    {shift.sessionProducts!.map((sale: SessionProduct) => (
+                        <div
+                            key={sale.id}
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm animate-in fade-in-0 duration-200"
+                        >
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">{sale.product?.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                    ({parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'} × ₹{parseFloat(sale.price.toString()).toFixed(2)})
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="font-bold">
+                                    ₹{parseFloat(sale.amount.toString()).toFixed(2)}
+                                </span>
+                                <div className="flex gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                        onClick={() => handleEditProductSale(sale)}
+                                        title="Edit Sale"
+                                    >
+                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        onClick={() => setProductSaleToDelete(sale)}
+                                        disabled={deletingProductSaleId === sale.id}
+                                        title="Remove Sale"
+                                    >
+                                        {deletingProductSaleId === sale.id ? (
+                                            <HugeiconsIcon icon={Loading03Icon} className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <Card className="bg-muted/30 border-dashed">
+                    <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                        No products recorded yet.
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
 
     return (
         <div className="space-y-6">
@@ -458,199 +671,206 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                {/* Left: Nozzles */}
-                <div className="md:col-span-3 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                            <HugeiconsIcon icon={FuelStationIcon} />
-                            Nozzle Readings
-                        </h3>
-                    </div>
+                {/* Left: Nozzles & Products (Desktop) */}
+                <div className="md:col-span-3 space-y-6">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <HugeiconsIcon icon={FuelStationIcon} />
+                                Nozzle Readings
+                            </h3>
+                        </div>
 
-                    {shift.nozzleReadings.map((reading: any) => (
-                        <Card key={reading.id}>
-                            <CardContent className="p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Badge>{reading.nozzle.code}</Badge>
-                                        <span className="font-medium">{reading.nozzle.fuel.name}</span>
-                                        <Badge variant="outline" className="text-xs">
-                                            ₹{parseFloat(reading.price?.toString() || reading.fuelPrice?.toString() || reading.nozzle.price.toString()).toFixed(2)}/L
-                                        </Badge>
+                        {shift.nozzleReadings.map((reading: any) => (
+                            <Card key={reading.id}>
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Badge>{reading.nozzle.code}</Badge>
+                                            <span className="font-medium">{reading.nozzle.fuel.name}</span>
+                                            <Badge variant="outline" className="text-xs">
+                                                ₹{parseFloat(reading.price?.toString() || reading.fuelPrice?.toString() || reading.nozzle.price.toString()).toFixed(2)}/L
+                                            </Badge>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-3 gap-3 text-sm">
-                                    <div>
-                                        <p className="text-muted-foreground flex items-center gap-2">
-                                            Opening
-                                            {!editingOpeningId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 text-muted-foreground hover:text-primary"
-                                                    onClick={() => setEditingOpeningId(reading.id)}
-                                                >
-                                                    <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                        </p>
-                                        {editingOpeningId === reading.id ? (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    className="h-7 w-20 px-2 text-sm"
-                                                    defaultValue={parseFloat(reading.openingReading.toString())}
-                                                    id={`opening-${reading.id}`}
-                                                    autoFocus
-                                                />
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                    onClick={() => {
-                                                        const input = document.getElementById(`opening-${reading.id}`) as HTMLInputElement
-                                                        const val = parseFloat(input.value) || 0
-                                                        handleUpdateOpeningReading(reading.id, val)
-                                                        setEditingOpeningId(null)
-                                                    }}
-                                                >
-                                                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={() => setEditingOpeningId(null)}
-                                                >
-                                                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <p className="font-medium">
-                                                {parseFloat(reading.openingReading.toString()).toFixed(2)} L
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <p className="text-muted-foreground flex items-center gap-2">
-                                            Test Qty
-                                            {!editingTestQtyId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 text-muted-foreground hover:text-primary"
-                                                    onClick={() => setEditingTestQtyId(reading.id)}
-                                                >
-                                                    <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                        </p>
-                                        {editingTestQtyId === reading.id ? (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    className="h-7 w-20 px-2 text-sm"
-                                                    defaultValue={parseFloat(reading.testQty.toString())}
-                                                    id={`test-qty-${reading.id}`}
-                                                    autoFocus
-                                                />
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                    onClick={() => {
-                                                        const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
-                                                        const val = parseFloat(input.value) || 0
-                                                        handleUpdateTestQty(reading.id, val)
-                                                        setEditingTestQtyId(null)
-                                                    }}
-                                                >
-                                                    <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={() => setEditingTestQtyId(null)}
-                                                >
-                                                    <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                {Number(reading.testQty) > 0 ? (
-                                                    <p className="font-medium">
-                                                        {parseFloat(reading.testQty.toString()).toFixed(2)} L
-                                                    </p>
-                                                ) : (
+                                    <div className="grid grid-cols-3 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-muted-foreground flex items-center gap-2">
+                                                Opening
+                                                {!editingOpeningId && (
                                                     <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-6 text-xs px-2 border-dashed text-muted-foreground"
-                                                        onClick={() => setEditingTestQtyId(reading.id)}
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                                        onClick={() => setEditingOpeningId(reading.id)}
                                                     >
-                                                        + Add Test Qty
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
                                                     </Button>
                                                 )}
+                                            </p>
+                                            {editingOpeningId === reading.id ? (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="h-7 w-20 px-2 text-sm"
+                                                        defaultValue={parseFloat(reading.openingReading.toString())}
+                                                        id={`opening-${reading.id}`}
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={() => {
+                                                            const input = document.getElementById(`opening-${reading.id}`) as HTMLInputElement
+                                                            const val = parseFloat(input.value) || 0
+                                                            handleUpdateOpeningReading(reading.id, val)
+                                                            setEditingOpeningId(null)
+                                                        }}
+                                                    >
+                                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => setEditingOpeningId(null)}
+                                                    >
+                                                        <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <p className="font-medium">
+                                                    {parseFloat(reading.openingReading.toString()).toFixed(2)} L
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground flex items-center gap-2">
+                                                Test Qty
+                                                {!editingTestQtyId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                                        onClick={() => setEditingTestQtyId(reading.id)}
+                                                    >
+                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3 w-3" />
+                                                    </Button>
+                                                )}
+                                            </p>
+                                            {editingTestQtyId === reading.id ? (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="h-7 w-20 px-2 text-sm"
+                                                        defaultValue={parseFloat(reading.testQty.toString())}
+                                                        id={`test-qty-${reading.id}`}
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={() => {
+                                                            const input = document.getElementById(`test-qty-${reading.id}`) as HTMLInputElement
+                                                            const val = parseFloat(input.value) || 0
+                                                            handleUpdateTestQty(reading.id, val)
+                                                            setEditingTestQtyId(null)
+                                                        }}
+                                                    >
+                                                        <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => setEditingTestQtyId(null)}
+                                                    >
+                                                        <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    {Number(reading.testQty) > 0 ? (
+                                                        <p className="font-medium">
+                                                            {parseFloat(reading.testQty.toString()).toFixed(2)} L
+                                                        </p>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-6 text-xs px-2 border-dashed text-muted-foreground"
+                                                            onClick={() => setEditingTestQtyId(reading.id)}
+                                                        >
+                                                            + Add Test Qty
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {reading.closingReading !== null && (
+                                            <div>
+                                                <p className="text-muted-foreground">Qty Dispensed</p>
+                                                <p className="font-medium">
+                                                    {(
+                                                        parseFloat(reading.closingReading.toString()) -
+                                                        parseFloat(reading.openingReading.toString()) -
+                                                        parseFloat(reading.testQty.toString())
+                                                    ).toFixed(2)} L
+                                                </p>
                                             </div>
                                         )}
                                     </div>
-                                    {reading.closingReading !== null && (
-                                        <div>
-                                            <p className="text-muted-foreground">Qty Dispensed</p>
-                                            <p className="font-medium">
-                                                {(
-                                                    parseFloat(reading.closingReading.toString()) -
-                                                    parseFloat(reading.openingReading.toString()) -
-                                                    parseFloat(reading.testQty.toString())
-                                                ).toFixed(2)} L
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor={`closing-${reading.id}`}>Closing Reading</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id={`closing-${reading.id}`}
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="Enter closing reading"
-                                            defaultValue={
-                                                reading.closingReading !== null
-                                                    ? parseFloat(reading.closingReading.toString())
-                                                    : ""
-                                            }
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    const value = parseFloat(e.currentTarget.value)
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`closing-${reading.id}`}>Closing Reading</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id={`closing-${reading.id}`}
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="Enter closing reading"
+                                                defaultValue={
+                                                    reading.closingReading !== null
+                                                        ? parseFloat(reading.closingReading.toString())
+                                                        : ""
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const value = parseFloat(e.currentTarget.value)
+                                                        if (!isNaN(value)) {
+                                                            handleUpdateClosingReading(reading.id, value)
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                onClick={() => {
+                                                    const input = document.getElementById(`closing-${reading.id}`) as HTMLInputElement
+                                                    const value = parseFloat(input.value)
                                                     if (!isNaN(value)) {
                                                         handleUpdateClosingReading(reading.id, value)
                                                     }
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            onClick={() => {
-                                                const input = document.getElementById(`closing-${reading.id}`) as HTMLInputElement
-                                                const value = parseFloat(input.value)
-                                                if (!isNaN(value)) {
-                                                    handleUpdateClosingReading(reading.id, value)
-                                                }
-                                            }}
-                                            size="icon"
-                                        >
-                                            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-                                        </Button>
+                                                }}
+                                                size="icon"
+                                            >
+                                                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Products Sold Section (Desktop) */}
+                    <div className="hidden md:block">
+                        {productsSoldSection}
+                    </div>
                 </div>
 
                 {/* Right: Payments */}
@@ -761,7 +981,6 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                     </div>
                                 )}
 
-
                                 <div className="flex gap-2">
                                     {editingPaymentId && (
                                         <Button variant="outline" className="flex-1" onClick={resetPaymentForm}>
@@ -870,6 +1089,11 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                         </div>
                     </div>
 
+                    {/* Products Sold Section (Small devices / Mobile) */}
+                    <div className="block md:hidden">
+                        {productsSoldSection}
+                    </div>
+
                     <div className="flex flex-col gap-4">
                         <Card className="bg-primary/5 border-primary/20 h-24 flex flex-col justify-center">
                             <CardContent className="p-4 text-center">
@@ -880,14 +1104,14 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                             </CardContent>
                         </Card>
 
-                        <Card className={`${shortage < 0 ? 'bg-destructive/10 border-destructive/20' : shortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'} h-12 flex flex-col justify-center overflow-hidden`}>
+                        <Card className={`${liveShortage < 0 ? 'bg-destructive/10 border-destructive/20' : liveShortage > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-muted/50 border-muted-foreground/20'} h-12 flex flex-col justify-center overflow-hidden`}>
                             <CardContent className="p-1 text-center">
                                 <div className="flex flex-col items-center justify-center">
                                     <p className="text-[10px] text-muted-foreground font-semibold leading-none mb-1">
-                                        {shortage < 0 ? 'Shortage' : shortage > 0 ? 'Excess' : 'Status'}
+                                        {liveShortage < 0 ? 'Shortage' : liveShortage > 0 ? 'Excess' : 'Status'}
                                     </p>
-                                    <p className={`text-base font-bold leading-none ${shortage < 0 ? 'text-destructive' : shortage > 0 ? 'text-green-600' : ''}`}>
-                                        {shortage ? `₹${Math.abs(shortage).toFixed(2)}` : '₹0.00'}
+                                    <p className={`text-base font-bold leading-none ${liveShortage < 0 ? 'text-destructive' : liveShortage > 0 ? 'text-green-600' : ''}`}>
+                                        {liveShortage ? `₹${Math.abs(liveShortage).toFixed(2)}` : '₹0.00'}
                                     </p>
                                 </div>
                             </CardContent>
@@ -928,10 +1152,14 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                             <div className="p-3 bg-muted rounded-lg text-center">
                                 <p className="text-xs text-muted-foreground mb-1">Fuel Sales</p>
-                                <p className="font-bold">₹{shift.totalFuelSales?.toFixed(2)}</p>
+                                <p className="font-bold">₹{totalFuelSales.toFixed(2)}</p>
+                            </div>
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                                <p className="text-xs text-muted-foreground mb-1">Product Sales</p>
+                                <p className="font-bold">₹{totalProductSales.toFixed(2)}</p>
                             </div>
                             <div className="p-3 bg-muted rounded-lg text-center">
                                 <p className="text-xs text-muted-foreground mb-1">Collected</p>
@@ -939,12 +1167,12 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                             </div>
                         </div>
 
-                        <div className={`p-4 rounded-lg text-center ${shortage < 0 ? 'bg-destructive/10 text-destructive' : shortage > 0 ? 'bg-green-500/10 text-green-700' : 'bg-muted'}`}>
+                        <div className={`p-4 rounded-lg text-center ${liveShortage < 0 ? 'bg-destructive/10 text-destructive' : liveShortage > 0 ? 'bg-green-500/10 text-green-700' : 'bg-muted'}`}>
                             <p className="text-sm font-semibold mb-1">
-                                {shortage < 0 ? 'Shortage' : shortage > 0 ? 'Excess' : 'Balanced'}
+                                {liveShortage < 0 ? 'Shortage' : liveShortage > 0 ? 'Excess' : 'Balanced'}
                             </p>
                             <p className="text-2xl font-bold">
-                                ₹{Math.abs(shortage).toFixed(2)}
+                                ₹{Math.abs(liveShortage).toFixed(2)}
                             </p>
                         </div>
 
@@ -961,6 +1189,148 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Add / Edit Product Sale Dialog */}
+            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingProductSale ? "Edit Product Sale" : "Record Product Sale"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingProductSale
+                                ? "Update the quantity or rate for this recorded product sale."
+                                : "Select a product and enter the quantity sold during this shift."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSaveProductSale} className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="product-select">Product</Label>
+                            <Select
+                                value={selectedProductId}
+                                onValueChange={(val) => {
+                                    setSelectedProductId(val)
+                                    const prod = availableProducts.find((p: Product) => p.id.toString() === val)
+                                    if (prod && !customPrice) {
+                                        setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                    }
+                                }}
+                                disabled={!!editingProductSale}
+                            >
+                                <SelectTrigger id="product-select">
+                                    <SelectValue placeholder="Select a product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableProducts.map((product: Product) => (
+                                        <SelectItem key={product.id} value={product.id.toString()}>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="text-xs font-mono">{product.code}</Badge>
+                                                <span>{product.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                    {availableProducts.length === 0 && (
+                                        <SelectItem value="none" disabled>No active products available</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="product-quantity">
+                                    Quantity {selectedProduct ? `(${selectedProduct.unit})` : ''}
+                                </Label>
+                                <Input
+                                    id="product-quantity"
+                                    type="number"
+                                    step="any"
+                                    min="0.01"
+                                    placeholder="1"
+                                    value={saleQuantity}
+                                    onChange={(e) => setSaleQuantity(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="product-price">
+                                    Rate (₹)
+                                </Label>
+                                <Input
+                                    id="product-price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder={selectedProduct ? parseFloat(selectedProduct.rate.toString()).toFixed(2) : "0.00"}
+                                    value={customPrice}
+                                    onChange={(e) => setCustomPrice(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Total Preview */}
+                        <div className="pt-2 border-t flex justify-between items-center">
+                            <span className="text-sm font-medium text-muted-foreground">Total Sale Amount:</span>
+                            <span className="text-lg font-bold text-primary">
+                                ₹{(((parseFloat(saleQuantity) || 0) * (customPrice ? (parseFloat(customPrice) || 0) : (selectedProduct ? parseFloat(selectedProduct.rate.toString()) : 0)))).toFixed(2)}
+                            </span>
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    !selectedProductId ||
+                                    addProductSaleMutation.isPending ||
+                                    updateProductSaleMutation.isPending
+                                }
+                            >
+                                {addProductSaleMutation.isPending || updateProductSaleMutation.isPending ? (
+                                    <>
+                                        <HugeiconsIcon icon={Loading03Icon} className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    editingProductSale ? "Update Sale" : "Save Sale"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Product Sale Confirmation Dialog */}
+            <AlertDialog open={!!productSaleToDelete} onOpenChange={(open) => !open && setProductSaleToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Product Sale?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove this product sale from the shift?
+                            {productSaleToDelete && (
+                                <span className="mt-2 p-2 bg-muted rounded text-sm font-medium block">
+                                    {productSaleToDelete.product?.name} ({parseFloat(productSaleToDelete.quantity.toString())} {productSaleToDelete.product?.unit}) - ₹{parseFloat(productSaleToDelete.amount.toString()).toFixed(2)}
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleConfirmDeleteProductSale}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

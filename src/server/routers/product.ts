@@ -594,4 +594,218 @@ export const productRouter = router({
 
             return { success: true }
         }),
+
+    /**
+     * Get Product Sales Report (tenant-scoped)
+     */
+    getSalesReport: tenantProcedure
+        .input(
+            z.object({
+                startDate: z.date().optional(),
+                endDate: z.date().optional(),
+                group: z.string().optional(),
+                productId: z.number().optional(),
+                userId: z.number().optional(),
+                limit: z.number().min(1).max(100).default(50),
+                offset: z.number().min(0).default(0),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const where: Record<string, unknown> = {
+                dutySession: {
+                    stationId: ctx.stationId,
+                },
+                product: {
+                    stationId: ctx.stationId,
+                },
+            }
+
+            // Date filtering on SessionProduct.createdAt
+            if (input.startDate || input.endDate) {
+                where.createdAt = {}
+                if (input.startDate) {
+                    const start = new Date(input.startDate)
+                    start.setHours(0, 0, 0, 0)
+                    ;(where.createdAt as Record<string, unknown>).gte = start
+                }
+                if (input.endDate) {
+                    const end = new Date(input.endDate)
+                    end.setHours(23, 59, 59, 999)
+                    ;(where.createdAt as Record<string, unknown>).lte = end
+                }
+            }
+
+            // Product filter
+            if (input.productId) {
+                where.productId = input.productId
+            }
+
+            // Group filter
+            if (input.group && input.group !== 'all') {
+                (where.product as Record<string, unknown>).group = input.group
+            }
+
+            // Attendant / User filter
+            if (input.userId) {
+                (where.dutySession as Record<string, unknown>).userId = input.userId
+            }
+
+            // Security check for non-admins
+            if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
+                (where.dutySession as Record<string, unknown>).userId = ctx.user.id
+            }
+
+            const [transactions, totalCount, allMatching] = await Promise.all([
+                prisma.sessionProduct.findMany({
+                    where,
+                    include: {
+                        product: true,
+                        dutySession: {
+                            select: {
+                                id: true,
+                                type: true,
+                                status: true,
+                                startTime: true,
+                                endTime: true,
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        username: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: input.limit,
+                    skip: input.offset,
+                }),
+                prisma.sessionProduct.count({ where }),
+                prisma.sessionProduct.findMany({
+                    where,
+                    select: {
+                        productId: true,
+                        quantity: true,
+                        price: true,
+                        amount: true,
+                        product: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                unit: true,
+                                group: true,
+                            },
+                        },
+                    },
+                }),
+            ])
+
+            // Calculate overall aggregates
+            let totalSalesAmount = 0
+            let totalQuantity = 0
+
+            // Aggregation by product
+            const productMap = new Map<number, {
+                productId: number
+                code: string
+                name: string
+                unit: string
+                group: string
+                quantity: number
+                amount: number
+                salesCount: number
+            }>()
+
+            // Aggregation by group
+            const groupMap = new Map<string, {
+                group: string
+                quantity: number
+                amount: number
+                salesCount: number
+            }>()
+
+            for (const item of allMatching) {
+                const qty = Number(item.quantity || 0)
+                const amt = Number(item.amount || (qty * Number(item.price || 0)))
+                totalSalesAmount += amt
+                totalQuantity += qty
+
+                const p = item.product
+                if (p) {
+                    const existingP = productMap.get(p.id)
+                    if (existingP) {
+                        existingP.quantity += qty
+                        existingP.amount += amt
+                        existingP.salesCount += 1
+                    } else {
+                        productMap.set(p.id, {
+                            productId: p.id,
+                            code: p.code,
+                            name: p.name,
+                            unit: p.unit,
+                            group: p.group,
+                            quantity: qty,
+                            amount: amt,
+                            salesCount: 1,
+                        })
+                    }
+
+                    const groupKey = p.group || 'Other'
+                    const existingG = groupMap.get(groupKey)
+                    if (existingG) {
+                        existingG.quantity += qty
+                        existingG.amount += amt
+                        existingG.salesCount += 1
+                    } else {
+                        groupMap.set(groupKey, {
+                            group: groupKey,
+                            quantity: qty,
+                            amount: amt,
+                            salesCount: 1,
+                        })
+                    }
+                }
+            }
+
+            const byProduct = Array.from(productMap.values()).map(p => ({
+                ...p,
+                averagePrice: p.quantity > 0 ? p.amount / p.quantity : 0,
+                percentage: totalSalesAmount > 0 ? (p.amount / totalSalesAmount) * 100 : 0,
+            })).sort((a, b) => b.amount - a.amount)
+
+            const byGroup = Array.from(groupMap.values()).map(g => ({
+                ...g,
+                percentage: totalSalesAmount > 0 ? (g.amount / totalSalesAmount) * 100 : 0,
+            })).sort((a, b) => b.amount - a.amount)
+
+            const topProduct = byProduct.length > 0 ? byProduct[0] : null
+
+            return {
+                summary: {
+                    totalSalesAmount: Math.round(totalSalesAmount * 100) / 100,
+                    totalQuantity: Math.round(totalQuantity * 100) / 100,
+                    transactionCount: totalCount,
+                    uniqueProductsCount: productMap.size,
+                    topProduct,
+                },
+                byProduct,
+                byGroup,
+                transactions: transactions.map(t => ({
+                    id: t.id,
+                    createdAt: t.createdAt,
+                    quantity: Number(t.quantity),
+                    price: Number(t.price),
+                    amount: Number(t.amount),
+                    product: t.product,
+                    dutySession: t.dutySession,
+                })),
+                pagination: {
+                    total: totalCount,
+                    limit: input.limit,
+                    offset: input.offset,
+                },
+            }
+        }),
 })
