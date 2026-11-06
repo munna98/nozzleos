@@ -39,7 +39,8 @@ export function ShiftHistorySummaryCard({
     // Client-side fallback if summary object is not present yet but sessions are
     const computedFallback = useMemo(() => {
         if (!fallbackSessions || fallbackSessions.length === 0) return null
-        let totalSales = 0
+        let totalFuelSales = 0
+        let totalProductSales = 0
         let totalCollected = 0
         let shortageCount = 0
         let excessCount = 0
@@ -48,7 +49,7 @@ export function ShiftHistorySummaryCard({
         for (const s of fallbackSessions) {
             if (s.status === "in_progress") continue
             completedCount++
-            let shiftSales = 0
+            let shiftFuelSales = 0
             for (const nr of s.nozzleReadings || []) {
                 const qty = Number(nr.fuelDispensed || 0)
                 const price = Number(
@@ -56,20 +57,29 @@ export function ShiftHistorySummaryCard({
                         ? (nr as any).fuelPrice
                         : ((nr.nozzle as any)?.price ?? 0)
                 )
-                shiftSales += qty * price
+                shiftFuelSales += qty * price
             }
+            let shiftProductSales = 0
+            for (const sp of (s as any).sessionProducts || []) {
+                shiftProductSales += Number(sp.amount || 0)
+            }
+            const shiftSales = shiftFuelSales + shiftProductSales
             const shiftColl = Number(s.totalPaymentCollected || 0)
             const diff = shiftColl - shiftSales
-            totalSales += shiftSales
+            totalFuelSales += shiftFuelSales
+            totalProductSales += shiftProductSales
             totalCollected += shiftColl
             if (diff < -0.01) shortageCount++
             else if (diff > 0.01) excessCount++
         }
+        const totalSales = totalFuelSales + totalProductSales
         const netDiff = totalCollected - totalSales
         return {
             totalShifts: fallbackSessions.length,
             completedShiftsCount: completedCount,
-            totalFuelSales: Math.round(totalSales * 100) / 100,
+            totalFuelSales: Math.round(totalFuelSales * 100) / 100,
+            totalProductSales: Math.round(totalProductSales * 100) / 100,
+            totalSales: Math.round(totalSales * 100) / 100,
             totalPaymentsCollected: Math.round(totalCollected * 100) / 100,
             netDifference: Math.round(netDiff * 100) / 100,
             totalShortage: 0,
@@ -167,11 +177,17 @@ export function ShiftHistorySummaryCard({
                     </div>
 
                     {/* Period Numbers */}
-                    <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/50 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/50 shrink-0 flex-wrap">
                         <div>
                             <span className="text-[11px] text-muted-foreground block">Fuel Sales</span>
                             <span className="text-sm font-semibold text-foreground">
                                 {formatCurrency(data.totalFuelSales)}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-[11px] text-muted-foreground block">Product Sales</span>
+                            <span className="text-sm font-semibold text-foreground">
+                                {formatCurrency((data as any).totalProductSales || 0)}
                             </span>
                         </div>
                         <div>

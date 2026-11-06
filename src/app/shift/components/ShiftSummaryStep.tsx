@@ -76,6 +76,41 @@ export function ShiftSummaryStep({
         )
     }
 
+    const aggregatedProducts = useMemo(() => {
+        const map = new Map<number, {
+            productId: number
+            productCode: string
+            productName: string
+            productGroup?: string
+            unit: string
+            totalQuantity: number
+            totalAmount: number
+        }>()
+
+        for (const sale of summary.sessionProducts || []) {
+            const pId = sale.productId
+            const qty = parseFloat(sale.quantity?.toString() || '0') || 0
+            const amount = parseFloat(sale.amount?.toString() || '0') || 0
+            const existing = map.get(pId)
+            if (existing) {
+                existing.totalQuantity += qty
+                existing.totalAmount += amount
+            } else {
+                map.set(pId, {
+                    productId: pId,
+                    productCode: sale.product?.code || '',
+                    productName: sale.product?.name || 'Unknown Product',
+                    productGroup: sale.product?.group,
+                    unit: sale.product?.unit || 'Pcs',
+                    totalQuantity: qty,
+                    totalAmount: amount,
+                })
+            }
+        }
+
+        return Array.from(map.values())
+    }, [summary.sessionProducts])
+
 
 
     const getGroupBadgeClass = (group?: string) => {
@@ -239,43 +274,39 @@ export function ShiftSummaryStep({
                                         <th className="text-left p-3 font-medium">Product</th>
                                         <th className="text-left p-3 font-medium">Group</th>
                                         <th className="text-right p-3 font-medium">Qty</th>
-                                        <th className="text-right p-3 font-medium">Rate</th>
                                         <th className="text-right p-3 font-medium">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(summary.sessionProducts || []).map((sale: SummaryProduct) => (
-                                        <tr key={sale.id} className="border-t">
+                                    {aggregatedProducts.map((p) => (
+                                        <tr key={p.productId} className="border-t">
                                             <td className="p-3">
-                                                <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
+                                                <Badge variant="outline" className="font-mono">{p.productCode}</Badge>
                                             </td>
-                                            <td className="p-3 font-medium">{sale.product?.name}</td>
+                                            <td className="p-3 font-medium">{p.productName}</td>
                                             <td className="p-3">
-                                                <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
-                                                    {sale.product?.group || 'Other'}
+                                                <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(p.productGroup)}`}>
+                                                    {p.productGroup || 'Other'}
                                                 </Badge>
                                             </td>
                                             <td className="p-3 text-right font-medium">
-                                                {parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}
-                                            </td>
-                                            <td className="p-3 text-right text-muted-foreground">
-                                                ₹{parseFloat(sale.price.toString()).toFixed(2)}
+                                                {p.totalQuantity} {p.unit}
                                             </td>
                                             <td className="p-3 text-right font-medium">
-                                                ₹{parseFloat(sale.amount.toString()).toFixed(2)}
+                                                ₹{p.totalAmount.toFixed(2)}
                                             </td>
                                         </tr>
                                     ))}
-                                    {(!summary.sessionProducts || summary.sessionProducts.length === 0) && (
+                                    {aggregatedProducts.length === 0 && (
                                         <tr className="border-t">
-                                            <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                                            <td colSpan={5} className="p-4 text-center text-muted-foreground">
                                                 No products recorded for this shift
                                             </td>
                                         </tr>
                                     )}
                                     <tr className="border-t bg-muted/30 font-medium">
-                                        <td colSpan={5} className="p-3 text-right">Total Product Sales</td>
-                                        <td className="p-3 text-right font-bold text-primary">₹{summary.totalProductSales.toFixed(2)}</td>
+                                        <td colSpan={4} className="p-3 text-right">Total Product Sales</td>
+                                        <td className="p-3 text-right font-bold text-primary">₹{(summary.totalProductSales || 0).toFixed(2)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -283,42 +314,45 @@ export function ShiftSummaryStep({
 
                         {/* Mobile View (Cards) */}
                         <div className="md:hidden space-y-3">
-                            {(summary.sessionProducts || []).map((sale: SummaryProduct) => (
-                                <Card key={sale.id}>
+                            {aggregatedProducts.map((p) => (
+                                <Card key={p.productId}>
                                     <CardContent className="p-4 space-y-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
-                                                <span className="font-medium">{sale.product?.name}</span>
+                                                <Badge variant="outline" className="font-mono">{p.productCode}</Badge>
+                                                <span className="font-medium">{p.productName}</span>
                                             </div>
-                                            <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
-                                                {sale.product?.group || 'Other'}
+                                            <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(p.productGroup)}`}>
+                                                {p.productGroup || 'Other'}
                                             </Badge>
                                         </div>
 
                                         <Separator />
 
-                                        <div className="grid grid-cols-3 gap-2 text-sm">
+                                        <div className="flex justify-between items-center text-sm">
                                             <div>
                                                 <p className="text-xs text-muted-foreground mb-1">Quantity</p>
-                                                <p className="font-medium">{parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-xs text-muted-foreground mb-1">Rate</p>
-                                                <p>₹{parseFloat(sale.price.toString()).toFixed(2)}</p>
+                                                <p className="font-medium">{p.totalQuantity} {p.unit}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xs text-muted-foreground mb-1">Amount</p>
-                                                <p className="font-bold text-primary">₹{parseFloat(sale.amount.toString()).toFixed(2)}</p>
+                                                <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
+                                                <p className="font-bold text-primary">₹{p.totalAmount.toFixed(2)}</p>
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
                             ))}
+                            {aggregatedProducts.length === 0 && (
+                                <Card className="bg-muted/30 border-dashed">
+                                    <CardContent className="p-4 text-center text-muted-foreground text-sm">
+                                        No products recorded for this shift
+                                    </CardContent>
+                                </Card>
+                            )}
                             <Card className="bg-muted/30">
                                 <CardContent className="p-4 flex justify-between items-center font-bold">
                                     <span>Total Product Sales</span>
-                                    <span className="text-primary">₹{summary.totalProductSales.toFixed(2)}</span>
+                                    <span className="text-primary">₹{(summary.totalProductSales || 0).toFixed(2)}</span>
                                 </CardContent>
                             </Card>
                         </div>

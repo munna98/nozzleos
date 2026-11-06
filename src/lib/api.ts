@@ -168,6 +168,26 @@ export interface CreateSessionProductDto {
     price?: number;
 }
 
+export interface ProductGroup {
+    id: number;
+    stationId?: number;
+    name: string;
+    color?: string | null;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+    productCount?: number;
+}
+
+export interface ProductUnit {
+    id: number;
+    stationId?: number;
+    name: string;
+    code: string;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+    productCount?: number;
+}
+
 export interface NozzleDto {
     code: string;
     dispenserId: number;

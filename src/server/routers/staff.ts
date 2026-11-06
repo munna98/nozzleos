@@ -76,6 +76,11 @@ export const staffRouter = router({
                             }
                         }
                     },
+                    sessionProducts: {
+                        select: {
+                            amount: true
+                        }
+                    },
                     sessionPayments: {
                         include: {
                             paymentMethod: true
@@ -99,6 +104,8 @@ export const staffRouter = router({
                     status: string,
                     dutyHours: number,
                     totalFuelSales: number,
+                    totalProductSales: number,
+                    totalSales: number,
                     totalPaymentsCollected: number,
                     difference: number,
                     isShort: boolean,
@@ -108,6 +115,8 @@ export const staffRouter = router({
                 totals: {
                     totalDutyHours: number,
                     totalFuelSales: number,
+                    totalProductSales: number,
+                    totalSales: number,
                     totalPaymentsCollected: number,
                     totalDifference: number,
                 }
@@ -124,6 +133,8 @@ export const staffRouter = router({
                         totals: {
                             totalDutyHours: 0,
                             totalFuelSales: 0,
+                            totalProductSales: 0,
+                            totalSales: 0,
                             totalPaymentsCollected: 0,
                             totalDifference: 0,
                         }
@@ -163,11 +174,21 @@ export const staffRouter = router({
 
                 const fuelBreakdown = Array.from(fuelBreakdownMap.values())
 
+                // Calculate product sales
+                let totalProductSales = 0
+                if (shift.sessionProducts) {
+                    for (const sp of shift.sessionProducts) {
+                        totalProductSales += Number(sp.amount || 0)
+                    }
+                }
+
+                const totalSales = totalFuelSales + totalProductSales
+
                 // Calculate payments
                 const totalPaymentsCollected = Number(shift.totalPaymentCollected)
 
                 // Calculate difference
-                const difference = totalPaymentsCollected - totalFuelSales
+                const difference = totalPaymentsCollected - totalSales
 
                 // Add shift data
                 staffData.shifts.push({
@@ -178,6 +199,8 @@ export const staffRouter = router({
                     status: shift.status,
                     dutyHours: Math.round(dutyHours * 100) / 100,
                     totalFuelSales: Math.round(totalFuelSales * 100) / 100,
+                    totalProductSales: Math.round(totalProductSales * 100) / 100,
+                    totalSales: Math.round(totalSales * 100) / 100,
                     totalPaymentsCollected: Math.round(totalPaymentsCollected * 100) / 100,
                     difference: Math.round(difference * 100) / 100,
                     isShort: difference < 0,
@@ -192,6 +215,8 @@ export const staffRouter = router({
                 // Update totals
                 staffData.totals.totalDutyHours += dutyHours
                 staffData.totals.totalFuelSales += totalFuelSales
+                staffData.totals.totalProductSales += totalProductSales
+                staffData.totals.totalSales += totalSales
                 staffData.totals.totalPaymentsCollected += totalPaymentsCollected
                 staffData.totals.totalDifference += difference
             }
@@ -202,6 +227,8 @@ export const staffRouter = router({
                 totals: {
                     totalDutyHours: Math.round(staff.totals.totalDutyHours * 100) / 100,
                     totalFuelSales: Math.round(staff.totals.totalFuelSales * 100) / 100,
+                    totalProductSales: Math.round(staff.totals.totalProductSales * 100) / 100,
+                    totalSales: Math.round(staff.totals.totalSales * 100) / 100,
                     totalPaymentsCollected: Math.round(staff.totals.totalPaymentsCollected * 100) / 100,
                     totalDifference: Math.round(staff.totals.totalDifference * 100) / 100,
                 }
@@ -241,6 +268,8 @@ export const staffRouter = router({
                     totalShifts: shifts.length,
                     overallDutyHours: staffReport.reduce((sum, s) => sum + s.totals.totalDutyHours, 0),
                     overallFuelSales: staffReport.reduce((sum, s) => sum + s.totals.totalFuelSales, 0),
+                    overallProductSales: staffReport.reduce((sum, s) => sum + s.totals.totalProductSales, 0),
+                    overallSales: staffReport.reduce((sum, s) => sum + s.totals.totalSales, 0),
                     overallPaymentsCollected: staffReport.reduce((sum, s) => sum + s.totals.totalPaymentsCollected, 0),
                     overallDifference: staffReport.reduce((sum, s) => sum + s.totals.totalDifference, 0),
                     fuelBreakdown: overallFuelBreakdown,
@@ -273,6 +302,9 @@ export const staffRouter = router({
                     user: { select: { id: true, name: true, username: true } },
                     nozzleReadings: {
                         include: { nozzle: true }
+                    },
+                    sessionProducts: {
+                        select: { amount: true }
                     }
                 }
             })
@@ -297,8 +329,17 @@ export const staffRouter = router({
                     totalFuelSales += qty * price
                 }
 
+                // Calculate product sales
+                let totalProductSales = 0
+                if (shift.sessionProducts) {
+                    for (const sp of shift.sessionProducts) {
+                        totalProductSales += Number(sp.amount || 0)
+                    }
+                }
+
+                const totalSales = totalFuelSales + totalProductSales
                 const totalCollected = Number(shift.totalPaymentCollected)
-                const difference = totalCollected - totalFuelSales
+                const difference = totalCollected - totalSales
 
                 if (!staffMap.has(userId)) {
                     staffMap.set(userId, {

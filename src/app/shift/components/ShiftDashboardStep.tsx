@@ -295,48 +295,10 @@ export function ShiftDashboardStep({
         deleteProductSaleMutation.mutate({ id: productSaleToDelete.id })
     }
 
-    const getGroupBadgeClass = (group?: string) => {
-        const g = group?.toLowerCase() || ''
-        if (g === "lubes") {
-            return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-        }
-        if (g === "def") {
-            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-        }
-        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
-    }
-
     const totalProductSales = useMemo(() => {
         return (session.sessionProducts || []).reduce((sum: number, sp: SessionProduct) => {
             return sum + (parseFloat(sp.amount?.toString() || '0') || 0)
         }, 0)
-    }, [session.sessionProducts])
-
-    const totalProductQuantity = useMemo(() => {
-        return (session.sessionProducts || []).reduce((sum: number, sp: SessionProduct) => {
-            return sum + (parseFloat(sp.quantity?.toString() || '0') || 0)
-        }, 0)
-    }, [session.sessionProducts])
-
-    const lubesSales = useMemo(() => {
-        return (session.sessionProducts || [])
-            .filter((sp: SessionProduct) => sp.product?.group?.toLowerCase() === 'lubes')
-            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
-    }, [session.sessionProducts])
-
-    const defSales = useMemo(() => {
-        return (session.sessionProducts || [])
-            .filter((sp: SessionProduct) => sp.product?.group?.toLowerCase() === 'def')
-            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
-    }, [session.sessionProducts])
-
-    const otherSales = useMemo(() => {
-        return (session.sessionProducts || [])
-            .filter((sp: SessionProduct) => {
-                const g = sp.product?.group?.toLowerCase()
-                return g !== 'lubes' && g !== 'def'
-            })
-            .reduce((sum: number, sp: SessionProduct) => sum + (parseFloat(sp.amount?.toString() || '0') || 0), 0)
     }, [session.sessionProducts])
 
     const totalFuelSales = summary?.totalFuelSales ?? 0
@@ -505,6 +467,75 @@ export function ShiftDashboardStep({
 
         return summaries
     }, [session.sessionPayments])
+
+    const productsSoldSection = (
+        <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <HugeiconsIcon icon={PackageIcon} />
+                    Products Sold
+                </h3>
+                <Button variant="outline" size="sm" onClick={handleOpenAddProduct}>
+                    <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
+                    Product sales
+                </Button>
+            </div>
+
+            {(session.sessionProducts || []).length > 0 ? (
+                <div className="space-y-2">
+                    {session.sessionProducts.map((sale: SessionProduct) => (
+                        <div
+                            key={sale.id}
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/40 transition-colors bg-card text-card-foreground shadow-sm animate-in fade-in-0 duration-200"
+                        >
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">{sale.product?.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                    ({parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'} × ₹{parseFloat(sale.price.toString()).toFixed(2)})
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="font-bold">
+                                    ₹{parseFloat(sale.amount.toString()).toFixed(2)}
+                                </span>
+                                <div className="flex gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                        onClick={() => handleEditProductSale(sale)}
+                                        title="Edit Sale"
+                                    >
+                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        onClick={() => setProductSaleToDelete(sale)}
+                                        disabled={deletingProductSaleId === sale.id}
+                                        title="Remove Sale"
+                                    >
+                                        {deletingProductSaleId === sale.id ? (
+                                            <HugeiconsIcon icon={Loading03Icon} className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <Card className="bg-muted/30 border-dashed">
+                    <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                        No products recorded yet.
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
 
     return (
         <div className="space-y-6">
@@ -738,100 +769,9 @@ export function ShiftDashboardStep({
                             </Card>
                         ))}
 
-                    {/* Products Sold Section */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <HugeiconsIcon icon={PackageIcon} />
-                                Products Sold
-                            </h3>
-                            <Button variant="outline" size="sm" onClick={handleOpenAddProduct}>
-                                <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
-                                Record Product
-                            </Button>
-                        </div>
-
-                        {(session.sessionProducts || []).length > 0 ? (
-                            <div className="space-y-3">
-                                {session.sessionProducts.map((sale: SessionProduct) => (
-                                    <Card key={sale.id}>
-                                        <CardContent className="p-4 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <Badge variant="outline" className="font-mono">{sale.product?.code}</Badge>
-                                                    <span className="font-medium">{sale.product?.name}</span>
-                                                    <Badge variant="outline" className={`text-xs capitalize ${getGroupBadgeClass(sale.product?.group)}`}>
-                                                        {sale.product?.group || 'Other'}
-                                                    </Badge>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                        onClick={() => handleEditProductSale(sale)}
-                                                        title="Edit Sale"
-                                                    >
-                                                        <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                        onClick={() => setProductSaleToDelete(sale)}
-                                                        disabled={deletingProductSaleId === sale.id}
-                                                        title="Remove Sale"
-                                                    >
-                                                        {deletingProductSaleId === sale.id ? (
-                                                            <HugeiconsIcon icon={Loading03Icon} className="h-3.5 w-3.5 animate-spin" />
-                                                        ) : (
-                                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-3 gap-3 text-sm">
-                                                <div>
-                                                    <p className="text-muted-foreground">Quantity</p>
-                                                    <p className="font-medium">
-                                                        {parseFloat(sale.quantity.toString())} {sale.product?.unit || 'Pcs'}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-muted-foreground">Rate</p>
-                                                    <p className="font-medium">
-                                                        ₹{parseFloat(sale.price.toString()).toFixed(2)}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-muted-foreground">Total Amount</p>
-                                                    <p className="font-bold text-primary">
-                                                        ₹{parseFloat(sale.amount.toString()).toFixed(2)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        ) : (
-                            <Card className="border-dashed bg-muted/20">
-                                <CardContent className="p-6 text-center space-y-2">
-                                    <div className="mx-auto w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                                        <HugeiconsIcon icon={PackageIcon} className="h-5 w-5" />
-                                    </div>
-                                    <p className="text-sm font-medium">No products sold recorded</p>
-                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                                        Record lubes, DEF, or other packaged items sold by staff during this shift.
-                                    </p>
-                                    <Button variant="outline" size="sm" onClick={handleOpenAddProduct} className="mt-2">
-                                        <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" />
-                                        Record Product
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        )}
+                    {/* Products Sold Section (Desktop) */}
+                    <div className="hidden md:block">
+                        {productsSoldSection}
                     </div>
                 </div>
 
@@ -1065,6 +1005,11 @@ export function ShiftDashboardStep({
                                 </Card>
                             )}
                         </div>
+
+                        {/* Products Sold Section (Small devices / Mobile) */}
+                        <div className="block md:hidden">
+                            {productsSoldSection}
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -1119,56 +1064,6 @@ export function ShiftDashboardStep({
                     </div>
                 </div>
             </div>
-
-            {/* Product Sales Summary Card at Bottom */}
-            <Card className="border shadow-sm">
-                <CardHeader className="pb-3 border-b bg-muted/20">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                                <HugeiconsIcon icon={PackageIcon} className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-base font-semibold">Product Sales Summary</CardTitle>
-                                <CardDescription className="text-xs">
-                                    Summary of non-fuel inventory items sold during this shift
-                                </CardDescription>
-                            </div>
-                        </div>
-                        <Badge variant="secondary" className="font-mono text-xs">
-                            {session.sessionProducts?.length || 0} {(session.sessionProducts?.length === 1) ? 'item' : 'items'}
-                        </Badge>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="p-3 bg-muted/40 rounded-lg border">
-                            <p className="text-xs text-muted-foreground font-medium">Total Products Sold</p>
-                            <p className="text-xl font-bold mt-1">
-                                {totalProductQuantity.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">units</span>
-                            </p>
-                        </div>
-                        <div className="p-3 bg-muted/40 rounded-lg border">
-                            <p className="text-xs text-muted-foreground font-medium">Lubes Revenue</p>
-                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                                ₹{lubesSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                        <div className="p-3 bg-muted/40 rounded-lg border">
-                            <p className="text-xs text-muted-foreground font-medium">DEF Revenue</p>
-                            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                                ₹{defSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                        <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                            <p className="text-xs text-primary font-medium">Total Product Sales</p>
-                            <p className="text-xl font-bold text-primary mt-1">
-                                ₹{totalProductSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
             {/* Add Nozzle Dialog */}
             <Dialog open={isAddNozzleOpen} onOpenChange={setIsAddNozzleOpen}>
@@ -1315,19 +1210,6 @@ export function ShiftDashboardStep({
                                 </SelectContent>
                             </Select>
                         </div>
-
-                        {selectedProduct && (
-                            <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Standard Rate:</span>
-                                    <span className="font-medium">₹{parseFloat(selectedProduct.rate.toString()).toFixed(2)} / {selectedProduct.unit}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Group:</span>
-                                    <span className="capitalize font-medium">{selectedProduct.group}</span>
-                                </div>
-                            </div>
-                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

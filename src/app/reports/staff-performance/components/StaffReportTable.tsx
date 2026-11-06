@@ -26,6 +26,8 @@ interface Shift {
     status: string
     dutyHours: number
     totalFuelSales: number
+    totalProductSales?: number
+    totalSales?: number
     totalPaymentsCollected: number
     difference: number
     isShort: boolean
@@ -44,6 +46,8 @@ interface StaffData {
     totals: {
         totalDutyHours: number
         totalFuelSales: number
+        totalProductSales?: number
+        totalSales?: number
         totalPaymentsCollected: number
         totalDifference: number
     }
@@ -100,9 +104,10 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
     const overallTotals = staff.reduce((acc, staffMember) => ({
         dutyHours: acc.dutyHours + staffMember.totals.totalDutyHours,
         fuelSales: acc.fuelSales + staffMember.totals.totalFuelSales,
+        productSales: acc.productSales + (staffMember.totals.totalProductSales || 0),
         payments: acc.payments + staffMember.totals.totalPaymentsCollected,
         difference: acc.difference + staffMember.totals.totalDifference,
-    }), { dutyHours: 0, fuelSales: 0, payments: 0, difference: 0 })
+    }), { dutyHours: 0, fuelSales: 0, productSales: 0, payments: 0, difference: 0 })
 
     return (
         <Table>
@@ -113,6 +118,7 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                     <TableHead className="text-right">Total Shifts</TableHead>
                     <TableHead className="text-right">Duty Hours</TableHead>
                     <TableHead className="text-right">Fuel Sales</TableHead>
+                    <TableHead className="text-right">Product Sales</TableHead>
                     <TableHead className="text-right">Payments</TableHead>
                     <TableHead className="text-right">Difference</TableHead>
                 </TableRow>
@@ -150,6 +156,9 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                                 {formatCurrency(staffMember.totals.totalFuelSales)}
                             </TableCell>
                             <TableCell className="text-right">
+                                {formatCurrency(staffMember.totals.totalProductSales || 0)}
+                            </TableCell>
+                            <TableCell className="text-right">
                                 {formatCurrency(staffMember.totals.totalPaymentsCollected)}
                             </TableCell>
                             <TableCell className={`text-right font-semibold ${staffMember.totals.totalDifference < 0 ? 'text-destructive' :
@@ -163,7 +172,7 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                         {/* Expanded Shifts Details */}
                         {expandedStaff.has(staffMember.userId) && (
                             <TableRow>
-                                <TableCell colSpan={7} className="bg-muted/20 p-0">
+                                <TableCell colSpan={8} className="bg-muted/20 p-0">
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="border-b">
@@ -172,6 +181,7 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                                                 <TableHead>Date & Time</TableHead>
                                                 <TableHead className="text-right">Duty Hours</TableHead>
                                                 <TableHead className="text-right">Fuel Sales</TableHead>
+                                                <TableHead className="text-right">Product Sales</TableHead>
                                                 <TableHead className="text-right">Payments</TableHead>
                                                 <TableHead className="text-right">Difference</TableHead>
                                             </TableRow>
@@ -218,6 +228,9 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                                                             {formatCurrency(shift.totalFuelSales)}
                                                         </TableCell>
                                                         <TableCell className="text-right text-sm">
+                                                            {formatCurrency(shift.totalProductSales || 0)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-sm">
                                                             {formatCurrency(shift.totalPaymentsCollected)}
                                                         </TableCell>
                                                         <TableCell className={`text-right font-semibold text-sm ${shift.isShort ? 'text-destructive' :
@@ -229,7 +242,7 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                                                     {/* Fuel Breakdown for individual shift */}
                                                     {expandedShifts.has(shift.id) && (
                                                         <TableRow>
-                                                            <TableCell colSpan={7} className="bg-muted/40 p-4 pl-16">
+                                                            <TableCell colSpan={8} className="bg-muted/40 p-4 pl-16">
                                                                 <FuelBreakdownCard fuelBreakdown={shift.fuelBreakdown} />
                                                             </TableCell>
                                                         </TableRow>
@@ -254,6 +267,9 @@ export function StaffReportTable({ staff }: StaffReportTableProps) {
                     </TableCell>
                     <TableCell className="text-right">
                         {formatCurrency(overallTotals.fuelSales)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                        {formatCurrency(overallTotals.productSales)}
                     </TableCell>
                     <TableCell className="text-right">
                         {formatCurrency(overallTotals.payments)}

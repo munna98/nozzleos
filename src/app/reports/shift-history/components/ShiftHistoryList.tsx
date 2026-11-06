@@ -55,7 +55,7 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
         return `${hours}h ${minutes}m`
     }
 
-    const calculateTotalSales = (readings: ShiftSession['nozzleReadings']) => {
+    const calculateFuelSales = (readings: ShiftSession['nozzleReadings']) => {
         return readings.reduce((total: number, reading) => {
             const dispensed = Number(reading.fuelDispensed?.toString() || 0)
             const rawFuelPrice = (reading as any).fuelPrice
@@ -64,12 +64,20 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
         }, 0)
     }
 
+    const calculateProductSales = (sessionProducts?: any[]) => {
+        return (sessionProducts || []).reduce((total: number, sp: any) => {
+            return total + Number(sp.amount || 0)
+        }, 0)
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {shifts.map((shift) => {
-                const totalSales = calculateTotalSales(shift.nozzleReadings)
+                const fuelSales = calculateFuelSales(shift.nozzleReadings)
+                const productSales = calculateProductSales((shift as any).sessionProducts)
+                const totalShiftSales = fuelSales + productSales
                 const totalCollected = Number(shift.totalPaymentCollected)
-                const shortage = totalCollected - totalSales
+                const shortage = totalCollected - totalShiftSales
 
                 // @ts-ignore - editRequests might not be in types yet
                 const editRequests = shift.editRequests || []
@@ -164,20 +172,24 @@ export function ShiftHistoryList({ shifts, isAdmin, onViewShift, onVerifyShift }
                                 </div>
 
                                 {/* Stats Row */}
-                                <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t">
                                     <div>
-                                        <p className="text-xs text-muted-foreground">Duration</p>
-                                        <p className="font-medium text-sm">
+                                        <p className="text-[11px] text-muted-foreground truncate">Duration</p>
+                                        <p className="font-medium text-xs sm:text-sm">
                                             {calculateDuration(shift.startTime, shift.endTime)}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-muted-foreground">Fuel Sales</p>
-                                        <p className="font-medium text-sm">₹{totalSales.toFixed(2)}</p>
+                                        <p className="text-[11px] text-muted-foreground truncate">Fuel Sales</p>
+                                        <p className="font-medium text-xs sm:text-sm">₹{fuelSales.toFixed(2)}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-muted-foreground">Shortage / Excess</p>
-                                        <p className={`font-medium text-sm ${shortage > 0 ? 'text-green-600' : shortage < 0 ? 'text-red-600' : ''}`}>
+                                        <p className="text-[11px] text-muted-foreground truncate">Product Sales</p>
+                                        <p className="font-medium text-xs sm:text-sm">₹{productSales.toFixed(2)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] text-muted-foreground truncate">Shortage / Excess</p>
+                                        <p className={`font-medium text-xs sm:text-sm ${shortage > 0 ? 'text-green-600' : shortage < 0 ? 'text-red-600' : ''}`}>
                                             {shortage > 0 ? '+' : shortage < 0 ? '-' : ''}₹{Math.abs(shortage).toFixed(2)}
                                         </p>
                                     </div>

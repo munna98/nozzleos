@@ -17,6 +17,8 @@ interface Shift {
     status: string
     dutyHours: number
     totalFuelSales: number
+    totalProductSales?: number
+    totalSales?: number
     totalPaymentsCollected: number
     difference: number
     isShort: boolean
@@ -35,6 +37,8 @@ interface StaffData {
     totals: {
         totalDutyHours: number
         totalFuelSales: number
+        totalProductSales?: number
+        totalSales?: number
         totalPaymentsCollected: number
         totalDifference: number
     }
@@ -124,13 +128,17 @@ export function StaffReportCards({ staff }: StaffReportCardsProps) {
                         {expandedStaff.has(staffMember.userId) && (
                             <div className="mt-4 space-y-3 border-t pt-4">
                                 {/* Staff Totals */}
-                                <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+                                <div className="grid grid-cols-3 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
                                     <div>
-                                        <div className="text-muted-foreground text-xs">Total Fuel Sales</div>
+                                        <div className="text-muted-foreground text-xs">Fuel Sales</div>
                                         <div className="font-medium">{formatCurrency(staffMember.totals.totalFuelSales)}</div>
                                     </div>
                                     <div>
-                                        <div className="text-muted-foreground text-xs">Total Payments</div>
+                                        <div className="text-muted-foreground text-xs">Product Sales</div>
+                                        <div className="font-medium">{formatCurrency(staffMember.totals.totalProductSales || 0)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-muted-foreground text-xs">Payments</div>
                                         <div className="font-medium">{formatCurrency(staffMember.totals.totalPaymentsCollected)}</div>
                                     </div>
                                 </div>
@@ -174,10 +182,14 @@ export function StaffReportCards({ staff }: StaffReportCardsProps) {
                                             {/* Shift Details */}
                                             {expandedShifts.has(shift.id) && (
                                                 <div className="mt-3 pt-3 border-t space-y-2">
-                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                    <div className="grid grid-cols-3 gap-2 text-xs">
                                                         <div>
-                                                            <span className="text-muted-foreground">Fuel Sales:</span>
+                                                            <span className="text-muted-foreground">Fuel:</span>
                                                             <span className="ml-1 font-medium">{formatCurrency(shift.totalFuelSales)}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-muted-foreground">Products:</span>
+                                                            <span className="ml-1 font-medium">{formatCurrency(shift.totalProductSales || 0)}</span>
                                                         </div>
                                                         <div>
                                                             <span className="text-muted-foreground">Payments:</span>

@@ -29,6 +29,8 @@ model Station {
   dispensers      Dispenser[]
   nozzles         Nozzle[]
   products        Product[]
+  productGroups   ProductGroup[]
+  productUnits    ProductUnit[]
   dutySessions    DutySession[]
   settings        Settings?
 }
@@ -190,6 +192,32 @@ model Product {
   @@index([stationId])
   @@index([isActive])
   @@index([group])
+}
+
+model ProductGroup {
+  id        Int       @id @default(autoincrement())
+  stationId Int
+  name      String
+  color     String?   @default("slate")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  station   Station   @relation(fields: [stationId], references: [id])
+
+  @@unique([stationId, name])
+  @@index([stationId])
+}
+
+model ProductUnit {
+  id        Int       @id @default(autoincrement())
+  stationId Int
+  name      String
+  code      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  station   Station   @relation(fields: [stationId], references: [id])
+
+  @@unique([stationId, code])
+  @@index([stationId])
 }
 
 // ==================== DUTY SESSIONS ====================
