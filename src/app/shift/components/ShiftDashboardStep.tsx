@@ -77,6 +77,7 @@ interface PaymentData {
     methodId: number
     amount: number
     paymentId?: number
+    staffId?: number | null
     denominations?: DenominationCount[]
     coinsAmount?: number
 }
@@ -112,7 +113,11 @@ export function ShiftDashboardStep({
     isSubmitting,
     summary
 }: ShiftDashboardStepProps) {
+    const activeStaffQuery = trpc.user.getActiveStaff.useQuery()
+    const activeStaffList = activeStaffQuery.data || []
+
     const [selectedMethodId, setSelectedMethodId] = useState("")
+    const [selectedStaffId, setSelectedStaffId] = useState<string>("")
     const [manualAmount, setManualAmount] = useState("")
     const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({})
     const [coinsAmount, setCoinsAmount] = useState("")
@@ -317,6 +322,7 @@ export function ShiftDashboardStep({
 
     // Check if selected method is Cash and denomination entry is enabled
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
+    const isStaffMethod = selectedMethod?.name === 'STAFF'
     const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
     const existingCashPayment = session.sessionPayments.find(p => p.paymentMethod.name.toLowerCase() === 'cash')
 
@@ -362,6 +368,11 @@ export function ShiftDashboardStep({
     const handleAddPayment = async () => {
         if (!selectedMethodId) return
 
+        if (isStaffMethod && !selectedStaffId) {
+            toast.error("Please select a staff member")
+            return
+        }
+
         let amount: number
         let denomsToSend: DenominationCount[] | undefined
         let coinsToSend: number | undefined
@@ -388,12 +399,14 @@ export function ShiftDashboardStep({
                 methodId: parseInt(selectedMethodId),
                 amount,
                 paymentId: editingPaymentId || undefined,
+                staffId: isStaffMethod ? parseInt(selectedStaffId) : null,
                 denominations: denomsToSend,
                 coinsAmount: coinsToSend
             })
 
             // Reset form only on success
             setSelectedMethodId("")
+            setSelectedStaffId("")
             setManualAmount("")
             setDenominationCounts({})
             setCoinsAmount("")
@@ -405,6 +418,7 @@ export function ShiftDashboardStep({
 
     const handleEditPayment = (payment: SessionPayment) => {
         setSelectedMethodId(payment.paymentMethodId.toString())
+        setSelectedStaffId(payment.staffId ? payment.staffId.toString() : "")
         setManualAmount(payment.amount.toString())
         setEditingPaymentId(payment.id)
 
@@ -434,6 +448,7 @@ export function ShiftDashboardStep({
 
     const handleCancelEdit = () => {
         setSelectedMethodId("")
+        setSelectedStaffId("")
         setManualAmount("")
         setDenominationCounts({})
         setCoinsAmount("")
@@ -793,7 +808,12 @@ export function ShiftDashboardStep({
                                     <Combobox
                                         items={paymentMethods}
                                         value={selectedMethod || null}
-                                        onValueChange={(val: PaymentMethod | null) => setSelectedMethodId(val?.id.toString() ?? "")}
+                                        onValueChange={(val: PaymentMethod | null) => {
+                                            setSelectedMethodId(val?.id.toString() ?? "")
+                                            if (val?.name !== "STAFF") {
+                                                setSelectedStaffId("")
+                                            }
+                                        }}
                                         itemToStringLabel={(item: PaymentMethod) => item?.name ?? ""}
                                     >
                                         <ComboboxInput placeholder="Select Method" showClear />
@@ -814,6 +834,27 @@ export function ShiftDashboardStep({
                                         </ComboboxContent>
                                     </Combobox>
                                 </div>
+
+                                {isStaffMethod && (
+                                    <div className="space-y-2">
+                                        <Label>Select Staff <span className="text-destructive">*</span></Label>
+                                        <Select
+                                            value={selectedStaffId}
+                                            onValueChange={setSelectedStaffId}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select staff member" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {activeStaffList.map((st) => (
+                                                    <SelectItem key={st.id} value={st.id.toString()}>
+                                                        {st.name ? `${st.name} (${st.username})` : st.username}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 {/* Denomination Grid for Cash */}
                                 {showDenominations && (
@@ -925,6 +966,11 @@ export function ShiftDashboardStep({
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-medium text-sm">{payment.paymentMethod?.name}</span>
+                                                {payment.paymentMethod?.name === "STAFF" && payment.staff && (
+                                                    <Badge variant="outline" className="text-xs font-normal">
+                                                        {payment.staff.name || payment.staff.username}
+                                                    </Badge>
+                                                )}
                                                 <span className="text-xs text-muted-foreground">
                                                     {new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>

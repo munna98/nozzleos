@@ -135,6 +135,7 @@ export const shiftRouter = router({
                 sessionPayments: {
                     include: {
                         paymentMethod: true,
+                        staff: { select: { id: true, name: true, username: true } },
                         denominations: {
                             include: { denomination: true },
                         },
@@ -155,14 +156,33 @@ export const shiftRouter = router({
         .input(z.object({
             shiftType: z.nativeEnum(ShiftType),
             nozzleIds: z.array(z.number()).min(1),
+            userId: z.number().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const targetUserId = (isAdmin && input.userId) ? input.userId : ctx.user.id
+
+            // Check if user exists and is active in the station
+            if (targetUserId !== ctx.user.id) {
+                const targetUser = await prisma.user.findFirst({
+                    where: { id: targetUserId, stationId: ctx.stationId, isActive: true, deletedAt: null }
+                })
+                if (!targetUser) {
+                    throw new TRPCError({ code: 'NOT_FOUND', message: 'Staff member not found or inactive' })
+                }
+            }
+
             // Check for existing active shift
             const existingShift = await prisma.dutySession.findFirst({
-                where: { stationId: ctx.stationId, userId: ctx.user.id, status: 'in_progress' },
+                where: { stationId: ctx.stationId, userId: targetUserId, status: 'in_progress' },
             })
             if (existingShift) {
-                throw new TRPCError({ code: 'BAD_REQUEST', message: 'You already have an active shift' })
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: targetUserId === ctx.user.id
+                        ? 'You already have an active shift'
+                        : 'Selected staff member already has an active shift'
+                })
             }
 
             // Get nozzles with current readings (station-scoped)
@@ -170,11 +190,23 @@ export const shiftRouter = router({
                 where: { id: { in: input.nozzleIds }, stationId: ctx.stationId },
             })
 
+            if (nozzles.length !== input.nozzleIds.length) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'One or more selected nozzles not found' })
+            }
+
+            const unavailable = nozzles.filter(n => !n.isAvailable)
+            if (unavailable.length > 0) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: `Nozzle(s) ${unavailable.map(n => n.code).join(', ')} currently unavailable`
+                })
+            }
+
             // Create shift with nozzle readings
             const shift = await prisma.dutySession.create({
                 data: {
                     stationId: ctx.stationId,
-                    userId: ctx.user.id,
+                    userId: targetUserId,
                     type: input.shiftType,
                     nozzleReadings: {
                         create: nozzles.map((nozzle: { id: number; currentreading: number; price: number }) => ({
@@ -229,6 +261,7 @@ export const shiftRouter = router({
             paymentMethodId: z.number(),
             amount: z.number().min(0),
             quantity: z.number().optional(),
+            staffId: z.number().optional().nullable(),
             // Denomination support for cash payments
             denominations: z.array(z.object({
                 denominationId: z.number(),
@@ -250,8 +283,12 @@ export const shiftRouter = router({
                     amount: new Prisma.Decimal(input.amount),
                     quantity: input.quantity,
                     coinsAmount: input.coinsAmount ? new Prisma.Decimal(input.coinsAmount) : null,
+                    staffId: input.staffId ?? null,
                 },
-                include: { paymentMethod: true },
+                include: {
+                    paymentMethod: true,
+                    staff: { select: { id: true, name: true, username: true } },
+                },
             })
 
             // Create denomination records if provided
@@ -289,6 +326,7 @@ export const shiftRouter = router({
             paymentMethodId: z.number().optional(),
             amount: z.number().min(0).optional(),
             quantity: z.number().optional(),
+            staffId: z.number().optional().nullable(),
             denominations: z.array(z.object({
                 denominationId: z.number(),
                 count: z.number().min(0),
@@ -303,6 +341,7 @@ export const shiftRouter = router({
             if (data.amount !== undefined) updateData.amount = new Prisma.Decimal(data.amount)
             if (data.quantity !== undefined) updateData.quantity = data.quantity
             if (data.coinsAmount !== undefined) updateData.coinsAmount = new Prisma.Decimal(data.coinsAmount)
+            if (data.staffId !== undefined) updateData.staffId = data.staffId
 
             // Get old payment for balance adjustment
             const oldPayment = await prisma.sessionPayment.findUnique({
@@ -318,7 +357,10 @@ export const shiftRouter = router({
             const payment = await prisma.sessionPayment.update({
                 where: { id: paymentId },
                 data: updateData,
-                include: { paymentMethod: true },
+                include: {
+                    paymentMethod: true,
+                    staff: { select: { id: true, name: true, username: true } },
+                },
             })
 
             // Update denominations if provided
@@ -569,7 +611,12 @@ export const shiftRouter = router({
                     },
                     orderBy: { createdAt: 'desc' },
                 },
-                sessionPayments: { include: { paymentMethod: true } },
+                sessionPayments: {
+                    include: {
+                        paymentMethod: true,
+                        staff: { select: { id: true, name: true, username: true } },
+                    }
+                },
                 },
             })
 
@@ -737,6 +784,7 @@ export const shiftRouter = router({
                 sessionPayments: {
                         include: {
                             paymentMethod: true,
+                            staff: { select: { id: true, name: true, username: true } },
                             denominations: { include: { denomination: true } },
                         }
                     },
@@ -887,7 +935,12 @@ export const shiftRouter = router({
                     },
                     orderBy: { createdAt: 'desc' },
                 },
-                sessionPayments: { include: { paymentMethod: true } },
+                sessionPayments: {
+                    include: {
+                        paymentMethod: true,
+                        staff: { select: { id: true, name: true, username: true } },
+                    }
+                },
                         editRequests: {
                             where: { status: "pending" },
                             include: { requestedByUser: { select: { id: true, name: true, username: true } } }
@@ -1060,6 +1113,7 @@ export const shiftRouter = router({
                 sessionPayments: {
                         include: {
                             paymentMethod: true,
+                            staff: { select: { id: true, name: true, username: true } },
                             denominations: { include: { denomination: true } },
                         }
                     },
@@ -1144,7 +1198,12 @@ export const shiftRouter = router({
                     },
                     orderBy: { createdAt: 'desc' },
                 },
-                sessionPayments: { include: { paymentMethod: true } },
+                sessionPayments: {
+                    include: {
+                        paymentMethod: true,
+                        staff: { select: { id: true, name: true, username: true } },
+                    }
+                },
                     },
                     orderBy: { endTime: 'desc' },
                     skip: input.offset,
@@ -1403,6 +1462,7 @@ export const shiftRouter = router({
             data: z.object({
                 paymentMethodId: z.number(),
                 amount: z.number(),
+                staffId: z.number().optional().nullable(),
                 denominations: z.array(z.object({
                     denominationId: z.number(),
                     count: z.number().min(0),
@@ -1432,8 +1492,12 @@ export const shiftRouter = router({
                     paymentMethodId: input.data.paymentMethodId,
                     amount: new Prisma.Decimal(input.data.amount),
                     coinsAmount: input.data.coinsAmount ? new Prisma.Decimal(input.data.coinsAmount) : null,
+                    staffId: input.data.staffId ?? null,
                 },
-                include: { paymentMethod: true },
+                include: {
+                    paymentMethod: true,
+                    staff: { select: { id: true, name: true, username: true } },
+                },
             })
 
             // Create denomination records if provided
@@ -1469,6 +1533,7 @@ export const shiftRouter = router({
             data: z.object({
                 paymentMethodId: z.number().optional(),
                 amount: z.number().optional(),
+                staffId: z.number().optional().nullable(),
                 denominations: z.array(z.object({
                     denominationId: z.number(),
                     count: z.number().min(0),
@@ -1500,11 +1565,15 @@ export const shiftRouter = router({
             if (input.data.paymentMethodId) updateData.paymentMethodId = input.data.paymentMethodId
             if (input.data.amount !== undefined) updateData.amount = new Prisma.Decimal(input.data.amount)
             if (input.data.coinsAmount !== undefined) updateData.coinsAmount = new Prisma.Decimal(input.data.coinsAmount)
+            if (input.data.staffId !== undefined) updateData.staffId = input.data.staffId
 
             const payment = await prisma.sessionPayment.update({
                 where: { id: input.paymentId },
                 data: updateData,
-                include: { paymentMethod: true },
+                include: {
+                    paymentMethod: true,
+                    staff: { select: { id: true, name: true, username: true } },
+                },
             })
 
             // Update denominations if provided

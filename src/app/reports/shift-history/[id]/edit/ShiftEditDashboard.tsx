@@ -90,6 +90,7 @@ interface ShiftEditDashboardProps {
 export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditDashboardProps) {
     const utils = trpc.useUtils()
     const [selectedMethodId, setSelectedMethodId] = useState("")
+    const [selectedStaffId, setSelectedStaffId] = useState<string>("")
     const [manualAmount, setManualAmount] = useState("")
     const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({})
     const [coinsAmount, setCoinsAmount] = useState("")
@@ -123,6 +124,8 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const denominationsQuery = trpc.denomination.getAll.useQuery()
     const settingsQuery = trpc.settings.get.useQuery()
     const productsQuery = trpc.product.getAll.useQuery({ activeOnly: true })
+    const activeStaffQuery = trpc.user.getActiveStaff.useQuery()
+    const activeStaffList = activeStaffQuery.data || []
 
     const availableProducts = productsQuery.data || []
     const selectedProduct = useMemo(() => {
@@ -226,6 +229,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
 
     const resetPaymentForm = () => {
         setSelectedMethodId("")
+        setSelectedStaffId("")
         setManualAmount("")
         setDenominationCounts({})
         setCoinsAmount("")
@@ -303,6 +307,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const settings = settingsQuery.data
 
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
+    const isStaffMethod = selectedMethod?.name === "STAFF"
     const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
 
     const showDenominations = isCashPayment && settings?.enableDenominationEntry && denominations.length > 0
@@ -367,6 +372,11 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const handleAddOrUpdatePayment = () => {
         if (!selectedMethodId) return
 
+        if (isStaffMethod && !selectedStaffId) {
+            toast.error("Please select a staff member")
+            return
+        }
+
         let amount: number
         let denomsToSend: { denominationId: number; count: number }[] | undefined
         let coinsToSend: number | undefined
@@ -394,6 +404,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                 data: {
                     amount,
                     paymentMethodId: parseInt(selectedMethodId),
+                    staffId: isStaffMethod ? parseInt(selectedStaffId) : null,
                     denominations: denomsToSend,
                     coinsAmount: coinsToSend
                 }
@@ -404,6 +415,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                 data: {
                     amount,
                     paymentMethodId: parseInt(selectedMethodId),
+                    staffId: isStaffMethod ? parseInt(selectedStaffId) : null,
                     denominations: denomsToSend,
                     coinsAmount: coinsToSend
                 }
@@ -413,6 +425,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
 
     const handleEditPayment = (payment: any) => {
         setSelectedMethodId(payment.paymentMethodId.toString())
+        setSelectedStaffId(payment.staffId ? payment.staffId.toString() : "")
         setManualAmount(payment.amount.toString())
         setEditingPaymentId(payment.id)
 
@@ -891,7 +904,12 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                     <Combobox
                                         items={paymentMethods}
                                         value={selectedMethod || null}
-                                        onValueChange={(val: PaymentMethod | null) => setSelectedMethodId(val?.id.toString() ?? "")}
+                                        onValueChange={(val: PaymentMethod | null) => {
+                                            setSelectedMethodId(val?.id.toString() ?? "")
+                                            if (val?.name !== "STAFF") {
+                                                setSelectedStaffId("")
+                                            }
+                                        }}
                                         itemToStringLabel={(item: PaymentMethod) => item?.name ?? ""}
                                     >
                                         <ComboboxInput placeholder="Select Method" showClear />
@@ -912,6 +930,27 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                         </ComboboxContent>
                                     </Combobox>
                                 </div>
+
+                                {isStaffMethod && (
+                                    <div className="space-y-2">
+                                        <Label>Select Staff <span className="text-destructive">*</span></Label>
+                                        <Select
+                                            value={selectedStaffId}
+                                            onValueChange={setSelectedStaffId}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select staff member" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {activeStaffList.map((st) => (
+                                                    <SelectItem key={st.id} value={st.id.toString()}>
+                                                        {st.name ? `${st.name} (${st.username})` : st.username}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 {/* Denomination Grid for Cash */}
                                 {showDenominations && (
@@ -1013,6 +1052,11 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-medium text-sm">{payment.paymentMethod?.name}</span>
+                                                    {payment.paymentMethod?.name === "STAFF" && payment.staff && (
+                                                        <Badge variant="outline" className="text-xs font-normal">
+                                                            {payment.staff.name || payment.staff.username}
+                                                        </Badge>
+                                                    )}
                                                     <span className="text-xs text-muted-foreground">
                                                         {new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>

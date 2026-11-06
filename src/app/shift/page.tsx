@@ -16,8 +16,10 @@ import { ShiftType } from "@prisma/client"
 export default function ShiftPage() {
     const { user } = useAuth()
     const router = useRouter()
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
     const [step, setStep] = useState(1)
     const [shiftType, setShiftType] = useState<ShiftType | null>(null)
+    const [selectedStaffId, setSelectedStaffId] = useState<string>("")
     const [selectedNozzleIds, setSelectedNozzleIds] = useState<number[]>([])
     const [elapsedTime, setElapsedTime] = useState(0)
     const [lastSummary, setLastSummary] = useState<any>(null)
@@ -137,7 +139,8 @@ export default function ShiftPage() {
 
         startShiftMutation.mutate({
             shiftType,
-            nozzleIds: selectedNozzleIds
+            nozzleIds: selectedNozzleIds,
+            userId: selectedStaffId ? parseInt(selectedStaffId) : undefined
         })
     }
 
@@ -172,6 +175,7 @@ export default function ShiftPage() {
         methodId: number;
         amount: number;
         paymentId?: number;
+        staffId?: number | null;
         denominations?: { denominationId: number; count: number }[];
         coinsAmount?: number;
     }) => {
@@ -182,6 +186,7 @@ export default function ShiftPage() {
                 paymentId: data.paymentId,
                 paymentMethodId: data.methodId,
                 amount: data.amount,
+                staffId: data.staffId,
                 denominations: data.denominations,
                 coinsAmount: data.coinsAmount
             })
@@ -190,6 +195,7 @@ export default function ShiftPage() {
                 shiftId: activeShiftQuery.data.id,
                 paymentMethodId: data.methodId,
                 amount: data.amount,
+                staffId: data.staffId,
                 denominations: data.denominations,
                 coinsAmount: data.coinsAmount
             })
@@ -254,6 +260,9 @@ export default function ShiftPage() {
                     setSelectedNozzleIds={setSelectedNozzleIds}
                     onStart={handleStartShift}
                     isStarting={startShiftMutation.isPending}
+                    selectedStaffId={selectedStaffId}
+                    setSelectedStaffId={setSelectedStaffId}
+                    isAdmin={isAdmin}
                 />
             )}
 

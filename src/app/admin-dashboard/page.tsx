@@ -7,12 +7,17 @@ import { FuelRatesPanel } from "../components/FuelRatesPanel"
 import { RecentActivityFeed } from "../components/RecentActivityFeed"
 import { StaffPerformanceChart } from "../components/StaffPerformanceChart"
 import { QuickLinksCard } from "../components/QuickLinksCard"
-import { useEffect } from "react"
+import { CreateShiftDialog } from "../components/CreateShiftDialog"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PlusSignIcon } from "@hugeicons/core-free-icons"
 
 export default function AdminDashboardPage() {
     const { user, isAuthenticated, isLoading } = useAuth()
     const router = useRouter()
+    const [isCreateShiftOpen, setIsCreateShiftOpen] = useState(false)
 
     useEffect(() => {
         if (isLoading) return
@@ -48,13 +53,22 @@ export default function AdminDashboardPage() {
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
                 </div>
-                <div className="text-xs md:text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
-                    <span className="md:hidden">
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    </span>
-                    <span className="hidden md:inline">
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={() => setIsCreateShiftOpen(true)}
+                        className="gap-1.5"
+                    >
+                        <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                        <span>Start Shift</span>
+                    </Button>
+                    <div className="text-xs md:text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
+                        <span className="md:hidden">
+                            {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                        <span className="hidden md:inline">
+                            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -77,6 +91,11 @@ export default function AdminDashboardPage() {
                     <StaffPerformanceChart />
                 </div>
             </div>
+
+            <CreateShiftDialog
+                open={isCreateShiftOpen}
+                onOpenChange={setIsCreateShiftOpen}
+            />
         </div>
     )
 }

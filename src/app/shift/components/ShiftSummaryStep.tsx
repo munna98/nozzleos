@@ -386,6 +386,11 @@ export function ShiftSummaryStep({
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-medium">{summary.methodName}</span>
+                                                            {summary.methodName === "STAFF" && summary.count === 1 && summary.payments[0]?.staff && (
+                                                                <Badge variant="outline" className="text-xs font-normal">
+                                                                    {summary.payments[0].staff.name || summary.payments[0].staff.username}
+                                                                </Badge>
+                                                            )}
                                                             {summary.count > 1 && (
                                                                 <span className="text-[10px] text-muted-foreground font-medium ml-2">
                                                                     ({summary.count})
@@ -432,6 +437,11 @@ export function ShiftSummaryStep({
                                                                             <div key={payment.id} className="p-3 pl-10 pr-6 flex flex-col gap-2">
                                                                                 <div className="flex justify-between items-center">
                                                                                     <div className="flex items-center gap-2">
+                                                                                        {summary.methodName === "STAFF" && payment.staff && (
+                                                                                            <Badge variant="outline" className="text-xs font-normal">
+                                                                                                {payment.staff.name || payment.staff.username}
+                                                                                            </Badge>
+                                                                                        )}
                                                                                         <span className="text-xs text-muted-foreground">
                                                                                             {new Date(payment.createdAt).toLocaleTimeString()}
                                                                                         </span>

@@ -22,7 +22,9 @@ export default function ShiftDetailPage() {
     )
 
     const handleBack = () => {
-        if (source === 'dashboard') {
+        if (source === 'admin-dashboard' || (source === 'dashboard' && isAdmin)) {
+            router.push('/admin-dashboard')
+        } else if (source === 'dashboard') {
             router.push('/dashboard')
         } else {
             router.push('/reports/shift-history')

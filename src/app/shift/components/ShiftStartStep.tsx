@@ -6,8 +6,15 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CheckmarkCircle02Icon, Alert02Icon, Sun03Icon, Moon02Icon, SunsetIcon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon, Alert02Icon, Sun03Icon, Moon02Icon, SunsetIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { trpc } from "@/lib/trpc"
 import { Nozzle } from "@/lib/api"
 import { ShiftType } from "@prisma/client"
@@ -19,6 +26,9 @@ interface ShiftStartStepProps {
     setSelectedNozzleIds: (ids: number[]) => void
     onStart: () => void
     isStarting: boolean
+    selectedStaffId?: string
+    setSelectedStaffId?: (id: string) => void
+    isAdmin?: boolean
 }
 
 export function ShiftStartStep({
@@ -27,12 +37,20 @@ export function ShiftStartStep({
     selectedNozzleIds,
     setSelectedNozzleIds,
     onStart,
-    isStarting
+    isStarting,
+    selectedStaffId,
+    setSelectedStaffId,
+    isAdmin
 }: ShiftStartStepProps) {
     const nozzlesQuery = trpc.nozzle.getAll.useQuery()
+    const activeStaffQuery = trpc.user.getActiveStaff.useQuery(undefined, {
+        enabled: !!isAdmin
+    })
 
     const availableNozzles = nozzlesQuery.data?.filter((n: Nozzle) => n.isActive)
         .sort((a: Nozzle, b: Nozzle) => a.code.localeCompare(b.code)) || []
+
+    const staffList = activeStaffQuery.data || []
 
     const toggleNozzleSelection = (nozzleId: number) => {
         const newIds = selectedNozzleIds.includes(nozzleId)
@@ -54,6 +72,31 @@ export function ShiftStartStep({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    {/* Admin: Staff Selection */}
+                    {isAdmin && setSelectedStaffId && (
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5 font-medium">
+                                <HugeiconsIcon icon={UserIcon} className="h-4 w-4 text-muted-foreground" />
+                                Staff / Attendant
+                            </Label>
+                            <Select
+                                value={selectedStaffId || ""}
+                                onValueChange={setSelectedStaffId}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select staff member (optional, defaults to you)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {staffList.map((st) => (
+                                        <SelectItem key={st.id} value={st.id.toString()}>
+                                            {st.name ? `${st.name} (${st.username})` : st.username} - {st.role.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
                     <div className="space-y-3">
                         <Label>Shift Type</Label>
                         <Tabs

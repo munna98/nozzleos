@@ -69,6 +69,7 @@ export const paymentRouter = router({
                     where,
                     include: {
                         paymentMethod: true,
+                        staff: { select: { id: true, name: true, username: true } },
                         dutySession: {
                             include: {
                                 user: { select: { id: true, name: true, username: true } },

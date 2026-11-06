@@ -79,6 +79,39 @@ export const userRouter = router({
         }),
 
     /**
+     * Get all active station staff/users (tenant-scoped, for dropdowns)
+     */
+    getActiveStaff: tenantProcedure
+        .query(async ({ ctx }) => {
+            const users = await prisma.user.findMany({
+                where: {
+                    stationId: ctx.stationId,
+                    isActive: true,
+                    deletedAt: null,
+                    role: {
+                        name: { not: 'Super Admin' }
+                    }
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    role: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                },
+                orderBy: [
+                    { name: 'asc' },
+                    { username: 'asc' }
+                ],
+            })
+            return users
+        }),
+
+    /**
      * Create new user (admin only)
      */
     create: adminProcedure

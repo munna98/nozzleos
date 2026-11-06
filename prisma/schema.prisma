@@ -62,6 +62,7 @@ model User {
   verifiedSessions      DutySession[]      @relation("VerifiedSessions")
   initiatedEditRequests ShiftEditRequest[] @relation("EditRequestInitiatedBy")
   approvedEditRequests  ShiftEditRequest[] @relation("EditRequestApprovedBy")
+  staffPayments         SessionPayment[]   @relation("StaffPayments")
   role                  UserRole           @relation(fields: [roleId], references: [id])
 
   // For station users: unique username per station
@@ -281,9 +282,12 @@ model SessionPayment {
   denominations   PaymentDenomination[]
   dutySession     DutySession           @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
   paymentMethod   PaymentMethod         @relation(fields: [paymentMethodId], references: [id])
+  staffId         Int?
+  staff           User?                 @relation("StaffPayments", fields: [staffId], references: [id])
 
   @@index([dutySessionId])
   @@index([paymentMethodId])
+  @@index([staffId])
   @@index([createdAt])
 }
 

@@ -251,7 +251,14 @@ export default function PaymentTransactionsReport() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {tx.paymentMethod.name}
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span>{tx.paymentMethod.name}</span>
+                                                        {tx.paymentMethod.name === "STAFF" && tx.staff && (
+                                                            <Badge variant="outline" className="text-xs font-normal">
+                                                                {tx.staff.name || tx.staff.username}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     {tx.dutySession.user.name || tx.dutySession.user.username}
@@ -324,9 +331,16 @@ export default function PaymentTransactionsReport() {
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1">
-                                                <span className="font-medium text-sm">
-                                                    {tx.paymentMethod.name}
-                                                </span>
+                                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                                    <span className="font-medium text-sm">
+                                                        {tx.paymentMethod.name}
+                                                    </span>
+                                                    {tx.paymentMethod.name === "STAFF" && tx.staff && (
+                                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
+                                                            {tx.staff.name || tx.staff.username}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
                                                     {tx.dutySession.type
                                                         ? (tx.dutySession.type.charAt(0) + tx.dutySession.type.slice(1).toLowerCase())
