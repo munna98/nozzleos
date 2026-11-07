@@ -625,13 +625,12 @@ export const productRouter = router({
                 where.createdAt = {}
                 if (input.startDate) {
                     const start = new Date(input.startDate)
-                    start.setHours(0, 0, 0, 0)
                     ;(where.createdAt as Record<string, unknown>).gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    end.setHours(23, 59, 59, 999)
-                    ;(where.createdAt as Record<string, unknown>).lte = end
+                    end.setDate(end.getDate() + 1)
+                    ;(where.createdAt as Record<string, unknown>).lt = end
                 }
             }
 
