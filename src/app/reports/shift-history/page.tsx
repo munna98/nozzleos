@@ -15,6 +15,9 @@ import { ArrowLeft01Icon, FilterIcon } from "@hugeicons/core-free-icons"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
+import { format } from "date-fns"
+import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
+import { exportShiftHistoryReport } from "@/lib/reports/excel-export"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -60,6 +63,7 @@ export default function ShiftHistoryPage() {
 
     const [page, setPage] = useState(0)
     const [limit, setLimit] = useState(10)
+    const [isExporting, setIsExporting] = useState(false)
 
     // Fetch shifts with filters
     const shiftsQuery = trpc.shift.getAll.useQuery({
@@ -137,6 +141,49 @@ export default function ShiftHistoryPage() {
         })
     }
 
+    const handleExportExcel = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.shift.getAll.fetch({
+                limit: 10000,
+                offset: 0,
+                status: filters.status,
+                shiftType: filters.shiftType,
+                startDateFrom: filters.startDateFrom,
+                startDateTo: filters.startDateTo,
+                userNameSearch: filters.userNameSearch,
+                userId: filters.userId,
+            })
+
+            if (!exportData?.sessions?.length) {
+                toast.error("No shifts found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = filters.startDateFrom && filters.startDateTo
+                ? `${format(new Date(filters.startDateFrom), "dd MMM yyyy")} to ${format(new Date(filters.startDateTo), "dd MMM yyyy")}`
+                : filters.startDateFrom
+                ? `From ${format(new Date(filters.startDateFrom), "dd MMM yyyy")}`
+                : "All Time"
+
+            await exportShiftHistoryReport({
+                shifts: exportData.sessions,
+                summary: exportData.summary,
+                dateRangeLabel,
+                statusLabel: filters.status ? filters.status.toUpperCase() : "All",
+                shiftTypeLabel: filters.shiftType ? (filters.shiftType.charAt(0).toUpperCase() + filters.shiftType.slice(1).toLowerCase()) : "All",
+                attendantLabel: filters.userNameSearch || "All",
+            })
+
+            toast.success("Shift history exported to Excel successfully!")
+        } catch (err: any) {
+            console.error("Export error:", err)
+            toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     // Show detail view if a shift is selected
     if (selectedShiftId) {
         if (shiftDetailQuery.isLoading) {
@@ -176,35 +223,48 @@ export default function ShiftHistoryPage() {
 
     return (
         <div className="container mx-auto py-10 space-y-6 px-4">
-            {/* Header with Filter Button */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                        <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
-                    </Button>
-                    <h2 className="text-3xl font-bold tracking-tight">Shift History</h2>
-                </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setFilterOpen(!filterOpen)}
-                    className="md:hidden relative"
-                >
-                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
-                    {Object.keys(filters).length > 0 && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
-                            {Object.keys(filters).length}
-                        </Badge>
-                    )}
-                </Button>
+            {/* Header with Back Button, Filters, and Export */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                            <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
+                        </Button>
+                        <h2 className="text-3xl font-bold tracking-tight">Shift History</h2>
+                    </div>
 
-                {/* Desktop Filters (Always Visible, Inline) */}
-                <div className="hidden md:block">
+                    <div className="flex items-center gap-2 md:hidden">
+                        <ReportExportDropdown
+                            onExportExcel={handleExportExcel}
+                            isExporting={isExporting}
+                        />
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setFilterOpen(!filterOpen)}
+                            className="relative"
+                        >
+                            <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                            {Object.keys(filters).length > 0 && (
+                                <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                                    {Object.keys(filters).length}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Desktop Filters & Export (Always Visible, Inline) */}
+                <div className="hidden md:flex md:items-center md:gap-2">
                     <ShiftFilters
                         filters={filters}
                         onFiltersChange={handleApplyFilters}
                         isAdmin={isAdmin}
                         className="flex items-center gap-2"
+                    />
+                    <ReportExportDropdown
+                        onExportExcel={handleExportExcel}
+                        isExporting={isExporting}
                     />
                 </div>
             </div>

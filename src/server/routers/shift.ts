@@ -843,7 +843,7 @@ export const shiftRouter = router({
      */
     getAll: tenantProcedure
         .input(z.object({
-            limit: z.number().min(1).max(100).default(20),
+            limit: z.number().min(1).max(10000).default(20),
             offset: z.number().min(0).default(0),
             status: z.string().optional(),
             shiftType: z.nativeEnum(ShiftType).optional(),

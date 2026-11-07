@@ -8,7 +8,7 @@ export const paymentRouter = router({
      */
     getTransactions: tenantProcedure
         .input(z.object({
-            limit: z.number().min(1).max(100).default(50),
+            limit: z.number().min(1).max(10000).default(50),
             offset: z.number().min(0).default(0),
             startDate: z.date().optional(),
             endDate: z.date().optional(),

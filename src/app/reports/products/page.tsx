@@ -28,6 +28,9 @@ import {
 } from "@hugeicons/core-free-icons"
 import { ProductSalesFilters } from "./components/ProductSalesFilters"
 import { ProductSalesSummaryCards } from "./components/ProductSalesSummaryCards"
+import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
+import { exportProductSalesReport } from "@/lib/reports/excel-export"
+import { toast } from "sonner"
 
 export default function ProductSalesReportPage() {
     const router = useRouter()
@@ -52,7 +55,9 @@ export default function ProductSalesReportPage() {
     const [productSearch, setProductSearch] = useState<string>("")
     const [page, setPage] = useState<number>(0)
     const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false)
+    const [isExporting, setIsExporting] = useState<boolean>(false)
     const limit = 50
+    const utils = trpc.useUtils()
 
     // Queries
     const groupsQuery = trpc.product.getGroups.useQuery()
@@ -112,6 +117,49 @@ export default function ProductSalesReportPage() {
 
     const totalPages = data ? Math.ceil(data.pagination.total / limit) : 0
 
+    const handleExportExcel = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.product.getSalesReport.fetch({
+                ...queryInput,
+                limit: 10000,
+                offset: 0,
+            })
+
+            if (!exportData?.byProduct?.length && !exportData?.transactions?.length) {
+                toast.error("No product sales found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const productObj = productsQuery.data?.find((p) => p.id.toString() === selectedProductId)
+            const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === selectedUserId)
+
+            await exportProductSalesReport({
+                byProduct: exportData.byProduct || [],
+                byGroup: exportData.byGroup || [],
+                transactions: exportData.transactions || [],
+                summary: exportData.summary,
+                dateRangeLabel,
+                categoryLabel: selectedGroup === "all" ? "All Categories" : selectedGroup,
+                productLabel: selectedProductId === "all" ? "All Products" : (productObj?.name || "Selected Product"),
+                attendantLabel: selectedUserId === "all" ? "All Attendants" : (attendantObj?.name || attendantObj?.username || "Selected Attendant"),
+            })
+
+            toast.success("Product sales report exported to Excel successfully!")
+        } catch (err: any) {
+            console.error("Export error:", err)
+            toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     return (
         <div className="container mx-auto py-10 space-y-6 px-4">
             {/* Header with Back Button and Filters at the right */}
@@ -124,23 +172,29 @@ export default function ProductSalesReportPage() {
                         <h2 className="text-3xl font-bold tracking-tight">Product Sales</h2>
                     </div>
 
-                    {/* Mobile Filter Toggle */}
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className="md:hidden relative"
-                    >
-                        <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
-                        {activeFilterCount > 0 && (
-                            <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
-                                {activeFilterCount}
-                            </Badge>
-                        )}
-                    </Button>
+                    <div className="flex items-center gap-2 md:hidden">
+                        <ReportExportDropdown
+                            onExportExcel={handleExportExcel}
+                            isExporting={isExporting}
+                        />
+                        {/* Mobile Filter Toggle */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className="relative"
+                        >
+                            <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                            {activeFilterCount > 0 && (
+                                <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                                    {activeFilterCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Desktop Filters (Always Visible at the right of the title) */}
+                {/* Desktop Filters & Export */}
                 <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2 md:flex-shrink-0">
                     <ProductSalesFilters
                         fromDate={fromDate}
@@ -160,6 +214,10 @@ export default function ProductSalesReportPage() {
                         attendants={attendantsQuery.data || []}
                         onReset={handleResetFilters}
                         className="flex flex-row items-center gap-2"
+                    />
+                    <ReportExportDropdown
+                        onExportExcel={handleExportExcel}
+                        isExporting={isExporting}
                     />
                 </div>
             </div>
@@ -483,12 +541,7 @@ export default function ProductSalesReportPage() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="outline" className="font-mono text-xs">
-                                                                {t.product?.code}
-                                                            </Badge>
-                                                            <span className="font-medium text-sm">{t.product?.name}</span>
-                                                        </div>
+                                                        <span className="font-medium text-sm">{t.product?.name}</span>
                                                     </TableCell>
                                                     <TableCell className="text-right font-medium">
                                                         {t.quantity} {t.product?.unit}

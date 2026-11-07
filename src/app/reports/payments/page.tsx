@@ -23,6 +23,9 @@ import { FilterIcon, UserCircleIcon, ArrowLeft01Icon, Calendar01Icon } from "@hu
 
 import { PaymentFilters } from "./components/PaymentFilters"
 import { PaymentSummaryCards } from "./components/PaymentSummaryCards"
+import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
+import { exportPaymentsReport } from "@/lib/reports/excel-export"
+import { toast } from "sonner"
 
 export default function PaymentTransactionsReport() {
     const router = useRouter()
@@ -42,7 +45,9 @@ export default function PaymentTransactionsReport() {
     const [activeTab, setActiveTab] = useState<string>("summary")
     const [page, setPage] = useState(0)
     const [isFilterOpen, setIsFilterOpen] = useState(false)
+    const [isExporting, setIsExporting] = useState(false)
     const limit = 50
+    const utils = trpc.useUtils()
 
     // Fetch filters data
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
@@ -97,34 +102,92 @@ export default function PaymentTransactionsReport() {
         attendantId !== "all"
     ].filter(Boolean).length
 
+    const handleExportExcel = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.payment.getTransactions.fetch({
+                ...queryInput,
+                limit: 10000,
+                offset: 0,
+            })
+
+            if (!exportData?.transactions?.length) {
+                toast.error("No transactions found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const methodObj = paymentMethodsQuery.data?.find((m) => m.id.toString() === paymentMethodId)
+            const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === attendantId)
+
+            await exportPaymentsReport({
+                transactions: exportData.transactions,
+                summary: exportData.summary,
+                dateRangeLabel,
+                paymentMethodLabel:
+                    paymentMethodId === "all"
+                        ? "All Methods"
+                        : paymentMethodId === "customer_all"
+                        ? "All Customer Credits"
+                        : paymentMethodId === "standard_all"
+                        ? "All Standard Methods"
+                        : methodObj?.name || "Selected Method",
+                attendantLabel:
+                    attendantId === "all"
+                        ? "All Attendants"
+                        : attendantObj?.name || attendantObj?.username || "Selected Attendant",
+            })
+
+            toast.success("Payments report exported to Excel successfully!")
+        } catch (err: any) {
+            console.error("Export error:", err)
+            toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     return (
         <div className="container mx-auto py-10 space-y-6 px-4">
-            {/* Header with Back Button and Filters */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                        <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
-                    </Button>
-                    <h2 className="text-3xl font-bold tracking-tight">Payments Report</h2>
+            {/* Header with Back Button, Filters, and Export */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                            <HugeiconsIcon icon={ArrowLeft01Icon} className="h-5 w-5" />
+                        </Button>
+                        <h2 className="text-3xl font-bold tracking-tight">Payments Report</h2>
+                    </div>
+
+                    <div className="flex items-center gap-2 md:hidden">
+                        <ReportExportDropdown
+                            onExportExcel={handleExportExcel}
+                            isExporting={isExporting}
+                        />
+                        {/* Mobile Filter Toggle */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className="relative"
+                        >
+                            <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                            {activeFilterCount > 0 && (
+                                <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                                    {activeFilterCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Mobile Filter Toggle */}
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="md:hidden relative"
-                >
-                    <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
-                    {activeFilterCount > 0 && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
-                            {activeFilterCount}
-                        </Badge>
-                    )}
-                </Button>
-
-                {/* Desktop Filters (Always Visible) */}
-                <div className="hidden md:block">
+                {/* Desktop Filters & Export */}
+                <div className="hidden md:flex md:items-center md:gap-2">
                     <PaymentFilters
                         fromDate={fromDate}
                         setFromDate={handleFromDateChange}
@@ -139,6 +202,10 @@ export default function PaymentTransactionsReport() {
                         paymentMethods={paymentMethodsQuery.data || []}
                         attendants={attendantsQuery.data || []}
                         className="flex items-center gap-2"
+                    />
+                    <ReportExportDropdown
+                        onExportExcel={handleExportExcel}
+                        isExporting={isExporting}
                     />
                 </div>
             </div>

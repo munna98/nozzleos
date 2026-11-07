@@ -15,6 +15,10 @@ import { StaffReportTable } from "./components/StaffReportTable"
 import { StaffReportCards } from "./components/StaffReportCards"
 import { FuelBreakdownSummary } from "./components/FuelBreakdownSummary"
 import { ShiftType } from "@prisma/client"
+import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
+import { exportStaffPerformanceReport } from "@/lib/reports/excel-export"
+import { toast } from "sonner"
+import { format } from "date-fns"
 
 export default function StaffReportPage() {
     const router = useRouter()
@@ -35,6 +39,8 @@ export default function StaffReportPage() {
     const [shiftType, setShiftType] = useState<string>("all")
     const [userId, setUserId] = useState<string>("all")
     const [isFilterOpen, setIsFilterOpen] = useState(false)
+    const [isExporting, setIsExporting] = useState(false)
+    const utils = trpc.useUtils()
 
     // Fetch users for filter (admin only)
     const usersQuery = trpc.user.getAll.useQuery(
@@ -65,9 +71,55 @@ export default function StaffReportPage() {
         userId !== "all"
     ].filter(Boolean).length
 
+    const handleExportExcel = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.staff.getStaffReport.fetch({
+                startDate: fromDate,
+                endDate: toDate,
+                shiftType: shiftType !== "all" ? (shiftType as ShiftType) : undefined,
+                userId: userId !== "all" ? parseInt(userId) : undefined,
+            })
+
+            if (!exportData?.staff?.length) {
+                toast.error("No staff performance data found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const selectedUser = usersQuery.data?.find((u) => u.id.toString() === userId)
+
+            await exportStaffPerformanceReport({
+                staff: exportData.staff,
+                summary: exportData.summary,
+                dateRangeLabel,
+                shiftTypeLabel:
+                    shiftType === "all"
+                        ? "All Shifts"
+                        : shiftType.charAt(0).toUpperCase() + shiftType.slice(1).toLowerCase(),
+                userLabel:
+                    userId === "all"
+                        ? "All Staff"
+                        : selectedUser?.name || selectedUser?.username || "Selected Staff",
+            })
+
+            toast.success("Staff performance report exported to Excel successfully!")
+        } catch (err: any) {
+            console.error("Export error:", err)
+            toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     return (
         <div className="container mx-auto py-8 space-y-4 px-4">
-            {/* Header with Filter Toggle */}
+            {/* Header with Back Button, Filters, and Export */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex items-center justify-between w-full md:w-auto gap-4">
                     <div className="flex items-center gap-4">
@@ -77,23 +129,29 @@ export default function StaffReportPage() {
                         <h2 className="text-3xl font-bold tracking-tight">Staff Performance</h2>
                     </div>
 
-                    {/* Mobile Filter Toggle */}
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className="md:hidden relative"
-                    >
-                        <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
-                        {activeFilterCount > 0 && (
-                            <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
-                                {activeFilterCount}
-                            </Badge>
-                        )}
-                    </Button>
+                    <div className="flex items-center gap-2 md:hidden">
+                        <ReportExportDropdown
+                            onExportExcel={handleExportExcel}
+                            isExporting={isExporting}
+                        />
+                        {/* Mobile Filter Toggle */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className="relative"
+                        >
+                            <HugeiconsIcon icon={FilterIcon} className="h-5 w-5" />
+                            {activeFilterCount > 0 && (
+                                <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full text-[10px] bg-primary text-primary-foreground border-2 border-background">
+                                    {activeFilterCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Desktop Filters (Always Visible) */}
+                {/* Desktop Filters & Export */}
                 <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2 md:flex-shrink-0">
                     <StaffReportFilters
                         fromDate={fromDate}
@@ -108,6 +166,10 @@ export default function StaffReportPage() {
                         setUserId={setUserId}
                         users={usersQuery.data || []}
                         className="flex items-center gap-2 flex-wrap"
+                    />
+                    <ReportExportDropdown
+                        onExportExcel={handleExportExcel}
+                        isExporting={isExporting}
                     />
                 </div>
             </div>

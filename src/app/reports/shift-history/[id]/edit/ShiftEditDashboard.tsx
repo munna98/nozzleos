@@ -1269,7 +1269,6 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                     {availableProducts.map((product: Product) => (
                                         <SelectItem key={product.id} value={product.id.toString()}>
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-xs font-mono">{product.code}</Badge>
                                                 <span>{product.name}</span>
                                                 <span className="text-xs text-muted-foreground">
                                                     (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
