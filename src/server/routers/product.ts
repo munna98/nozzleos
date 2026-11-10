@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { router, adminProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
@@ -596,6 +597,230 @@ export const productRouter = router({
         }),
 
     /**
+     * ==================== STANDALONE PRODUCT SALES (ADMIN) ====================
+     */
+
+    /**
+     * Create one or more standalone product sales outside of a shift (admin / manager)
+     */
+    createDirectSales: adminProcedure
+        .input(
+            z.object({
+                soldAt: z.date().optional(),
+                soldByUserId: z.number().nullable().optional(),
+                notes: z.string().trim().max(500).optional(),
+                items: z.array(
+                    z.object({
+                        productId: z.number(),
+                        quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+                        price: z.number().min(0, 'Price must be 0 or higher').optional(),
+                    })
+                ).min(1, 'At least one product is required'),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const productIds = Array.from(new Set(input.items.map(i => i.productId)))
+            const products = await prisma.product.findMany({
+                where: {
+                    id: { in: productIds },
+                    stationId: ctx.stationId,
+                    deletedAt: null,
+                },
+            })
+
+            const productMap = new Map(products.map(p => [p.id, p]))
+            for (const item of input.items) {
+                if (!productMap.has(item.productId)) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'One or more selected products were not found',
+                    })
+                }
+            }
+
+            if (input.soldByUserId !== undefined && input.soldByUserId !== null) {
+                const staff = await prisma.user.findFirst({
+                    where: {
+                        id: input.soldByUserId,
+                        stationId: ctx.stationId,
+                        deletedAt: null,
+                    },
+                })
+                if (!staff) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'Selected staff member not found',
+                    })
+                }
+            }
+
+            const saleTimestamp = input.soldAt ?? new Date()
+            const notesValue = input.notes && input.notes.length > 0 ? input.notes : null
+            const soldBy = input.soldByUserId === undefined ? ctx.user.id : input.soldByUserId
+
+            const createdSales = await prisma.$transaction(
+                input.items.map(item => {
+                    const product = productMap.get(item.productId)!
+                    const priceToUse = item.price !== undefined ? item.price : product.rate
+                    const amount = Math.round(item.quantity * priceToUse * 100) / 100
+
+                    return prisma.sessionProduct.create({
+                        data: {
+                            stationId: ctx.stationId,
+                            dutySessionId: null,
+                            productId: item.productId,
+                            soldByUserId: soldBy,
+                            createdByUserId: ctx.user.id,
+                            quantity: new Prisma.Decimal(item.quantity),
+                            price: new Prisma.Decimal(priceToUse),
+                            amount: new Prisma.Decimal(amount),
+                            soldAt: saleTimestamp,
+                            notes: notesValue,
+                        },
+                        include: {
+                            product: true,
+                        },
+                    })
+                })
+            )
+
+            return createdSales
+        }),
+
+    /**
+     * Update a standalone product sale (admin / manager)
+     */
+    updateDirectSale: adminProcedure
+        .input(
+            z.object({
+                id: z.number(),
+                productId: z.number().optional(),
+                quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+                price: z.number().min(0, 'Price must be 0 or higher').optional(),
+                soldAt: z.date().optional(),
+                soldByUserId: z.number().nullable().optional(),
+                notes: z.string().trim().max(500).nullable().optional(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const existing = await prisma.sessionProduct.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId,
+                },
+                include: { product: true },
+            })
+
+            if (!existing) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Product sale record not found',
+                })
+            }
+
+            if (existing.dutySessionId !== null) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'Shift-linked product sales must be edited from the shift',
+                })
+            }
+
+            const productIdToUse = input.productId ?? existing.productId
+            const product = await prisma.product.findFirst({
+                where: {
+                    id: productIdToUse,
+                    stationId: ctx.stationId,
+                    deletedAt: null,
+                },
+            })
+
+            if (!product) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Product not found',
+                })
+            }
+
+            if (input.soldByUserId !== undefined && input.soldByUserId !== null) {
+                const staff = await prisma.user.findFirst({
+                    where: {
+                        id: input.soldByUserId,
+                        stationId: ctx.stationId,
+                        deletedAt: null,
+                    },
+                })
+                if (!staff) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'Selected staff member not found',
+                    })
+                }
+            }
+
+            const priceToUse =
+                input.price !== undefined
+                    ? input.price
+                    : input.productId && input.productId !== existing.productId
+                        ? product.rate
+                        : Number(existing.price)
+            const amount = Math.round(input.quantity * priceToUse * 100) / 100
+
+            return prisma.sessionProduct.update({
+                where: { id: input.id },
+                data: {
+                    productId: productIdToUse,
+                    quantity: new Prisma.Decimal(input.quantity),
+                    price: new Prisma.Decimal(priceToUse),
+                    amount: new Prisma.Decimal(amount),
+                    ...(input.soldAt !== undefined ? { soldAt: input.soldAt } : {}),
+                    ...(input.soldByUserId !== undefined ? { soldByUserId: input.soldByUserId } : {}),
+                    ...(input.notes !== undefined
+                        ? { notes: input.notes && input.notes.length > 0 ? input.notes : null }
+                        : {}),
+                },
+                include: {
+                    product: true,
+                    soldByUser: { select: { id: true, name: true, username: true } },
+                    createdByUser: { select: { id: true, name: true, username: true } },
+                },
+            })
+        }),
+
+    /**
+     * Delete a standalone product sale (admin / manager)
+     */
+    deleteDirectSale: adminProcedure
+        .input(z.object({ id: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+            const existing = await prisma.sessionProduct.findFirst({
+                where: {
+                    id: input.id,
+                    stationId: ctx.stationId,
+                },
+            })
+
+            if (!existing) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Product sale record not found',
+                })
+            }
+
+            if (existing.dutySessionId !== null) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'Shift-linked product sales must be deleted from the shift',
+                })
+            }
+
+            await prisma.sessionProduct.delete({
+                where: { id: input.id },
+            })
+
+            return { success: true }
+        }),
+
+    /**
      * Get Product Sales Report (tenant-scoped)
      */
     getSalesReport: tenantProcedure
@@ -611,26 +836,30 @@ export const productRouter = router({
             })
         )
         .query(async ({ ctx, input }) => {
-            const where: Record<string, unknown> = {
-                dutySession: {
-                    stationId: ctx.stationId,
-                },
-                product: {
-                    stationId: ctx.stationId,
-                },
+            const productFilter: Prisma.ProductWhereInput = {
+                stationId: ctx.stationId,
             }
 
-            // Date filtering on SessionProduct.createdAt
+            // Group filter
+            if (input.group && input.group !== 'all') {
+                productFilter.group = input.group
+            }
+
+            const where: Prisma.SessionProductWhereInput = {
+                stationId: ctx.stationId,
+                product: productFilter,
+            }
+
+            // Date filtering on SessionProduct.soldAt
             if (input.startDate || input.endDate) {
-                where.createdAt = {}
+                where.soldAt = {}
                 if (input.startDate) {
-                    const start = new Date(input.startDate)
-                    ;(where.createdAt as Record<string, unknown>).gte = start
+                    where.soldAt.gte = new Date(input.startDate)
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
                     end.setDate(end.getDate() + 1)
-                    ;(where.createdAt as Record<string, unknown>).lt = end
+                    where.soldAt.lt = end
                 }
             }
 
@@ -639,19 +868,14 @@ export const productRouter = router({
                 where.productId = input.productId
             }
 
-            // Group filter
-            if (input.group && input.group !== 'all') {
-                (where.product as Record<string, unknown>).group = input.group
-            }
-
-            // Attendant / User filter
-            if (input.userId) {
-                (where.dutySession as Record<string, unknown>).userId = input.userId
-            }
-
-            // Security check for non-admins
-            if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
-                (where.dutySession as Record<string, unknown>).userId = ctx.user.id
+            // Attendant / User filter & security check for non-admins
+            const isAdminOrManager = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const targetUserId = !isAdminOrManager ? ctx.user.id : input.userId
+            if (targetUserId) {
+                where.OR = [
+                    { dutySession: { userId: targetUserId } },
+                    { dutySessionId: null, soldByUserId: targetUserId },
+                ]
             }
 
             const [transactions, totalCount, allMatching] = await Promise.all([
@@ -659,6 +883,20 @@ export const productRouter = router({
                     where,
                     include: {
                         product: true,
+                        soldByUser: {
+                            select: {
+                                id: true,
+                                name: true,
+                                username: true,
+                            },
+                        },
+                        createdByUser: {
+                            select: {
+                                id: true,
+                                name: true,
+                                username: true,
+                            },
+                        },
                         dutySession: {
                             select: {
                                 id: true,
@@ -676,7 +914,10 @@ export const productRouter = router({
                             },
                         },
                     },
-                    orderBy: { createdAt: 'desc' },
+                    orderBy: [
+                        { soldAt: 'desc' },
+                        { id: 'desc' },
+                    ],
                     take: input.limit,
                     skip: input.offset,
                 }),
@@ -793,7 +1034,13 @@ export const productRouter = router({
                 byGroup,
                 transactions: transactions.map(t => ({
                     id: t.id,
+                    dutySessionId: t.dutySessionId,
+                    soldAt: t.soldAt,
                     createdAt: t.createdAt,
+                    notes: t.notes,
+                    soldByUserId: t.soldByUserId,
+                    soldByUser: t.soldByUser,
+                    createdByUser: t.createdByUser,
                     quantity: Number(t.quantity),
                     price: Number(t.price),
                     amount: Number(t.amount),

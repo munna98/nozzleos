@@ -32,6 +32,7 @@ model Station {
   productGroups   ProductGroup[]
   productUnits    ProductUnit[]
   dutySessions    DutySession[]
+  sessionProducts SessionProduct[]
   settings        Settings?
 }
 
@@ -63,6 +64,8 @@ model User {
   initiatedEditRequests ShiftEditRequest[] @relation("EditRequestInitiatedBy")
   approvedEditRequests  ShiftEditRequest[] @relation("EditRequestApprovedBy")
   staffPayments         SessionPayment[]   @relation("StaffPayments")
+  soldProducts          SessionProduct[]   @relation("ProductSalesSoldBy")
+  createdProducts       SessionProduct[]   @relation("ProductSalesCreatedBy")
   role                  UserRole           @relation(fields: [roleId], references: [id])
 
   // For station users: unique username per station
@@ -292,19 +295,30 @@ model SessionPayment {
 }
 
 model SessionProduct {
-  id            Int         @id @default(autoincrement())
-  dutySessionId Int
-  productId     Int
-  quantity      Decimal     @default(1) @db.Decimal(10, 2)
-  price         Decimal     @default(0) @db.Decimal(10, 2)
-  amount        Decimal     @default(0) @db.Decimal(10, 2)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  dutySession   DutySession @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
-  product       Product     @relation(fields: [productId], references: [id])
+  id              Int          @id @default(autoincrement())
+  stationId       Int
+  dutySessionId   Int?
+  productId       Int
+  soldByUserId    Int?
+  createdByUserId Int?
+  quantity        Decimal      @default(1) @db.Decimal(10, 2)
+  price           Decimal      @default(0) @db.Decimal(10, 2)
+  amount          Decimal      @default(0) @db.Decimal(10, 2)
+  soldAt          DateTime     @default(now())
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  station         Station      @relation(fields: [stationId], references: [id])
+  dutySession     DutySession? @relation(fields: [dutySessionId], references: [id], onDelete: Cascade)
+  product         Product      @relation(fields: [productId], references: [id])
+  soldByUser      User?        @relation("ProductSalesSoldBy", fields: [soldByUserId], references: [id], onDelete: SetNull)
+  createdByUser   User?        @relation("ProductSalesCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  @@index([stationId])
   @@index([dutySessionId])
   @@index([productId])
+  @@index([soldByUserId])
+  @@index([soldAt])
   @@index([createdAt])
 }
 

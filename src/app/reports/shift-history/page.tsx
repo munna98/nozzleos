@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
 import { exportShiftHistoryReport } from "@/lib/reports/excel-export"
+import { exportShiftHistoryPdfReport } from "@/lib/reports/pdf-export"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -41,6 +42,8 @@ export default function ShiftHistoryPage() {
     const searchParams = useSearchParams()
     const { user } = useAuth()
     const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+    const stationQuery = trpc.station.getCurrent.useQuery()
+    const stationName = stationQuery.data?.name || user?.stationName || undefined
 
     const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
     // Default to Today's date unless status param provided
@@ -173,12 +176,57 @@ export default function ShiftHistoryPage() {
                 statusLabel: filters.status ? filters.status.toUpperCase() : "All",
                 shiftTypeLabel: filters.shiftType ? (filters.shiftType.charAt(0).toUpperCase() + filters.shiftType.slice(1).toLowerCase()) : "All",
                 attendantLabel: filters.userNameSearch || "All",
+                stationName,
             })
 
             toast.success("Shift history exported to Excel successfully!")
         } catch (err: any) {
             console.error("Export error:", err)
             toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.shift.getAll.fetch({
+                limit: 10000,
+                offset: 0,
+                status: filters.status,
+                shiftType: filters.shiftType,
+                startDateFrom: filters.startDateFrom,
+                startDateTo: filters.startDateTo,
+                userNameSearch: filters.userNameSearch,
+                userId: filters.userId,
+            })
+
+            if (!exportData?.sessions?.length) {
+                toast.error("No shifts found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = filters.startDateFrom && filters.startDateTo
+                ? `${format(new Date(filters.startDateFrom), "dd MMM yyyy")} to ${format(new Date(filters.startDateTo), "dd MMM yyyy")}`
+                : filters.startDateFrom
+                ? `From ${format(new Date(filters.startDateFrom), "dd MMM yyyy")}`
+                : "All Time"
+
+            await exportShiftHistoryPdfReport({
+                shifts: exportData.sessions,
+                summary: exportData.summary,
+                dateRangeLabel,
+                statusLabel: filters.status ? filters.status.toUpperCase() : "All",
+                shiftTypeLabel: filters.shiftType ? (filters.shiftType.charAt(0).toUpperCase() + filters.shiftType.slice(1).toLowerCase()) : "All",
+                attendantLabel: filters.userNameSearch || "All",
+                stationName,
+            })
+
+            toast.success("Shift history exported to PDF successfully!")
+        } catch (err: any) {
+            console.error("Export PDF error:", err)
+            toast.error(err?.message || "Failed to export PDF report.")
         } finally {
             setIsExporting(false)
         }
@@ -236,6 +284,7 @@ export default function ShiftHistoryPage() {
                     <div className="flex items-center gap-2 md:hidden">
                         <ReportExportDropdown
                             onExportExcel={handleExportExcel}
+                            onExportPdf={handleExportPdf}
                             isExporting={isExporting}
                         />
                         <Button
@@ -264,6 +313,7 @@ export default function ShiftHistoryPage() {
                     />
                     <ReportExportDropdown
                         onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                         isExporting={isExporting}
                     />
                 </div>

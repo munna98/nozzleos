@@ -197,7 +197,10 @@ export const authService = {
     async getUserProfile(userId: number) {
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { role: true },
+            include: {
+                role: true,
+                station: { select: { id: true, name: true } },
+            },
         })
 
         if (!user) {
@@ -211,6 +214,7 @@ export const authService = {
             role: user.role.name,
             roleId: user.roleId,
             stationId: user.stationId,
+            stationName: user.station?.name || null,
         }
     },
 

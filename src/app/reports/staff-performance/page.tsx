@@ -17,6 +17,7 @@ import { FuelBreakdownSummary } from "./components/FuelBreakdownSummary"
 import { ShiftType } from "@prisma/client"
 import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
 import { exportStaffPerformanceReport } from "@/lib/reports/excel-export"
+import { exportStaffPerformancePdfReport } from "@/lib/reports/pdf-export"
 import { toast } from "sonner"
 import { format } from "date-fns"
 
@@ -24,6 +25,8 @@ export default function StaffReportPage() {
     const router = useRouter()
     const { user } = useAuth()
     const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+    const stationQuery = trpc.station.getCurrent.useQuery()
+    const stationName = stationQuery.data?.name || user?.stationName || undefined
 
     const [fromDate, setFromDate] = useState<Date | undefined>(() => {
         const d = new Date()
@@ -106,12 +109,60 @@ export default function StaffReportPage() {
                     userId === "all"
                         ? "All Staff"
                         : selectedUser?.name || selectedUser?.username || "Selected Staff",
+                stationName,
             })
 
             toast.success("Staff performance report exported to Excel successfully!")
         } catch (err: any) {
             console.error("Export error:", err)
             toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.staff.getStaffReport.fetch({
+                startDate: fromDate,
+                endDate: toDate,
+                shiftType: shiftType !== "all" ? (shiftType as ShiftType) : undefined,
+                userId: userId !== "all" ? parseInt(userId) : undefined,
+            })
+
+            if (!exportData?.staff?.length) {
+                toast.error("No staff performance data found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const selectedUser = usersQuery.data?.find((u) => u.id.toString() === userId)
+
+            await exportStaffPerformancePdfReport({
+                staff: exportData.staff,
+                summary: exportData.summary,
+                dateRangeLabel,
+                shiftTypeLabel:
+                    shiftType === "all"
+                        ? "All Shifts"
+                        : shiftType.charAt(0).toUpperCase() + shiftType.slice(1).toLowerCase(),
+                userLabel:
+                    userId === "all"
+                        ? "All Staff"
+                        : selectedUser?.name || selectedUser?.username || "Selected Staff",
+                stationName,
+            })
+
+            toast.success("Staff performance report exported to PDF successfully!")
+        } catch (err: any) {
+            console.error("Export PDF error:", err)
+            toast.error(err?.message || "Failed to export PDF report.")
         } finally {
             setIsExporting(false)
         }
@@ -132,6 +183,7 @@ export default function StaffReportPage() {
                     <div className="flex items-center gap-2 md:hidden">
                         <ReportExportDropdown
                             onExportExcel={handleExportExcel}
+                            onExportPdf={handleExportPdf}
                             isExporting={isExporting}
                         />
                         {/* Mobile Filter Toggle */}
@@ -169,6 +221,7 @@ export default function StaffReportPage() {
                     />
                     <ReportExportDropdown
                         onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                         isExporting={isExporting}
                     />
                 </div>

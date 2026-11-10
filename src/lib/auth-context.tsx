@@ -10,6 +10,8 @@ interface User {
     name: string | null
     role: string
     roleId: number
+    stationId?: number | null
+    stationName?: string | null
 }
 
 interface AuthContextType {

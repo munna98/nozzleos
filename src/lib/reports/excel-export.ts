@@ -46,7 +46,7 @@ export const PERCENT_FMT = '0.0%'
  */
 function autoFitColumns(
     worksheet: ExcelJS.Worksheet,
-    startRow = 5,
+    startRow = 6,
     customWidths?: Record<number, number>
 ) {
     worksheet.columns.forEach((column, index) => {
@@ -55,7 +55,7 @@ function autoFitColumns(
 
         if (column && column.eachCell) {
             column.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
-                // Ignore title, subtitle, and metadata rows (rows 1-4)
+                // Ignore title, subtitle, and metadata rows
                 if (rowNumber < startRow) return
                 // Ignore merged cells (like summary label merged across columns A-G)
                 if (cell.isMerged) return
@@ -111,32 +111,40 @@ export async function downloadWorkbook(workbook: ExcelJS.Workbook, filename: str
 }
 
 /**
- * Add standard report header block
+ * Add standard report header block with Fuel Station Name
  */
 function addReportHeader(
     sheet: ExcelJS.Worksheet,
     title: string,
     filterInfo: string,
-    totalCols: number
+    totalCols: number,
+    stationName?: string
 ) {
-    // Row 1: Title
-    const titleRow = sheet.addRow([title])
-    titleRow.font = { name: "Calibri", size: 16, bold: true, color: { argb: "1E3A8A" } }
+    const stationDisplay = (stationName || "NozzleOS Fuel Station").trim()
+
+    // Row 1: Fuel Station Name
+    const stationRow = sheet.addRow([stationDisplay.toUpperCase()])
+    stationRow.font = { name: "Calibri", size: 15, bold: true, color: { argb: "1E3A8A" } }
     sheet.mergeCells(1, 1, 1, totalCols)
 
-    // Row 2: Subtitle
-    const subRow = sheet.addRow(["NozzleOS Station Management Report"])
-    subRow.font = { name: "Calibri", size: 10, italic: true, color: { argb: "64748B" } }
+    // Row 2: Report Title
+    const titleRow = sheet.addRow([title])
+    titleRow.font = { name: "Calibri", size: 12, bold: true, color: { argb: "0F172A" } }
     sheet.mergeCells(2, 1, 2, totalCols)
 
-    // Row 3: Filter info & timestamp
+    // Row 3: Subtitle
+    const subRow = sheet.addRow(["NozzleOS Station Management Report"])
+    subRow.font = { name: "Calibri", size: 9.5, italic: true, color: { argb: "64748B" } }
+    sheet.mergeCells(3, 1, 3, totalCols)
+
+    // Row 4: Filter info & timestamp
     const metaRow = sheet.addRow([
         `${filterInfo}  |  Generated on: ${format(new Date(), "dd-MMM-yyyy hh:mm a")}`,
     ])
     metaRow.font = { name: "Calibri", size: 9, color: { argb: "475569" } }
-    sheet.mergeCells(3, 1, 3, totalCols)
+    sheet.mergeCells(4, 1, 4, totalCols)
 
-    // Row 4: Spacer
+    // Row 5: Spacer
     sheet.addRow([])
 }
 
@@ -158,6 +166,7 @@ export interface PaymentExportParams {
     dateRangeLabel?: string
     attendantLabel?: string
     paymentMethodLabel?: string
+    stationName?: string
 }
 
 export async function exportPaymentsReport(params: PaymentExportParams) {
@@ -173,7 +182,7 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
     const txSheet = workbook.addWorksheet("Transactions", {
         views: [{ showGridLines: true }],
     })
-    addReportHeader(txSheet, "Payment Transactions Report", filterText, 9)
+    addReportHeader(txSheet, "Payment Transactions Report", filterText, 9, params.stationName)
 
     // Table Headers
     const headerRow = txSheet.addRow([
@@ -263,7 +272,7 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
     txSheet.mergeCells(summaryRow.number, 1, summaryRow.number, 7)
     summaryRow.height = 22
 
-    autoFitColumns(txSheet, 5, {
+    autoFitColumns(txSheet, 6, {
         1: 6,   // #
         2: 13,  // Date
         3: 11,  // Time
@@ -280,7 +289,7 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
         const methodSheet = workbook.addWorksheet("Method Summary", {
             views: [{ showGridLines: true }],
         })
-        addReportHeader(methodSheet, "Payment Summary By Method", filterText, 4)
+        addReportHeader(methodSheet, "Payment Summary By Method", filterText, 4, params.stationName)
 
         const mHeader = methodSheet.addRow([
             "Payment Method",
@@ -348,7 +357,7 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
             }
         })
         mTotalRow.height = 22
-        autoFitColumns(methodSheet, 5, {
+        autoFitColumns(methodSheet, 6, {
             1: 18,  // Payment Method
             2: 13,  // Transactions
             3: 16,  // Total Amount
@@ -378,6 +387,7 @@ export interface ProductSalesExportParams {
     categoryLabel?: string
     productLabel?: string
     attendantLabel?: string
+    stationName?: string
 }
 
 export async function exportProductSalesReport(params: ProductSalesExportParams) {
@@ -391,7 +401,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
 
     // Sheet 1: By Product Breakdown
     const prodSheet = workbook.addWorksheet("By Product", { views: [{ showGridLines: true }] })
-    addReportHeader(prodSheet, "Product Sales Summary - By Product", filterText, 7)
+    addReportHeader(prodSheet, "Product Sales Summary - By Product", filterText, 7, params.stationName)
 
     const pHeader = prodSheet.addRow([
         "Code",
@@ -477,7 +487,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
     })
     prodSheet.mergeCells(pTotalRow.number, 1, pTotalRow.number, 3)
     pTotalRow.height = 22
-    autoFitColumns(prodSheet, 5, {
+    autoFitColumns(prodSheet, 6, {
         1: 10,  // Code
         2: 20,  // Product Name
         3: 13,  // Category
@@ -489,7 +499,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
 
     // Sheet 2: By Category Breakdown
     const catSheet = workbook.addWorksheet("By Category", { views: [{ showGridLines: true }] })
-    addReportHeader(catSheet, "Product Sales Summary - By Category", filterText, 5)
+    addReportHeader(catSheet, "Product Sales Summary - By Category", filterText, 5, params.stationName)
 
     const cHeader = catSheet.addRow([
         "Category / Group",
@@ -571,7 +581,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
         }
     })
     cTotalRow.height = 22
-    autoFitColumns(catSheet, 5, {
+    autoFitColumns(catSheet, 6, {
         1: 18,  // Category / Group
         2: 13,  // Units Sold
         3: 13,  // Sales Entries
@@ -582,7 +592,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
     // Sheet 3: Sales Log (if provided)
     if (params.transactions && params.transactions.length > 0) {
         const logSheet = workbook.addWorksheet("Sales Log", { views: [{ showGridLines: true }] })
-        addReportHeader(logSheet, "Product Sales Detailed Log", filterText, 10)
+        addReportHeader(logSheet, "Product Sales Detailed Log", filterText, 10, params.stationName)
 
         const lHeader = logSheet.addRow([
             "#",
@@ -608,7 +618,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
         let logAmtTotal = 0
 
         params.transactions.forEach((tx, idx) => {
-            const txDate = tx.createdAt ? new Date(tx.createdAt) : new Date()
+            const txDate = tx.soldAt ? new Date(tx.soldAt) : (tx.createdAt ? new Date(tx.createdAt) : new Date())
             const qty = Number(tx.quantity || 0)
             const amt = Number(tx.amount || 0)
             logQtyTotal += qty
@@ -616,8 +626,15 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
 
             const shiftType = tx.dutySession?.type
                 ? tx.dutySession.type.charAt(0).toUpperCase() + tx.dutySession.type.slice(1).toLowerCase()
-                : "Shift"
-            const attendant = tx.dutySession?.user?.name || tx.dutySession?.user?.username || "—"
+                : "Direct Sale"
+            const attendant =
+                tx.dutySession?.user?.name ||
+                tx.dutySession?.user?.username ||
+                tx.soldByUser?.name ||
+                tx.soldByUser?.username ||
+                tx.createdByUser?.name ||
+                tx.createdByUser?.username ||
+                "—"
             const unit = tx.product?.unit ? ` ${tx.product.unit}` : ""
 
             const row = logSheet.addRow([
@@ -674,7 +691,7 @@ export async function exportProductSalesReport(params: ProductSalesExportParams)
         })
         logSheet.mergeCells(lTotalRow.number, 1, lTotalRow.number, 7)
         lTotalRow.height = 22
-        autoFitColumns(logSheet, 5, {
+        autoFitColumns(logSheet, 6, {
             1: 6,   // #
             2: 13,  // Date
             3: 11,  // Time
@@ -702,6 +719,7 @@ export interface ShiftHistoryExportParams {
     statusLabel?: string
     shiftTypeLabel?: string
     attendantLabel?: string
+    stationName?: string
 }
 
 export async function exportShiftHistoryReport(params: ShiftHistoryExportParams) {
@@ -715,7 +733,7 @@ export async function exportShiftHistoryReport(params: ShiftHistoryExportParams)
 
     // Sheet 1: Shift History List
     const sheet = workbook.addWorksheet("Shift History", { views: [{ showGridLines: true }] })
-    addReportHeader(sheet, "Shift History Report", filterText, 14)
+    addReportHeader(sheet, "Shift History Report", filterText, 14, params.stationName)
 
     const headers = [
         "Shift ID",
@@ -892,7 +910,7 @@ export async function exportShiftHistoryReport(params: ShiftHistoryExportParams)
     })
     sheet.mergeCells(totalRow.number, 1, totalRow.number, 8)
     totalRow.height = 22
-    autoFitColumns(sheet, 5, {
+    autoFitColumns(sheet, 6, {
         1: 9,   // Shift ID
         2: 13,  // Date
         3: 16,  // Attendant
@@ -912,7 +930,7 @@ export async function exportShiftHistoryReport(params: ShiftHistoryExportParams)
     // Sheet 2: Nozzle Readings Breakdown
     if (allReadings.length > 0) {
         const rSheet = workbook.addWorksheet("Nozzle Readings", { views: [{ showGridLines: true }] })
-        addReportHeader(rSheet, "Shift Nozzle Readings Detail", filterText, 11)
+        addReportHeader(rSheet, "Shift Nozzle Readings Detail", filterText, 11, params.stationName)
 
         const rHeaders = [
             "Shift ID",
@@ -999,7 +1017,7 @@ export async function exportShiftHistoryReport(params: ShiftHistoryExportParams)
         })
         rSheet.mergeCells(rTotalRow.number, 1, rTotalRow.number, 8)
         rTotalRow.height = 22
-        autoFitColumns(rSheet, 5, {
+        autoFitColumns(rSheet, 6, {
             1: 9,   // Shift ID
             2: 13,  // Date
             3: 16,  // Attendant
@@ -1027,6 +1045,7 @@ export interface StaffReportExportParams {
     dateRangeLabel?: string
     shiftTypeLabel?: string
     userLabel?: string
+    stationName?: string
 }
 
 export async function exportStaffPerformanceReport(params: StaffReportExportParams) {
@@ -1040,7 +1059,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
 
     // Sheet 1: Staff Performance Summary
     const sumSheet = workbook.addWorksheet("Staff Summary", { views: [{ showGridLines: true }] })
-    addReportHeader(sumSheet, "Staff Performance Report - Summary", filterText, 9)
+    addReportHeader(sumSheet, "Staff Performance Report - Summary", filterText, 9, params.stationName)
 
     const sumHeaders = [
         "Staff Name",
@@ -1172,7 +1191,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
         }
     })
     sumTotalRow.height = 22
-    autoFitColumns(sumSheet, 5, {
+    autoFitColumns(sumSheet, 6, {
         1: 18,  // Staff Name
         2: 12,  // Total Shifts
         3: 12,  // Duty Hours
@@ -1187,7 +1206,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
     // Sheet 2: Staff Detailed Shifts
     if (allDetailedShifts.length > 0) {
         const dSheet = workbook.addWorksheet("Shift Details", { views: [{ showGridLines: true }] })
-        addReportHeader(dSheet, "Staff Shifts Detailed Log", filterText, 12)
+        addReportHeader(dSheet, "Staff Shifts Detailed Log", filterText, 12, params.stationName)
 
         const dHeaders = [
             "Staff Member",
@@ -1256,7 +1275,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
             })
         })
 
-        autoFitColumns(dSheet, 5, {
+        autoFitColumns(dSheet, 6, {
             1: 18,  // Staff Member
             2: 10,  // Shift ID
             3: 13,  // Date
@@ -1276,7 +1295,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
     // Sheet 3: Fuel Breakdown (if available)
     if (params.summary?.fuelBreakdown && params.summary.fuelBreakdown.length > 0) {
         const fSheet = workbook.addWorksheet("Fuel Breakdown", { views: [{ showGridLines: true }] })
-        addReportHeader(fSheet, "Overall Fuel Dispensed Breakdown", filterText, 3)
+        addReportHeader(fSheet, "Overall Fuel Dispensed Breakdown", filterText, 3, params.stationName)
 
         const fHeaderRow = fSheet.addRow([
             "Fuel Name",
@@ -1332,7 +1351,7 @@ export async function exportStaffPerformanceReport(params: StaffReportExportPara
             }
         })
         fTotalRow.height = 22
-        autoFitColumns(fSheet, 5, {
+        autoFitColumns(fSheet, 6, {
             1: 16,  // Fuel Name
             2: 16,  // Dispensed Liters
             3: 20,  // Total Sales Amount

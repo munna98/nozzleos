@@ -25,15 +25,38 @@ import {
     FilterIcon,
     Search01Icon,
     UserCircleIcon,
+    PlusSignIcon,
+    PencilEdit01Icon,
+    Delete02Icon,
 } from "@hugeicons/core-free-icons"
 import { ProductSalesFilters } from "./components/ProductSalesFilters"
 import { ProductSalesSummaryCards } from "./components/ProductSalesSummaryCards"
 import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
+import {
+    RecordProductSaleDialog,
+    EditableDirectProductSale,
+} from "@/components/record-product-sale-dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { exportProductSalesReport } from "@/lib/reports/excel-export"
+import { exportProductSalesPdfReport } from "@/lib/reports/pdf-export"
+import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 export default function ProductSalesReportPage() {
     const router = useRouter()
+    const { user } = useAuth()
+    const isAdminOrManager = user?.role === "Admin" || user?.role === "Manager"
+    const stationQuery = trpc.station.getCurrent.useQuery()
+    const stationName = stationQuery.data?.name || user?.stationName || undefined
 
     // Filter states
     const [fromDate, setFromDate] = useState<Date | undefined>(() => {
@@ -56,13 +79,27 @@ export default function ProductSalesReportPage() {
     const [page, setPage] = useState<number>(0)
     const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false)
     const [isExporting, setIsExporting] = useState<boolean>(false)
+    const [isRecordSaleOpen, setIsRecordSaleOpen] = useState<boolean>(false)
+    const [saleToEdit, setSaleToEdit] = useState<EditableDirectProductSale | null>(null)
+    const [saleToDelete, setSaleToDelete] = useState<{ id: number; name: string; amount: number } | null>(null)
     const limit = 50
     const utils = trpc.useUtils()
 
     // Queries
     const groupsQuery = trpc.product.getGroups.useQuery()
     const productsQuery = trpc.product.getAll.useQuery()
-    const attendantsQuery = trpc.user.getAll.useQuery({ role: 'Fuel Attendant' })
+    const attendantsQuery = trpc.user.getAll.useQuery(undefined, { enabled: isAdminOrManager })
+
+    const deleteDirectSaleMutation = trpc.product.deleteDirectSale.useMutation({
+        onSuccess: () => {
+            utils.product.getSalesReport.invalidate()
+            toast.success("Product sale deleted")
+            setSaleToDelete(null)
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete product sale")
+        },
+    })
 
     const queryInput = {
         startDate: fromDate,
@@ -149,12 +186,83 @@ export default function ProductSalesReportPage() {
                 categoryLabel: selectedGroup === "all" ? "All Categories" : selectedGroup,
                 productLabel: selectedProductId === "all" ? "All Products" : (productObj?.name || "Selected Product"),
                 attendantLabel: selectedUserId === "all" ? "All Attendants" : (attendantObj?.name || attendantObj?.username || "Selected Attendant"),
+                stationName,
             })
 
             toast.success("Product sales report exported to Excel successfully!")
         } catch (err: any) {
             console.error("Export error:", err)
             toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.product.getSalesReport.fetch({
+                ...queryInput,
+                limit: 10000,
+                offset: 0,
+            })
+
+            if (activeTab === "by-product" && !exportData?.byProduct?.length) {
+                toast.error("No product sales data found to export for the selected filters.")
+                return
+            } else if (activeTab === "by-group" && !exportData?.byGroup?.length) {
+                toast.error("No category sales data found to export for the selected filters.")
+                return
+            } else if (activeTab === "transactions" && !exportData?.transactions?.length) {
+                toast.error("No sales transactions found to export for the selected filters.")
+                return
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const productObj = productsQuery.data?.find((p) => p.id.toString() === selectedProductId)
+            const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === selectedUserId)
+
+            // If user is searching on the By Product tab, filter by that search
+            const productsToExport = activeTab === "by-product" && productSearch.trim()
+                ? (exportData.byProduct || []).filter((item) => {
+                    const query = productSearch.toLowerCase().trim()
+                    return (
+                        item.name.toLowerCase().includes(query) ||
+                        item.code.toLowerCase().includes(query) ||
+                        item.group.toLowerCase().includes(query)
+                    )
+                })
+                : (exportData.byProduct || [])
+
+            await exportProductSalesPdfReport({
+                byProduct: productsToExport,
+                byGroup: exportData.byGroup || [],
+                transactions: exportData.transactions || [],
+                summary: exportData.summary,
+                dateRangeLabel,
+                categoryLabel: selectedGroup === "all" ? "All Categories" : selectedGroup,
+                productLabel: selectedProductId === "all" ? "All Products" : (productObj?.name || "Selected Product"),
+                attendantLabel: selectedUserId === "all" ? "All Attendants" : (attendantObj?.name || attendantObj?.username || "Selected Attendant"),
+                activeTab,
+                stationName,
+            })
+
+            const tabLabel =
+                activeTab === "by-product"
+                    ? "Product sales (By Product)"
+                    : activeTab === "by-group"
+                    ? "Product sales (By Category)"
+                    : "Product sales log"
+
+            toast.success(`${tabLabel} exported to PDF successfully!`)
+        } catch (err: any) {
+            console.error("Export PDF error:", err)
+            toast.error(err?.message || "Failed to export PDF report.")
         } finally {
             setIsExporting(false)
         }
@@ -173,9 +281,24 @@ export default function ProductSalesReportPage() {
                     </div>
 
                     <div className="flex items-center gap-2 md:hidden">
+                        {isAdminOrManager && (
+                            <Button
+                                size="sm"
+                                className="h-9 gap-1.5"
+                                onClick={() => {
+                                    setSaleToEdit(null)
+                                    setIsRecordSaleOpen(true)
+                                }}
+                            >
+                                <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                                <span className="sr-only sm:not-sr-only">Record Sale</span>
+                            </Button>
+                        )}
                         <ReportExportDropdown
                             onExportExcel={handleExportExcel}
+                            onExportPdf={handleExportPdf}
                             isExporting={isExporting}
+                            pdfDescription={activeTab === "by-product" ? "By Product (.pdf)" : activeTab === "by-group" ? "By Category (.pdf)" : "Sales Log (.pdf)"}
                         />
                         {/* Mobile Filter Toggle */}
                         <Button
@@ -217,8 +340,22 @@ export default function ProductSalesReportPage() {
                     />
                     <ReportExportDropdown
                         onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                         isExporting={isExporting}
+                        pdfDescription={activeTab === "by-product" ? "By Product (.pdf)" : activeTab === "by-group" ? "By Category (.pdf)" : "Sales Log (.pdf)"}
                     />
+                    {isAdminOrManager && (
+                        <Button
+                            className="h-9 gap-1.5"
+                            onClick={() => {
+                                setSaleToEdit(null)
+                                setIsRecordSaleOpen(true)
+                            }}
+                        >
+                            <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                            <span>Record Sale</span>
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -508,52 +645,126 @@ export default function ProductSalesReportPage() {
                                             <TableHead className="text-right">Qty</TableHead>
                                             <TableHead className="text-right">Rate</TableHead>
                                             <TableHead className="text-right font-semibold">Amount</TableHead>
+                                            {isAdminOrManager && (
+                                                <TableHead className="text-right w-20">Actions</TableHead>
+                                            )}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {isLoading ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="h-32 text-center">
+                                                <TableCell colSpan={isAdminOrManager ? 8 : 7} className="h-32 text-center">
                                                     <Spinner className="h-6 w-6 mx-auto" />
                                                 </TableCell>
                                             </TableRow>
                                         ) : (data?.transactions || []).length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                                                <TableCell colSpan={isAdminOrManager ? 8 : 7} className="h-32 text-center text-muted-foreground">
                                                     No product sales log found for the selected period.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            data!.transactions.map((t) => (
-                                                <TableRow key={t.id} className="hover:bg-muted/30">
-                                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                                        {format(new Date(t.createdAt), "dd MMM yyyy, hh:mm a")}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="capitalize text-xs">
-                                                            {t.dutySession?.type?.toLowerCase() || "shift"}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-1.5 text-sm font-medium">
-                                                            <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4 text-muted-foreground" />
-                                                            <span>{t.dutySession?.user?.name || t.dutySession?.user?.username || "—"}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="font-medium text-sm">{t.product?.name}</span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-medium">
-                                                        {t.quantity} {t.product?.unit}
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-muted-foreground">
-                                                        ₹{t.price.toFixed(2)}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-bold text-foreground">
-                                                        {formatCurrency(t.amount)}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
+                                            data!.transactions.map((t) => {
+                                                const isDirectSale = !t.dutySessionId
+                                                const saleDate = t.soldAt || t.createdAt
+                                                const staffName =
+                                                    t.dutySession?.user?.name ||
+                                                    t.dutySession?.user?.username ||
+                                                    t.soldByUser?.name ||
+                                                    t.soldByUser?.username ||
+                                                    t.createdByUser?.name ||
+                                                    t.createdByUser?.username ||
+                                                    "—"
+
+                                                return (
+                                                    <TableRow key={t.id} className="hover:bg-muted/30">
+                                                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                                            {format(new Date(saleDate), "dd MMM yyyy, hh:mm a")}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {t.dutySession ? (
+                                                                <Badge variant="outline" className="capitalize text-xs">
+                                                                    {t.dutySession.type.toLowerCase()}
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    Direct Sale
+                                                                </Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-1.5 text-sm font-medium">
+                                                                <HugeiconsIcon icon={UserCircleIcon} className="h-4 w-4 text-muted-foreground" />
+                                                                <span>{staffName}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="space-y-0.5">
+                                                                <span className="font-medium text-sm block">{t.product?.name}</span>
+                                                                {t.notes && (
+                                                                    <span className="text-xs text-muted-foreground block">
+                                                                        {t.notes}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-medium">
+                                                            {t.quantity} {t.product?.unit}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-muted-foreground">
+                                                            ₹{t.price.toFixed(2)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-bold text-foreground">
+                                                            {formatCurrency(t.amount)}
+                                                        </TableCell>
+                                                        {isAdminOrManager && (
+                                                            <TableCell className="text-right">
+                                                                {isDirectSale ? (
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                                            title="Edit Direct Sale"
+                                                                            onClick={() => {
+                                                                                setSaleToEdit({
+                                                                                    id: t.id,
+                                                                                    productId: t.product.id,
+                                                                                    quantity: t.quantity,
+                                                                                    price: t.price,
+                                                                                    soldAt: saleDate,
+                                                                                    soldByUserId: t.soldByUserId,
+                                                                                    notes: t.notes,
+                                                                                })
+                                                                                setIsRecordSaleOpen(true)
+                                                                            }}
+                                                                        >
+                                                                            <HugeiconsIcon icon={PencilEdit01Icon} className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                                            title="Delete Direct Sale"
+                                                                            onClick={() =>
+                                                                                setSaleToDelete({
+                                                                                    id: t.id,
+                                                                                    name: t.product?.name || "Product",
+                                                                                    amount: t.amount,
+                                                                                })
+                                                                            }
+                                                                        >
+                                                                            <HugeiconsIcon icon={Delete02Icon} className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-xs text-muted-foreground">—</span>
+                                                                )}
+                                                            </TableCell>
+                                                        )}
+                                                    </TableRow>
+                                                )
+                                            })
                                         )}
                                     </TableBody>
                                 </Table>
@@ -592,6 +803,47 @@ export default function ProductSalesReportPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <RecordProductSaleDialog
+                open={isRecordSaleOpen}
+                onOpenChange={(open) => {
+                    setIsRecordSaleOpen(open)
+                    if (!open) setSaleToEdit(null)
+                }}
+                saleToEdit={saleToEdit}
+            />
+
+            <AlertDialog open={!!saleToDelete} onOpenChange={(open) => !open && setSaleToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Product Sale?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete this direct product sale record.
+                            {saleToDelete && (
+                                <span className="mt-2 p-2 bg-muted rounded text-sm font-medium block">
+                                    {saleToDelete.name} — {formatCurrency(saleToDelete.amount)}
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteDirectSaleMutation.isPending}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            disabled={deleteDirectSaleMutation.isPending}
+                            onClick={() => {
+                                if (saleToDelete) {
+                                    deleteDirectSaleMutation.mutate({ id: saleToDelete.id })
+                                }
+                            }}
+                        >
+                            {deleteDirectSaleMutation.isPending ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

@@ -25,10 +25,15 @@ import { PaymentFilters } from "./components/PaymentFilters"
 import { PaymentSummaryCards } from "./components/PaymentSummaryCards"
 import { ReportExportDropdown } from "@/components/reports/ReportExportDropdown"
 import { exportPaymentsReport } from "@/lib/reports/excel-export"
+import { exportPaymentsPdfReport } from "@/lib/reports/pdf-export"
+import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 export default function PaymentTransactionsReport() {
     const router = useRouter()
+    const { user } = useAuth()
+    const stationQuery = trpc.station.getCurrent.useQuery()
+    const stationName = stationQuery.data?.name || user?.stationName || undefined
     const [fromDate, setFromDate] = useState<Date | undefined>(() => {
         const d = new Date()
         d.setHours(0, 0, 0, 0)
@@ -141,12 +146,73 @@ export default function PaymentTransactionsReport() {
                     attendantId === "all"
                         ? "All Attendants"
                         : attendantObj?.name || attendantObj?.username || "Selected Attendant",
+                stationName,
             })
 
             toast.success("Payments report exported to Excel successfully!")
         } catch (err: any) {
             console.error("Export error:", err)
             toast.error(err?.message || "Failed to export Excel report.")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true)
+            const exportData = await utils.payment.getTransactions.fetch({
+                ...queryInput,
+                limit: 10000,
+                offset: 0,
+            })
+
+            if (activeTab === "summary") {
+                if (!exportData?.summary?.byMethod?.length && !exportData?.transactions?.length) {
+                    toast.error("No payment method summary found to export for the selected filters.")
+                    return
+                }
+            } else {
+                if (!exportData?.transactions?.length) {
+                    toast.error("No transactions found to export for the selected filters.")
+                    return
+                }
+            }
+
+            const dateRangeLabel = fromDate && toDate
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                : fromDate
+                ? `From ${format(fromDate, "dd MMM yyyy")}`
+                : "All Time"
+
+            const methodObj = paymentMethodsQuery.data?.find((m) => m.id.toString() === paymentMethodId)
+            const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === attendantId)
+
+            await exportPaymentsPdfReport({
+                transactions: exportData.transactions,
+                summary: exportData.summary,
+                dateRangeLabel,
+                paymentMethodLabel:
+                    paymentMethodId === "all"
+                        ? "All Methods"
+                        : paymentMethodId === "customer_all"
+                        ? "All Customer Credits"
+                        : paymentMethodId === "standard_all"
+                        ? "All Standard Methods"
+                        : methodObj?.name || "Selected Method",
+                attendantLabel:
+                    attendantId === "all"
+                        ? "All Attendants"
+                        : attendantObj?.name || attendantObj?.username || "Selected Attendant",
+                activeTab,
+                stationName,
+            })
+
+            const tabName = activeTab === "summary" ? "Payment method summary" : "Payment transactions"
+            toast.success(`${tabName} exported to PDF successfully!`)
+        } catch (err: any) {
+            console.error("Export PDF error:", err)
+            toast.error(err?.message || "Failed to export PDF report.")
         } finally {
             setIsExporting(false)
         }
@@ -167,7 +233,9 @@ export default function PaymentTransactionsReport() {
                     <div className="flex items-center gap-2 md:hidden">
                         <ReportExportDropdown
                             onExportExcel={handleExportExcel}
+                            onExportPdf={handleExportPdf}
                             isExporting={isExporting}
+                            pdfDescription={activeTab === "summary" ? "Summary View (.pdf)" : "Transactions Log (.pdf)"}
                         />
                         {/* Mobile Filter Toggle */}
                         <Button
@@ -205,7 +273,9 @@ export default function PaymentTransactionsReport() {
                     />
                     <ReportExportDropdown
                         onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                         isExporting={isExporting}
+                        pdfDescription={activeTab === "summary" ? "Summary View (.pdf)" : "Transactions Log (.pdf)"}
                     />
                 </div>
             </div>

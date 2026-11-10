@@ -21,6 +21,7 @@ interface ReportExportDropdownProps {
     label?: string
     className?: string
     align?: "start" | "end" | "center"
+    pdfDescription?: string
 }
 
 export function ReportExportDropdown({
@@ -30,6 +31,7 @@ export function ReportExportDropdown({
     label = "Export",
     className = "",
     align = "end",
+    pdfDescription,
 }: ReportExportDropdownProps) {
     const handlePdfClick = () => {
         if (onExportPdf) {
@@ -87,7 +89,9 @@ export function ReportExportDropdown({
                     <FileText className="h-4 w-4 text-rose-500" />
                     <div className="flex flex-col">
                         <span className="font-medium text-sm">Export to PDF</span>
-                        <span className="text-[11px] text-muted-foreground">Printable document (.pdf)</span>
+                        <span className="text-[11px] text-muted-foreground">
+                            {pdfDescription || "Printable document (.pdf)"}
+                        </span>
                     </div>
                 </DropdownMenuItem>
             </DropdownMenuContent>

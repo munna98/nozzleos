@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, superAdminProcedure, publicProcedure, TRPCError } from '../trpc/init'
+import { router, superAdminProcedure, publicProcedure, tenantProcedure, TRPCError } from '../trpc/init'
 import prisma from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 
@@ -18,6 +18,17 @@ export const stationRouter = router({
             if (!station) return null
             return station
         }),
+
+    /**
+     * Get current station info (Tenant / Protected)
+     */
+    getCurrent: tenantProcedure.query(async ({ ctx }) => {
+        if (!ctx.stationId) return null
+        return prisma.station.findUnique({
+            where: { id: ctx.stationId },
+            select: { id: true, name: true, slug: true, location: true, mobile: true, email: true },
+        })
+    }),
     /**
      * Get all stations (Super Admin only)
      */

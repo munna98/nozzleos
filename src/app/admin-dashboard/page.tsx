@@ -8,16 +8,18 @@ import { RecentActivityFeed } from "../components/RecentActivityFeed"
 import { StaffPerformanceChart } from "../components/StaffPerformanceChart"
 import { QuickLinksCard } from "../components/QuickLinksCard"
 import { CreateShiftDialog } from "../components/CreateShiftDialog"
+import { RecordProductSaleDialog } from "@/components/record-product-sale-dialog"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon } from "@hugeicons/core-free-icons"
+import { PlusSignIcon, PackageIcon } from "@hugeicons/core-free-icons"
 
 export default function AdminDashboardPage() {
     const { user, isAuthenticated, isLoading } = useAuth()
     const router = useRouter()
     const [isCreateShiftOpen, setIsCreateShiftOpen] = useState(false)
+    const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false)
 
     useEffect(() => {
         if (isLoading) return
@@ -53,7 +55,15 @@ export default function AdminDashboardPage() {
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsRecordSaleOpen(true)}
+                        className="gap-1.5"
+                    >
+                        <HugeiconsIcon icon={PackageIcon} className="h-4 w-4" />
+                        <span>Record Sale</span>
+                    </Button>
                     <Button
                         onClick={() => setIsCreateShiftOpen(true)}
                         className="gap-1.5"
@@ -61,7 +71,7 @@ export default function AdminDashboardPage() {
                         <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
                         <span>Start Shift</span>
                     </Button>
-                    <div className="text-xs md:text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
+                    <div className="text-xs md:text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap hidden sm:block">
                         <span className="md:hidden">
                             {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                         </span>
@@ -95,6 +105,11 @@ export default function AdminDashboardPage() {
             <CreateShiftDialog
                 open={isCreateShiftOpen}
                 onOpenChange={setIsCreateShiftOpen}
+            />
+
+            <RecordProductSaleDialog
+                open={isRecordSaleOpen}
+                onOpenChange={setIsRecordSaleOpen}
             />
         </div>
     )

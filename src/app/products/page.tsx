@@ -24,8 +24,10 @@ import {
     PackageIcon,
     Tag01Icon,
     RulerIcon,
+    Invoice01Icon,
 } from "@hugeicons/core-free-icons"
 import { AddProductDialog } from "@/components/add-product-dialog"
+import { RecordProductSaleDialog } from "@/components/record-product-sale-dialog"
 import {
     ManageProductGroupsDialog,
     getGroupBadgeStyle,
@@ -54,9 +56,10 @@ export default function ProductsPage() {
     const [selectedGroup, setSelectedGroup] = useState<string>("all")
     const searchInputRef = useRef<HTMLInputElement>(null)
 
-    // Separate modal states for Manage Groups and Manage Units
+    // Separate modal states for Manage Groups, Manage Units, and Record Sale
     const [isManageGroupsOpen, setIsManageGroupsOpen] = useState(false)
     const [isManageUnitsOpen, setIsManageUnitsOpen] = useState(false)
+    const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false)
 
     const productsQuery = trpc.product.getAll.useQuery()
     const groupsQuery = trpc.product.getGroups.useQuery()
@@ -143,7 +146,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
 
-                {/* Action Buttons: 2 separate buttons for Manage Groups & Manage Units + Add Product */}
+                {/* Action Buttons: Manage Groups, Manage Units, Record Sale, Add Product */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <Button
                         variant="outline"
@@ -158,6 +161,13 @@ export default function ProductsPage() {
                         className="h-9"
                     >
                         <HugeiconsIcon icon={RulerIcon} className="mr-2 h-4 w-4" /> Manage Units
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsRecordSaleOpen(true)}
+                        className="h-9"
+                    >
+                        <HugeiconsIcon icon={Invoice01Icon} className="mr-2 h-4 w-4" /> Record Sale
                     </Button>
                     <Button onClick={handleAddClick} className="h-9">
                         <HugeiconsIcon icon={PlusSignIcon} className="mr-2 h-4 w-4" /> Add Product
@@ -464,6 +474,12 @@ export default function ProductsPage() {
             <ManageProductUnitsDialog
                 open={isManageUnitsOpen}
                 onOpenChange={setIsManageUnitsOpen}
+            />
+
+            {/* Record Direct Product Sale Modal */}
+            <RecordProductSaleDialog
+                open={isRecordSaleOpen}
+                onOpenChange={setIsRecordSaleOpen}
             />
 
             {/* Delete Confirmation Alert Dialog */}

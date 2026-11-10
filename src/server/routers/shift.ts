@@ -428,8 +428,11 @@ export const shiftRouter = router({
 
             const sessionProduct = await prisma.sessionProduct.create({
                 data: {
+                    stationId: ctx.stationId,
                     dutySessionId: input.shiftId,
                     productId: input.productId,
+                    createdByUserId: ctx.user.id,
+                    soldAt: new Date(),
                     quantity: new Prisma.Decimal(input.quantity),
                     price: new Prisma.Decimal(priceToUse),
                     amount: new Prisma.Decimal(amount),
@@ -454,7 +457,7 @@ export const shiftRouter = router({
                 where: { id: input.id },
                 include: { dutySession: true, product: true }
             })
-            if (!existing || existing.dutySession.stationId !== ctx.stationId) {
+            if (!existing || !existing.dutySession || existing.dutySession.stationId !== ctx.stationId) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
             }
             if (existing.dutySession.status !== 'in_progress') {
@@ -485,7 +488,7 @@ export const shiftRouter = router({
                 where: { id: input.id },
                 include: { dutySession: true }
             })
-            if (!existing || existing.dutySession.stationId !== ctx.stationId) {
+            if (!existing || !existing.dutySession || existing.dutySession.stationId !== ctx.stationId) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: 'Product sale record not found' })
             }
             if (existing.dutySession.status !== 'in_progress') {
@@ -1683,8 +1686,11 @@ export const shiftRouter = router({
 
             const sessionProduct = await prisma.sessionProduct.create({
                 data: {
+                    stationId: ctx.stationId,
                     dutySessionId: input.shiftId,
                     productId: input.productId,
+                    createdByUserId: ctx.user.id,
+                    soldAt: new Date(),
                     quantity: new Prisma.Decimal(input.quantity),
                     price: new Prisma.Decimal(priceToUse),
                     amount: new Prisma.Decimal(amount),
