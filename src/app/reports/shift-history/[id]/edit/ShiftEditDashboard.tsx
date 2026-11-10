@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,6 +63,7 @@ import { DateTimePicker } from "@/components/ui/datetime-picker"
 import type { inferRouterOutputs } from "@trpc/server"
 import type { AppRouter } from "@/server/trpc/router"
 import { ShiftType } from "@prisma/client"
+import { AmountTape } from "@/components/ui/amount-tape"
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 type ShiftDetail = NonNullable<RouterOutput['shift']['getById']>
@@ -96,6 +97,10 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const [coinsAmount, setCoinsAmount] = useState("")
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null)
     const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
+    // Pine Labs tape state
+    const [tapeResetKey, setTapeResetKey] = useState(0)
+    const [tapeTotal, setTapeTotal] = useState(0)
+    const handleTapeChange = useCallback((total: number) => setTapeTotal(total), [])
 
     const [editingTestQtyId, setEditingTestQtyId] = useState<number | null>(null)
     const [editingOpeningId, setEditingOpeningId] = useState<number | null>(null)
@@ -234,6 +239,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
         setDenominationCounts({})
         setCoinsAmount("")
         setEditingPaymentId(null)
+        setTapeResetKey(k => k + 1)
     }
 
     const resetProductSaleForm = () => {
@@ -309,6 +315,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
     const selectedMethod = paymentMethods.find(pm => pm.id.toString() === selectedMethodId)
     const isStaffMethod = selectedMethod?.name === "STAFF"
     const isCashPayment = selectedMethod?.name.toLowerCase() === 'cash'
+    const isPineLabsMethod = selectedMethod?.name === 'PINE LABS'
 
     const showDenominations = isCashPayment && settings?.enableDenominationEntry && denominations.length > 0
     const showCoins = showDenominations && settings?.enableCoinEntry
@@ -392,6 +399,9 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                     count
                 }))
             coinsToSend = parseFloat(coinsAmount) || undefined
+        } else if (isPineLabsMethod) {
+            amount = tapeTotal
+            if (amount <= 0 && !editingPaymentId) return
         } else {
             amount = parseFloat(manualAmount)
             if (!amount || amount < 0) return
@@ -1008,7 +1018,7 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                 )}
 
                                 {/* Manual amount */}
-                                {!showDenominations && selectedMethodId && (
+                                {!showDenominations && selectedMethodId && !isPineLabsMethod && (
                                     <div className="space-y-2">
                                         <Label>Amount</Label>
                                         <Input
@@ -1016,6 +1026,18 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                             value={manualAmount}
                                             onChange={(e) => setManualAmount(e.target.value)}
                                             placeholder="0.00"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Pine Labs amount tape */}
+                                {isPineLabsMethod && (
+                                    <div className="space-y-2">
+                                        <Label>Amount <span className="text-xs font-normal text-muted-foreground">(add each transaction)</span></Label>
+                                        <AmountTape
+                                            onChange={handleTapeChange}
+                                            initialAmount={editingPaymentId ? (parseFloat(manualAmount) || undefined) : undefined}
+                                            resetKey={tapeResetKey}
                                         />
                                     </div>
                                 )}
