@@ -355,9 +355,6 @@ function RecordProductSaleForm({
                                                             value={product.id.toString()}
                                                         >
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-mono text-xs text-muted-foreground">
-                                                                    {product.code}
-                                                                </span>
                                                                 <span>{product.name}</span>
                                                                 <span className="text-xs text-muted-foreground">
                                                                     (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
