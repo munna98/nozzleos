@@ -47,6 +47,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server"
 import { trpc } from "@/lib/trpc"
 import type { AppRouter } from "@/server/trpc/router"
+import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
@@ -97,6 +98,7 @@ interface ShiftDashboardStepProps {
     onSubmit: () => void
     isSubmitting?: boolean
     summary?: ShiftSummary
+    isAdmin?: boolean
 }
 
 export function ShiftDashboardStep({
@@ -112,8 +114,11 @@ export function ShiftDashboardStep({
     onReview,
     onSubmit,
     isSubmitting,
-    summary
+    summary,
+    isAdmin,
 }: ShiftDashboardStepProps) {
+    const { user } = useAuth()
+    const effectiveIsAdmin = isAdmin !== undefined ? isAdmin : (user?.role === 'Admin' || user?.role === 'Manager' || user?.role === 'Super Admin')
     const activeStaffQuery = trpc.user.getActiveStaff.useQuery()
     const activeStaffList = activeStaffQuery.data || []
 
@@ -273,10 +278,15 @@ export function ShiftDashboardStep({
             return
         }
 
-        const price = customPrice ? parseFloat(customPrice) : undefined
-        if (price !== undefined && (isNaN(price) || price < 0)) {
-            toast.error("Please enter a valid price (0 or higher)")
-            return
+        let price: number | undefined = undefined
+        if (effectiveIsAdmin) {
+            price = customPrice ? parseFloat(customPrice) : undefined
+            if (price !== undefined && (isNaN(price) || price < 0)) {
+                toast.error("Please enter a valid price (0 or higher)")
+                return
+            }
+        } else {
+            price = selectedProduct ? parseFloat(selectedProduct.rate.toString()) : (customPrice ? parseFloat(customPrice) : undefined)
         }
 
         if (editingProductSale) {
@@ -1239,7 +1249,9 @@ export function ShiftDashboardStep({
                         </DialogTitle>
                         <DialogDescription>
                             {editingProductSale
-                                ? "Update the quantity or rate for this recorded product sale."
+                                ? (effectiveIsAdmin
+                                    ? "Update the quantity or rate for this recorded product sale."
+                                    : "Update the quantity for this recorded product sale.")
                                 : "Select a product and enter the quantity sold during this shift."}
                         </DialogDescription>
                     </DialogHeader>
@@ -1252,8 +1264,10 @@ export function ShiftDashboardStep({
                                 onValueChange={(val) => {
                                     setSelectedProductId(val)
                                     const prod = availableProducts.find((p: Product) => p.id.toString() === val)
-                                    if (prod && !customPrice) {
-                                        setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                    if (prod) {
+                                        if (!effectiveIsAdmin || !customPrice || editingProductSale === null) {
+                                            setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                        }
                                     }
                                 }}
                                 disabled={!!editingProductSale}
@@ -1307,6 +1321,8 @@ export function ShiftDashboardStep({
                                     placeholder={selectedProduct ? parseFloat(selectedProduct.rate.toString()).toFixed(2) : "0.00"}
                                     value={customPrice}
                                     onChange={(e) => setCustomPrice(e.target.value)}
+                                    disabled={!effectiveIsAdmin}
+                                    className={!effectiveIsAdmin ? "bg-muted cursor-not-allowed text-muted-foreground" : ""}
                                 />
                             </div>
                         </div>

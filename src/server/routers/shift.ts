@@ -159,7 +159,7 @@ export const shiftRouter = router({
             userId: z.number().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const targetUserId = (isAdmin && input.userId) ? input.userId : ctx.user.id
 
             // Check if user exists and is active in the station
@@ -423,7 +423,8 @@ export const shiftRouter = router({
             })
             if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
 
-            const priceToUse = input.price !== undefined ? input.price : product.rate
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
+            const priceToUse = (isAdmin && input.price !== undefined) ? input.price : Number(product.rate)
             const amount = input.quantity * priceToUse
 
             const sessionProduct = await prisma.sessionProduct.create({
@@ -464,7 +465,8 @@ export const shiftRouter = router({
                 throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shift is not in progress' })
             }
 
-            const priceToUse = input.price !== undefined ? input.price : Number(existing.price)
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin' || ctx.user.role === 'Super Admin'
+            const priceToUse = (isAdmin && input.price !== undefined) ? input.price : Number(existing.price)
             const amount = input.quantity * priceToUse
 
             return prisma.sessionProduct.update({
@@ -859,7 +861,7 @@ export const shiftRouter = router({
         }))
         .query(async ({ ctx, input }) => {
             const where: Record<string, unknown> = { stationId: ctx.stationId }
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.isSuperAdmin
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin' || ctx.isSuperAdmin
 
             // Status filter
             if (input.status) {
@@ -1007,7 +1009,7 @@ export const shiftRouter = router({
         }))
         .query(async ({ ctx, input }) => {
             const where: Record<string, unknown> = { stationId: ctx.stationId }
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.isSuperAdmin
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin' || ctx.isSuperAdmin
 
             if (input.status) {
                 where.status = input.status
@@ -1378,7 +1380,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1421,7 +1423,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1477,7 +1479,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1548,7 +1550,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1625,7 +1627,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift) throw new Error('Shift not found')
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1664,7 +1666,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1681,7 +1683,7 @@ export const shiftRouter = router({
             })
             if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
 
-            const priceToUse = input.price !== undefined ? input.price : product.rate
+            const priceToUse = (isAdmin && input.price !== undefined) ? input.price : Number(product.rate)
             const amount = input.quantity * priceToUse
 
             const sessionProduct = await prisma.sessionProduct.create({
@@ -1716,7 +1718,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 
@@ -1742,7 +1744,7 @@ export const shiftRouter = router({
             })
             if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
 
-            const priceToUse = input.price !== undefined ? input.price : (input.productId && input.productId !== existing.productId ? product.rate : Number(existing.price))
+            const priceToUse = (isAdmin && input.price !== undefined) ? input.price : (input.productId && input.productId !== existing.productId ? Number(product.rate) : Number(existing.price))
             const amount = input.quantity * priceToUse
 
             return prisma.sessionProduct.update({
@@ -1769,7 +1771,7 @@ export const shiftRouter = router({
             const shift = await prisma.dutySession.findUnique({ where: { id: input.shiftId } })
             if (!shift || shift.stationId !== ctx.stationId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Shift not found' })
 
-            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager'
+            const isAdmin = ctx.user.role === 'Admin' || ctx.user.role === 'Manager' || ctx.user.role === 'Super Admin'
             const isOwner = shift.userId === ctx.user.id
             const isRejected = shift.status === 'rejected'
 

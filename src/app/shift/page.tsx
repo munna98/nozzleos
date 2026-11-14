@@ -16,7 +16,7 @@ import { ShiftType } from "@prisma/client"
 export default function ShiftPage() {
     const { user } = useAuth()
     const router = useRouter()
-    const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Manager' || user?.role === 'Super Admin'
     const [step, setStep] = useState(1)
     const [shiftType, setShiftType] = useState<ShiftType | null>(null)
     const [selectedStaffId, setSelectedStaffId] = useState<string>("")
@@ -281,6 +281,7 @@ export default function ShiftPage() {
                     onSubmit={() => handleFinishShiftAttempt(true)}
                     isSubmitting={completeShiftMutation.isPending}
                     summary={summaryQuery.data || lastSummary}
+                    isAdmin={isAdmin}
                 />
             )}
 

@@ -270,10 +270,15 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
             return
         }
 
-        const price = customPrice ? parseFloat(customPrice) : undefined
-        if (price !== undefined && (isNaN(price) || price < 0)) {
-            toast.error("Please enter a valid price (0 or higher)")
-            return
+        let price: number | undefined = undefined
+        if (isAdmin) {
+            price = customPrice ? parseFloat(customPrice) : undefined
+            if (price !== undefined && (isNaN(price) || price < 0)) {
+                toast.error("Please enter a valid price (0 or higher)")
+                return
+            }
+        } else {
+            price = selectedProduct ? parseFloat(selectedProduct.rate.toString()) : (customPrice ? parseFloat(customPrice) : undefined)
         }
 
         if (editingProductSale) {
@@ -1265,7 +1270,9 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                         </DialogTitle>
                         <DialogDescription>
                             {editingProductSale
-                                ? "Update the quantity or rate for this recorded product sale."
+                                ? (isAdmin
+                                    ? "Update the quantity or rate for this recorded product sale."
+                                    : "Update the quantity for this recorded product sale.")
                                 : "Select a product and enter the quantity sold during this shift."}
                         </DialogDescription>
                     </DialogHeader>
@@ -1278,8 +1285,10 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                 onValueChange={(val) => {
                                     setSelectedProductId(val)
                                     const prod = availableProducts.find((p: Product) => p.id.toString() === val)
-                                    if (prod && !customPrice) {
-                                        setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                    if (prod) {
+                                        if (!isAdmin || !customPrice || editingProductSale === null) {
+                                            setCustomPrice(parseFloat(prod.rate.toString()).toString())
+                                        }
                                     }
                                 }}
                                 disabled={!!editingProductSale}
@@ -1333,6 +1342,8 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                     placeholder={selectedProduct ? parseFloat(selectedProduct.rate.toString()).toFixed(2) : "0.00"}
                                     value={customPrice}
                                     onChange={(e) => setCustomPrice(e.target.value)}
+                                    disabled={!isAdmin}
+                                    className={!isAdmin ? "bg-muted cursor-not-allowed text-muted-foreground" : ""}
                                 />
                             </div>
                         </div>
