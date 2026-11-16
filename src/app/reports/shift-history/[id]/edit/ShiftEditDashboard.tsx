@@ -1309,17 +1309,17 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t">
+                        <div className="grid grid-cols-2 gap-2.5 pt-2 border-t">
                             <div className="space-y-1.5">
                                 <Label htmlFor="product-quantity" className="text-xs">
-                                    Quantity {selectedProduct ? `(${selectedProduct.unit})` : ''}
+                                    Qty {selectedProduct ? `(${selectedProduct.unit})` : ''}
                                 </Label>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-9 w-9 shrink-0"
+                                        className="h-9 w-8 shrink-0"
                                         onClick={() => {
                                             const current = parseFloat(saleQuantity) || 1
                                             if (current > 1) {
@@ -1338,14 +1338,14 @@ export function ShiftEditDashboard({ shift, isAdmin, currentUserId }: ShiftEditD
                                         placeholder="1"
                                         value={saleQuantity}
                                         onChange={(e) => setSaleQuantity(e.target.value)}
-                                        className="h-9 text-center font-semibold text-sm"
+                                        className="h-9 min-w-0 px-1 text-center font-semibold text-sm"
                                         required
                                     />
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-9 w-9 shrink-0"
+                                        className="h-9 w-8 shrink-0"
                                         onClick={() => {
                                             const current = parseFloat(saleQuantity) || 0
                                             setSaleQuantity((current + 1).toString())
