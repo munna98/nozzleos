@@ -45,6 +45,7 @@ export default function PaymentTransactionsReport() {
         return d
     })
     const [datePreset, setDatePreset] = useState<string>("today")
+    const [dateFilterMode, setDateFilterMode] = useState<'shift_date' | 'entry_date'>("shift_date")
     const [paymentMethodId, setPaymentMethodId] = useState<string>("all")
     const [attendantId, setAttendantId] = useState<string>("all")
     const [activeTab, setActiveTab] = useState<string>("summary")
@@ -65,6 +66,7 @@ export default function PaymentTransactionsReport() {
         startDate: fromDate,
         endDate: toDate,
         datePreset,
+        dateFilterMode,
         paymentMethodId: paymentMethodId !== "all" && paymentMethodId !== "customer_all" && paymentMethodId !== "standard_all" ? parseInt(paymentMethodId) : undefined,
         isCustomerPayment: paymentMethodId === "customer_all" ? true : (paymentMethodId === "standard_all" ? false : undefined),
         userId: attendantId !== "all" ? parseInt(attendantId) : undefined,
@@ -79,6 +81,11 @@ export default function PaymentTransactionsReport() {
 
     const handleToDateChange = (date?: Date) => {
         setToDate(date)
+        setPage(0)
+    }
+
+    const handleDateFilterModeChange = (mode: 'shift_date' | 'entry_date') => {
+        setDateFilterMode(mode)
         setPage(0)
     }
 
@@ -103,6 +110,7 @@ export default function PaymentTransactionsReport() {
     const activeFilterCount = [
         fromDate,
         toDate,
+        dateFilterMode !== "shift_date",
         paymentMethodId !== "all",
         attendantId !== "all"
     ].filter(Boolean).length
@@ -121,11 +129,12 @@ export default function PaymentTransactionsReport() {
                 return
             }
 
+            const modeSuffix = dateFilterMode === 'entry_date' ? ' (By Entry Time)' : ' (By Shift Date)'
             const dateRangeLabel = fromDate && toDate
-                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}${modeSuffix}`
                 : fromDate
-                ? `From ${format(fromDate, "dd MMM yyyy")}`
-                : "All Time"
+                ? `From ${format(fromDate, "dd MMM yyyy")}${modeSuffix}`
+                : `All Time${modeSuffix}`
 
             const methodObj = paymentMethodsQuery.data?.find((m) => m.id.toString() === paymentMethodId)
             const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === attendantId)
@@ -179,11 +188,12 @@ export default function PaymentTransactionsReport() {
                 }
             }
 
+            const modeSuffix = dateFilterMode === 'entry_date' ? ' (By Entry Time)' : ' (By Shift Date)'
             const dateRangeLabel = fromDate && toDate
-                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}`
+                ? `${format(fromDate, "dd MMM yyyy")} to ${format(toDate, "dd MMM yyyy")}${modeSuffix}`
                 : fromDate
-                ? `From ${format(fromDate, "dd MMM yyyy")}`
-                : "All Time"
+                ? `From ${format(fromDate, "dd MMM yyyy")}${modeSuffix}`
+                : `All Time${modeSuffix}`
 
             const methodObj = paymentMethodsQuery.data?.find((m) => m.id.toString() === paymentMethodId)
             const attendantObj = attendantsQuery.data?.find((a) => a.id.toString() === attendantId)
@@ -263,6 +273,8 @@ export default function PaymentTransactionsReport() {
                         setToDate={handleToDateChange}
                         datePreset={datePreset}
                         setDatePreset={setDatePreset}
+                        dateFilterMode={dateFilterMode}
+                        setDateFilterMode={handleDateFilterModeChange}
                         paymentMethodId={paymentMethodId}
                         setPaymentMethodId={handlePaymentMethodChange}
                         attendantId={attendantId}
@@ -291,6 +303,8 @@ export default function PaymentTransactionsReport() {
                             setToDate={handleToDateChange}
                             datePreset={datePreset}
                             setDatePreset={setDatePreset}
+                            dateFilterMode={dateFilterMode}
+                            setDateFilterMode={handleDateFilterModeChange}
                             paymentMethodId={paymentMethodId}
                             setPaymentMethodId={handlePaymentMethodChange}
                             attendantId={attendantId}
@@ -353,7 +367,7 @@ export default function PaymentTransactionsReport() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Date & Time</TableHead>
+                                        <TableHead>Shift Date</TableHead>
                                         <TableHead>Payment Method</TableHead>
                                         <TableHead>Attendant</TableHead>
                                         <TableHead>Shift Type</TableHead>
@@ -380,10 +394,10 @@ export default function PaymentTransactionsReport() {
                                                 <TableCell>
                                                     <div className="flex flex-col">
                                                         <span className="font-medium">
-                                                            {format(new Date(tx.createdAt), "dd MMM yyyy")}
+                                                            {format(new Date(tx.dutySession?.startTime || tx.createdAt), "dd MMM yyyy")}
                                                         </span>
                                                         <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(tx.createdAt), "hh:mm a")}
+                                                            Entered: {format(new Date(tx.createdAt), "dd MMM, hh:mm a")}
                                                         </span>
                                                     </div>
                                                 </TableCell>
@@ -460,10 +474,15 @@ export default function PaymentTransactionsReport() {
                                                 <span className="font-bold text-lg">
                                                     {formatCurrency(Number(tx.amount))}
                                                 </span>
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <HugeiconsIcon icon={Calendar01Icon} className="h-3 w-3" />
-                                                    <span>
-                                                        {format(new Date(tx.createdAt), "dd MMM yyyy • hh:mm a")}
+                                                <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                                                        <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5 text-muted-foreground" />
+                                                        <span>
+                                                            {format(new Date(tx.dutySession?.startTime || tx.createdAt), "dd MMM yyyy")}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        Entered: {format(new Date(tx.createdAt), "dd MMM, hh:mm a")}
                                                     </span>
                                                 </div>
                                             </div>

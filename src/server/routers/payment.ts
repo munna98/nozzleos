@@ -12,29 +12,51 @@ export const paymentRouter = router({
             offset: z.number().min(0).default(0),
             startDate: z.date().optional(),
             endDate: z.date().optional(),
+            dateFilterMode: z.enum(['shift_date', 'entry_date']).default('shift_date').optional(),
             paymentMethodId: z.number().optional().nullable(),
             isCustomerPayment: z.boolean().optional(),
             userId: z.number().optional(),
         }))
         .query(async ({ input, ctx }) => {
+            const dutySessionWhere: Record<string, unknown> = {
+                stationId: ctx.stationId,
+            }
+
+            // User/Attendant filter
+            if (input.userId) {
+                dutySessionWhere.userId = input.userId
+            }
+
+            // Security: Limit non-admins to their own sessions
+            if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
+                dutySessionWhere.userId = ctx.user.id
+            }
+
             const where: Record<string, unknown> = {
                 // Filter by station via the duty session
-                dutySession: {
-                    stationId: ctx.stationId
-                }
+                dutySession: dutySessionWhere,
             }
+
+            const dateFilterMode = input.dateFilterMode || 'shift_date'
 
             // Date range filter
             if (input.startDate || input.endDate) {
-                where.createdAt = {}
+                const dateRange: Record<string, unknown> = {}
                 if (input.startDate) {
-                    const start = new Date(input.startDate);
-                    (where.createdAt as Record<string, unknown>).gte = start
+                    const start = new Date(input.startDate)
+                    dateRange.gte = start
                 }
                 if (input.endDate) {
                     const end = new Date(input.endDate)
-                    end.setDate(end.getDate() + 1);
-                    (where.createdAt as Record<string, unknown>).lt = end
+                    end.setDate(end.getDate() + 1)
+                    dateRange.lt = end
+                }
+
+                if (dateFilterMode === 'entry_date') {
+                    where.createdAt = dateRange
+                } else {
+                    // Default: attribute payments to the shift's operational start time
+                    dutySessionWhere.startTime = dateRange
                 }
             }
 
@@ -54,15 +76,9 @@ export const paymentRouter = router({
                 }
             }
 
-            // User/Attendant filter
-            if (input.userId) {
-                (where.dutySession as Record<string, unknown>).userId = input.userId
-            }
-
-            // Security: Limit non-admins to their own sessions
-            if (ctx.user.role !== 'Admin' && ctx.user.role !== 'Manager') {
-                (where.dutySession as Record<string, unknown>).userId = ctx.user.id
-            }
+            const orderBy: any = dateFilterMode === 'entry_date'
+                ? { createdAt: 'desc' }
+                : [{ dutySession: { startTime: 'desc' } }, { createdAt: 'desc' }]
 
             const [transactions, total] = await Promise.all([
                 prisma.sessionPayment.findMany({
@@ -84,7 +100,7 @@ export const paymentRouter = router({
                             include: { denomination: true }
                         }
                     },
-                    orderBy: { createdAt: 'desc' },
+                    orderBy,
                     take: input.limit,
                     skip: input.offset,
                 }),

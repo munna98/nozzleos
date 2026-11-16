@@ -351,7 +351,8 @@ export async function exportPaymentsPdfReport(params: PdfPaymentExportParams) {
         currentY = addSectionTitle(doc, "Transaction Log", currentY, pageHeight)
 
         const txRows = params.transactions.map((tx, idx) => {
-            const txDate = tx.createdAt ? new Date(tx.createdAt) : null
+            const shiftDate = tx.dutySession?.startTime ? new Date(tx.dutySession.startTime) : (tx.createdAt ? new Date(tx.createdAt) : null)
+            const enteredTime = tx.createdAt ? new Date(tx.createdAt) : null
             const attendantName = tx.dutySession?.user?.name || tx.dutySession?.user?.username || "—"
             const shiftType = tx.dutySession?.type
                 ? tx.dutySession.type.charAt(0).toUpperCase() + tx.dutySession.type.slice(1).toLowerCase()
@@ -365,8 +366,8 @@ export async function exportPaymentsPdfReport(params: PdfPaymentExportParams) {
 
             return [
                 (idx + 1).toString(),
-                formatDate(txDate),
-                formatTime(txDate),
+                formatDate(shiftDate),
+                formatTime(enteredTime),
                 attendantName,
                 shiftType,
                 methodName,
@@ -381,8 +382,8 @@ export async function exportPaymentsPdfReport(params: PdfPaymentExportParams) {
             head: [
                 [
                     "#",
-                    "Date",
-                    "Time",
+                    "Shift Date",
+                    "Entered",
                     "Attendant",
                     "Shift",
                     "Payment Method",

@@ -23,6 +23,8 @@ interface PaymentFiltersProps {
     setToDate: (date: Date | undefined) => void
     datePreset: string
     setDatePreset: (val: string) => void
+    dateFilterMode?: 'shift_date' | 'entry_date'
+    setDateFilterMode?: (mode: 'shift_date' | 'entry_date') => void
     paymentMethodId: string
     setPaymentMethodId: (val: string) => void
     attendantId: string
@@ -39,6 +41,8 @@ export function PaymentFilters({
     setToDate,
     datePreset,
     setDatePreset,
+    dateFilterMode = 'shift_date',
+    setDateFilterMode,
     paymentMethodId,
     setPaymentMethodId,
     attendantId,
@@ -161,6 +165,24 @@ export function PaymentFilters({
 
     return (
         <div className={className}>
+            {/* Date Basis Filter (Shift Date vs Entry Time) */}
+            {setDateFilterMode && (
+                <div className="w-full md:w-auto">
+                    <Select
+                        value={dateFilterMode}
+                        onValueChange={(val: 'shift_date' | 'entry_date') => setDateFilterMode(val)}
+                    >
+                        <SelectTrigger className="w-full md:w-[145px]">
+                            <SelectValue placeholder="Date Basis" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="shift_date">By Shift Date</SelectItem>
+                            <SelectItem value="entry_date">By Entry Time</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
             {/* Date Range Preset */}
             <div className="w-full md:w-auto">
                 <Select value={preset} onValueChange={handlePresetChange}>

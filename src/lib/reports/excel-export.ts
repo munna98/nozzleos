@@ -187,8 +187,8 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
     // Table Headers
     const headerRow = txSheet.addRow([
         "#",
-        "Date",
-        "Time",
+        "Shift Date",
+        "Entered At",
         "Attendant",
         "Shift Type",
         "Payment Method",
@@ -207,7 +207,8 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
 
     let totalAmount = 0
     params.transactions.forEach((tx, idx) => {
-        const txDate = tx.createdAt ? new Date(tx.createdAt) : new Date()
+        const shiftDate = tx.dutySession?.startTime ? new Date(tx.dutySession.startTime) : (tx.createdAt ? new Date(tx.createdAt) : new Date())
+        const enteredDate = tx.createdAt ? new Date(tx.createdAt) : new Date()
         const amt = Number(tx.amount || 0)
         totalAmount += amt
 
@@ -224,8 +225,8 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
 
         const row = txSheet.addRow([
             idx + 1,
-            format(txDate, "dd-MMM-yyyy"),
-            format(txDate, "hh:mm a"),
+            format(shiftDate, "dd-MMM-yyyy"),
+            format(enteredDate, "dd-MMM hh:mm a"),
             attendantName,
             shiftType,
             methodName,
