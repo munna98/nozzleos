@@ -25,6 +25,8 @@ interface PaymentFiltersProps {
     setDatePreset: (val: string) => void
     dateFilterMode?: 'shift_date' | 'entry_date'
     setDateFilterMode?: (mode: 'shift_date' | 'entry_date') => void
+    shiftType: string
+    setShiftType: (val: string) => void
     paymentMethodId: string
     setPaymentMethodId: (val: string) => void
     attendantId: string
@@ -43,6 +45,8 @@ export function PaymentFilters({
     setDatePreset,
     dateFilterMode = 'shift_date',
     setDateFilterMode,
+    shiftType,
+    setShiftType,
     paymentMethodId,
     setPaymentMethodId,
     attendantId,
@@ -222,6 +226,19 @@ export function PaymentFilters({
                     </div>
                 </div>
             )}
+
+            {/* Shift Type Filter */}
+            <Select value={shiftType} onValueChange={setShiftType}>
+                <SelectTrigger className="w-full md:w-[130px]">
+                    <SelectValue placeholder="All Shifts" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Shifts</SelectItem>
+                    <SelectItem value="MORNING">Morning</SelectItem>
+                    <SelectItem value="EVENING">Evening</SelectItem>
+                    <SelectItem value="NIGHT">Night</SelectItem>
+                </SelectContent>
+            </Select>
 
             {/* Attendant Filter */}
             <Select value={attendantId} onValueChange={setAttendantId}>

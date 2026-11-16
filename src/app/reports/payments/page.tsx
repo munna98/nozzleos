@@ -46,6 +46,7 @@ export default function PaymentTransactionsReport() {
     })
     const [datePreset, setDatePreset] = useState<string>("today")
     const [dateFilterMode, setDateFilterMode] = useState<'shift_date' | 'entry_date'>("shift_date")
+    const [shiftType, setShiftType] = useState<string>("all")
     const [paymentMethodId, setPaymentMethodId] = useState<string>("all")
     const [attendantId, setAttendantId] = useState<string>("all")
     const [activeTab, setActiveTab] = useState<string>("summary")
@@ -67,6 +68,7 @@ export default function PaymentTransactionsReport() {
         endDate: toDate,
         datePreset,
         dateFilterMode,
+        shiftType: shiftType !== "all" ? (shiftType as any) : undefined,
         paymentMethodId: paymentMethodId !== "all" && paymentMethodId !== "customer_all" && paymentMethodId !== "standard_all" ? parseInt(paymentMethodId) : undefined,
         isCustomerPayment: paymentMethodId === "customer_all" ? true : (paymentMethodId === "standard_all" ? false : undefined),
         userId: attendantId !== "all" ? parseInt(attendantId) : undefined,
@@ -86,6 +88,11 @@ export default function PaymentTransactionsReport() {
 
     const handleDateFilterModeChange = (mode: 'shift_date' | 'entry_date') => {
         setDateFilterMode(mode)
+        setPage(0)
+    }
+
+    const handleShiftTypeChange = (val: string) => {
+        setShiftType(val)
         setPage(0)
     }
 
@@ -111,6 +118,7 @@ export default function PaymentTransactionsReport() {
         fromDate,
         toDate,
         dateFilterMode !== "shift_date",
+        shiftType !== "all",
         paymentMethodId !== "all",
         attendantId !== "all"
     ].filter(Boolean).length
@@ -155,6 +163,10 @@ export default function PaymentTransactionsReport() {
                     attendantId === "all"
                         ? "All Attendants"
                         : attendantObj?.name || attendantObj?.username || "Selected Attendant",
+                shiftTypeLabel:
+                    shiftType === "all"
+                        ? "All Shifts"
+                        : shiftType.charAt(0) + shiftType.slice(1).toLowerCase() + " Shift",
                 stationName,
             })
 
@@ -214,6 +226,10 @@ export default function PaymentTransactionsReport() {
                     attendantId === "all"
                         ? "All Attendants"
                         : attendantObj?.name || attendantObj?.username || "Selected Attendant",
+                shiftTypeLabel:
+                    shiftType === "all"
+                        ? "All Shifts"
+                        : shiftType.charAt(0) + shiftType.slice(1).toLowerCase() + " Shift",
                 activeTab,
                 stationName,
             })
@@ -275,6 +291,8 @@ export default function PaymentTransactionsReport() {
                         setDatePreset={setDatePreset}
                         dateFilterMode={dateFilterMode}
                         setDateFilterMode={handleDateFilterModeChange}
+                        shiftType={shiftType}
+                        setShiftType={handleShiftTypeChange}
                         paymentMethodId={paymentMethodId}
                         setPaymentMethodId={handlePaymentMethodChange}
                         attendantId={attendantId}
@@ -305,6 +323,8 @@ export default function PaymentTransactionsReport() {
                             setDatePreset={setDatePreset}
                             dateFilterMode={dateFilterMode}
                             setDateFilterMode={handleDateFilterModeChange}
+                            shiftType={shiftType}
+                            setShiftType={handleShiftTypeChange}
                             paymentMethodId={paymentMethodId}
                             setPaymentMethodId={handlePaymentMethodChange}
                             attendantId={attendantId}

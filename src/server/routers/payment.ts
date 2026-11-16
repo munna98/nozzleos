@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ShiftType } from '@prisma/client'
 import { router, tenantProcedure } from '../trpc/init'
 import prisma from '@/lib/prisma'
 
@@ -13,6 +14,7 @@ export const paymentRouter = router({
             startDate: z.date().optional(),
             endDate: z.date().optional(),
             dateFilterMode: z.enum(['shift_date', 'entry_date']).default('shift_date').optional(),
+            shiftType: z.nativeEnum(ShiftType).optional().nullable(),
             paymentMethodId: z.number().optional().nullable(),
             isCustomerPayment: z.boolean().optional(),
             userId: z.number().optional(),
@@ -20,6 +22,11 @@ export const paymentRouter = router({
         .query(async ({ input, ctx }) => {
             const dutySessionWhere: Record<string, unknown> = {
                 stationId: ctx.stationId,
+            }
+
+            // Shift type filter
+            if (input.shiftType) {
+                dutySessionWhere.type = input.shiftType
             }
 
             // User/Attendant filter

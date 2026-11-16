@@ -165,6 +165,7 @@ export interface PaymentExportParams {
     }
     dateRangeLabel?: string
     attendantLabel?: string
+    shiftTypeLabel?: string
     paymentMethodLabel?: string
     stationName?: string
 }
@@ -174,7 +175,9 @@ export async function exportPaymentsReport(params: PaymentExportParams) {
     workbook.creator = "NozzleOS"
     workbook.created = new Date()
 
-    const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Method: ${
+    const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Shift: ${
+        params.shiftTypeLabel || "All"
+    }  |  Method: ${
         params.paymentMethodLabel || "All"
     }  |  Attendant: ${params.attendantLabel || "All"}`
 

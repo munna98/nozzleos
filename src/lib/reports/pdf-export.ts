@@ -248,7 +248,9 @@ export async function exportPaymentsPdfReport(params: PdfPaymentExportParams) {
         const pageWidth = doc.internal.pageSize.getWidth()
         const pageHeight = doc.internal.pageSize.getHeight()
 
-        const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Method: ${
+        const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Shift: ${
+            params.shiftTypeLabel || "All"
+        }  |  Method: ${
             params.paymentMethodLabel || "All"
         }  |  Attendant: ${params.attendantLabel || "All"}`
 
@@ -327,7 +329,9 @@ export async function exportPaymentsPdfReport(params: PdfPaymentExportParams) {
         const pageWidth = doc.internal.pageSize.getWidth()
         const pageHeight = doc.internal.pageSize.getHeight()
 
-        const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Method: ${
+        const filterText = `Period: ${params.dateRangeLabel || "All Time"}  |  Shift: ${
+            params.shiftTypeLabel || "All"
+        }  |  Method: ${
             params.paymentMethodLabel || "All"
         }  |  Attendant: ${params.attendantLabel || "All"}`
 
