@@ -28,10 +28,12 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
     PackageIcon,
     PlusSignIcon,
+    MinusSignIcon,
     Delete02Icon,
     Loading03Icon,
     UserIcon,
 } from "@hugeicons/core-free-icons"
+import { ProductCardSelector } from "@/components/products/product-card-selector"
 import { toast } from "sonner"
 
 export interface EditableDirectProductSale {
@@ -108,6 +110,7 @@ function RecordProductSaleForm({
     const [notes, setNotes] = useState<string>(() => saleToEdit?.notes || "")
 
     const productsQuery = trpc.product.getAll.useQuery({ activeOnly: true })
+    const groupsQuery = trpc.product.getGroups.useQuery()
     const activeStaffQuery = trpc.user.getActiveStaff.useQuery()
 
     const products = useMemo(() => productsQuery.data || [], [productsQuery.data])
@@ -308,14 +311,21 @@ function RecordProductSaleForm({
                             return (
                                 <div
                                     key={item.key}
-                                    className="p-3 rounded-lg border bg-muted/20 space-y-3"
+                                    className="p-3.5 rounded-xl border bg-card shadow-xs space-y-3"
                                 >
-                                    <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-medium text-muted-foreground">
-                                            {saleToEdit ? "Product Details" : `Item #${idx + 1}`}
-                                        </span>
+                                    <div className="flex items-center justify-between gap-2 border-b pb-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold text-foreground">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                                {saleToEdit ? "Product Details" : `Item #${idx + 1}`}
+                                            </span>
+                                            {selectedProduct && (
+                                                <span className="text-xs font-semibold text-primary">
+                                                    • {selectedProduct.name} (₹{parseFloat(selectedProduct.rate.toString()).toFixed(2)}/{selectedProduct.unit})
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-foreground">
                                                 Subtotal: ₹{lineTotal.toFixed(2)}
                                             </span>
                                             {!saleToEdit && items.length > 1 && (
@@ -334,66 +344,75 @@ function RecordProductSaleForm({
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                                        <div className="sm:col-span-6 space-y-1.5">
-                                            <Label htmlFor={`sale-product-${item.key}`} className="text-xs">
-                                                Product
-                                            </Label>
-                                            <Select
-                                                value={item.productId}
-                                                onValueChange={(val) =>
-                                                    handleProductChange(item.key, val)
-                                                }
-                                            >
-                                                <SelectTrigger id={`sale-product-${item.key}`} className="w-full">
-                                                    <SelectValue placeholder="Select a product" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {products.map((product) => (
-                                                        <SelectItem
-                                                            key={product.id}
-                                                            value={product.id.toString()}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{product.name}</span>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
-                                                                </span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                    {products.length === 0 && (
-                                                        <SelectItem value="none" disabled>
-                                                            No active products available
-                                                        </SelectItem>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                    {/* Product Cards Selector */}
+                                    <div className="space-y-1.5">
+                                        <ProductCardSelector
+                                            products={products}
+                                            groups={groupsQuery.data || []}
+                                            selectedProductId={item.productId}
+                                            onSelectProduct={(prod) => handleProductChange(item.key, prod.id.toString())}
+                                            disabled={isPending}
+                                            maxHeightClass="max-h-40 sm:max-h-48"
+                                        />
+                                    </div>
 
-                                        <div className="sm:col-span-3 space-y-1.5">
+                                    {/* Quantity Stepper & Custom Price */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
+                                        <div className="space-y-1.5">
                                             <Label htmlFor={`sale-qty-${item.key}`} className="text-xs">
-                                                Qty {selectedProduct ? `(${selectedProduct.unit})` : ""}
+                                                Quantity {selectedProduct ? `(${selectedProduct.unit})` : ""}
                                             </Label>
-                                            <Input
-                                                id={`sale-qty-${item.key}`}
-                                                type="number"
-                                                step="any"
-                                                min="0.01"
-                                                placeholder="1"
-                                                value={item.quantity}
-                                                onChange={(e) =>
-                                                    handleItemFieldChange(
-                                                        item.key,
-                                                        "quantity",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                required
-                                            />
+                                            <div className="flex items-center gap-1.5">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-9 w-9 shrink-0"
+                                                    onClick={() => {
+                                                        const current = parseFloat(item.quantity) || 1
+                                                        if (current > 1) {
+                                                            handleItemFieldChange(item.key, "quantity", (current - 1).toString())
+                                                        }
+                                                    }}
+                                                    disabled={!item.quantity || parseFloat(item.quantity) <= 1 || isPending}
+                                                >
+                                                    <HugeiconsIcon icon={MinusSignIcon} className="h-4 w-4" />
+                                                </Button>
+                                                <Input
+                                                    id={`sale-qty-${item.key}`}
+                                                    type="number"
+                                                    step="any"
+                                                    min="0.01"
+                                                    placeholder="1"
+                                                    value={item.quantity}
+                                                    onChange={(e) =>
+                                                        handleItemFieldChange(
+                                                            item.key,
+                                                            "quantity",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="h-9 text-center font-semibold text-sm"
+                                                    required
+                                                    disabled={isPending}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-9 w-9 shrink-0"
+                                                    onClick={() => {
+                                                        const current = parseFloat(item.quantity) || 0
+                                                        handleItemFieldChange(item.key, "quantity", (current + 1).toString())
+                                                    }}
+                                                    disabled={isPending}
+                                                >
+                                                    <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
 
-                                        <div className="sm:col-span-3 space-y-1.5">
+                                        <div className="space-y-1.5">
                                             <Label htmlFor={`sale-rate-${item.key}`} className="text-xs">
                                                 Rate (₹)
                                             </Label>
@@ -415,6 +434,8 @@ function RecordProductSaleForm({
                                                         e.target.value
                                                     )
                                                 }
+                                                className="h-9 font-mono text-sm"
+                                                disabled={isPending}
                                             />
                                         </div>
                                     </div>

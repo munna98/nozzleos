@@ -18,6 +18,7 @@ import {
     Delete02Icon,
     Cancel01Icon,
     PlusSignIcon,
+    MinusSignIcon,
     InformationCircleIcon,
     ArrowDown01Icon,
     ArrowUp01Icon,
@@ -26,6 +27,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AmountTape } from "@/components/ui/amount-tape"
+import { ProductCardSelector } from "@/components/products/product-card-selector"
 import {
     Combobox,
     ComboboxContent,
@@ -208,6 +210,7 @@ export function ShiftDashboardStep({
     const [deletingProductSaleId, setDeletingProductSaleId] = useState<number | null>(null)
 
     const productsQuery = trpc.product.getAll.useQuery({ activeOnly: true })
+    const groupsQuery = trpc.product.getGroups.useQuery()
     const availableProducts = productsQuery.data || []
 
     const selectedProduct = useMemo(() => {
@@ -1242,9 +1245,10 @@ export function ShiftDashboardStep({
 
             {/* Add / Edit Product Sale Dialog */}
             <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-xl max-h-[92vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                            <HugeiconsIcon icon={PackageIcon} className="h-5 w-5 text-primary" />
                             {editingProductSale ? "Edit Product Sale" : "Record Product Sale"}
                         </DialogTitle>
                         <DialogDescription>
@@ -1256,62 +1260,84 @@ export function ShiftDashboardStep({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleSaveProductSale} className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="product-select">Product</Label>
-                            <Select
-                                value={selectedProductId}
-                                onValueChange={(val) => {
-                                    setSelectedProductId(val)
-                                    const prod = availableProducts.find((p: Product) => p.id.toString() === val)
-                                    if (prod) {
-                                        if (!effectiveIsAdmin || !customPrice || editingProductSale === null) {
-                                            setCustomPrice(parseFloat(prod.rate.toString()).toString())
-                                        }
+                    <form onSubmit={handleSaveProductSale} className="space-y-4 py-1">
+                        {/* Product Selector with Group Filter */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Product {selectedProduct ? `• ${selectedProduct.name}` : ""}
+                                </Label>
+                                {selectedProduct && (
+                                    <span className="text-xs font-bold text-primary">
+                                        ₹{parseFloat(selectedProduct.rate.toString()).toFixed(2)} / {selectedProduct.unit}
+                                    </span>
+                                )}
+                            </div>
+                            <ProductCardSelector
+                                products={availableProducts}
+                                groups={groupsQuery.data || []}
+                                selectedProductId={selectedProductId}
+                                onSelectProduct={(prod) => {
+                                    setSelectedProductId(prod.id.toString())
+                                    if (!effectiveIsAdmin || !customPrice || editingProductSale === null) {
+                                        setCustomPrice(parseFloat(prod.rate.toString()).toString())
                                     }
                                 }}
                                 disabled={!!editingProductSale}
-                            >
-                                <SelectTrigger id="product-select">
-                                    <SelectValue placeholder="Select a product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableProducts.map((product: Product) => (
-                                        <SelectItem key={product.id} value={product.id.toString()}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{product.name}</span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    (₹{parseFloat(product.rate.toString()).toFixed(2)}/{product.unit})
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                    {availableProducts.length === 0 && (
-                                        <SelectItem value="none" disabled>No active products available</SelectItem>
-                                    )}
-                                </SelectContent>
-                            </Select>
+                                maxHeightClass="max-h-48 sm:max-h-56"
+                            />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="product-quantity">
-                                    Quantity {selectedProduct ? `(${selectedProduct.unit})` : ''}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="product-quantity" className="text-xs">
+                                    Quantity {selectedProduct ? `(${selectedProduct.unit})` : ""}
                                 </Label>
-                                <Input
-                                    id="product-quantity"
-                                    type="number"
-                                    step="any"
-                                    min="0.01"
-                                    placeholder="1"
-                                    value={saleQuantity}
-                                    onChange={(e) => setSaleQuantity(e.target.value)}
-                                    required
-                                />
+                                <div className="flex items-center gap-1.5">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0"
+                                        onClick={() => {
+                                            const current = parseFloat(saleQuantity) || 1
+                                            if (current > 1) {
+                                                setSaleQuantity((current - 1).toString())
+                                            }
+                                        }}
+                                        disabled={!saleQuantity || parseFloat(saleQuantity) <= 1}
+                                    >
+                                        <HugeiconsIcon icon={MinusSignIcon} className="h-4 w-4" />
+                                    </Button>
+                                    <Input
+                                        id="product-quantity"
+                                        type="number"
+                                        step="any"
+                                        min="0.01"
+                                        placeholder="1"
+                                        value={saleQuantity}
+                                        onChange={(e) => setSaleQuantity(e.target.value)}
+                                        className="h-9 text-center font-semibold text-sm"
+                                        required
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0"
+                                        onClick={() => {
+                                            const current = parseFloat(saleQuantity) || 0
+                                            setSaleQuantity((current + 1).toString())
+                                        }}
+                                    >
+                                        <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="product-price">
-                                    Rate (₹)
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="product-price" className="text-xs">
+                                    Rate (₹) {!effectiveIsAdmin && "(Fixed)"}
                                 </Label>
                                 <Input
                                     id="product-price"
@@ -1322,14 +1348,14 @@ export function ShiftDashboardStep({
                                     value={customPrice}
                                     onChange={(e) => setCustomPrice(e.target.value)}
                                     disabled={!effectiveIsAdmin}
-                                    className={!effectiveIsAdmin ? "bg-muted cursor-not-allowed text-muted-foreground" : ""}
+                                    className={`h-9 ${!effectiveIsAdmin ? "bg-muted cursor-not-allowed text-muted-foreground" : ""}`}
                                 />
                             </div>
                         </div>
 
                         {/* Total Preview */}
-                        <div className="pt-2 border-t flex justify-between items-center">
-                            <span className="text-sm font-medium text-muted-foreground">Total Sale Amount:</span>
+                        <div className="p-3 rounded-lg bg-muted/40 border flex justify-between items-center">
+                            <span className="text-xs font-medium text-muted-foreground">Total Sale Amount:</span>
                             <span className="text-lg font-bold text-primary">
                                 ₹{(((parseFloat(saleQuantity) || 0) * (customPrice ? (parseFloat(customPrice) || 0) : (selectedProduct ? parseFloat(selectedProduct.rate.toString()) : 0)))).toFixed(2)}
                             </span>
