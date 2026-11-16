@@ -116,7 +116,7 @@ export function ProductCardSelector({
                         />
                         <Input
                             type="text"
-                            placeholder="Search product by name or code..."
+                            placeholder="Search product..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             disabled={disabled}
@@ -212,15 +212,10 @@ export function ProductCardSelector({
                                 </div>
 
                                 {/* Middle: Product Name */}
-                                <div className="space-y-0.5 min-h-[32px] flex flex-col justify-center">
+                                <div className="min-h-[28px] flex items-center">
                                     <span className="font-semibold text-xs leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
                                         {product.name}
                                     </span>
-                                    {product.code && (
-                                        <span className="text-[10px] text-muted-foreground font-mono">
-                                            {product.code}
-                                        </span>
-                                    )}
                                 </div>
 
                                 {/* Bottom: Price & Unit */}
