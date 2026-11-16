@@ -58,7 +58,7 @@ export default function PaymentTransactionsReport() {
 
     // Fetch filters data
     const paymentMethodsQuery = trpc.paymentMethod.getAll.useQuery()
-    const attendantsQuery = trpc.user.getAll.useQuery({ role: 'Fuel Attendant' })
+    const attendantsQuery = trpc.user.getAll.useQuery({ role: 'Fuel Attendant', isActive: true })
 
     // Fetch transactions
     const queryInput = {

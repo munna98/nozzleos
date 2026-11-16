@@ -190,7 +190,7 @@ export function StaffReportFilters({
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Staff</SelectItem>
-                    {users.map((user) => (
+                    {users.filter((user: any) => user.isActive !== false).map((user) => (
                         <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name || user.username}
                         </SelectItem>

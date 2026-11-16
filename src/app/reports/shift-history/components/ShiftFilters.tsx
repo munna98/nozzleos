@@ -41,7 +41,7 @@ export function ShiftFilters({
     className,
 }: ShiftFiltersProps) {
     const attendantsQuery = trpc.user.getAll.useQuery(
-        { role: 'Fuel Attendant' },
+        { role: 'Fuel Attendant', isActive: true },
         { enabled: isAdmin }
     )
 
@@ -292,7 +292,7 @@ export function ShiftFilters({
                         {attendantsQuery.isLoading ? (
                             <div className="p-2 text-sm text-muted-foreground">Loading...</div>
                         ) : (
-                            attendants.map((attendant) => (
+                            attendants.filter((attendant) => attendant.isActive !== false).map((attendant) => (
                                 <SelectItem key={attendant.id} value={attendant.id.toString()}>
                                     {attendant.name || attendant.username}
                                 </SelectItem>

@@ -47,7 +47,7 @@ export default function StaffReportPage() {
 
     // Fetch users for filter (admin only)
     const usersQuery = trpc.user.getAll.useQuery(
-        { role: 'Fuel Attendant' },
+        { role: 'Fuel Attendant', isActive: true },
         { enabled: isAdmin }
     )
 

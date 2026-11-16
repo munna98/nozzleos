@@ -11,6 +11,7 @@ export const userRouter = router({
     getAll: adminProcedure
         .input(z.object({
             role: z.string().optional(),
+            isActive: z.boolean().optional(),
         }).optional())
         .query(async ({ ctx, input }) => {
             const where: Record<string, unknown> = {
@@ -20,6 +21,10 @@ export const userRouter = router({
                 role: {
                     name: { not: 'Super Admin' }
                 }
+            }
+
+            if (input?.isActive !== undefined) {
+                where.isActive = input.isActive
             }
 
             if (input?.role) {

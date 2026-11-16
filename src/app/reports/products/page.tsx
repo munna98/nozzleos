@@ -88,7 +88,7 @@ export default function ProductSalesReportPage() {
     // Queries
     const groupsQuery = trpc.product.getGroups.useQuery()
     const productsQuery = trpc.product.getAll.useQuery()
-    const attendantsQuery = trpc.user.getAll.useQuery(undefined, { enabled: isAdminOrManager })
+    const attendantsQuery = trpc.user.getAll.useQuery({ isActive: true }, { enabled: isAdminOrManager })
 
     const deleteDirectSaleMutation = trpc.product.deleteDirectSale.useMutation({
         onSuccess: () => {

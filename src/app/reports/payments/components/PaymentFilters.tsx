@@ -247,7 +247,7 @@ export function PaymentFilters({
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Attendants</SelectItem>
-                    {attendants.map((user) => (
+                    {attendants.filter((user: any) => user.isActive !== false).map((user) => (
                         <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name || user.username}
                         </SelectItem>
