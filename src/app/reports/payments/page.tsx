@@ -72,7 +72,7 @@ export default function PaymentTransactionsReport() {
         userId: attendantId !== "all" ? parseInt(attendantId) : undefined,
     }
 
-    const { data, isLoading } = trpc.payment.getTransactions.useQuery(queryInput)
+    const { data, isLoading, isError, error } = trpc.payment.getTransactions.useQuery(queryInput)
 
     const handleFromDateChange = (date?: Date) => {
         setFromDate(date)
@@ -350,6 +350,11 @@ export default function PaymentTransactionsReport() {
                             <Spinner className="size-8" />
                             <p className="text-sm text-muted-foreground">Calculating payment summary...</p>
                         </div>
+                    ) : isError ? (
+                        <Card className="p-8 border-destructive/50 bg-destructive/5 text-center space-y-2">
+                            <p className="font-semibold text-destructive">Failed to load payments report</p>
+                            <p className="text-sm text-muted-foreground">{error?.message || "An unexpected error occurred"}</p>
+                        </Card>
                     ) : !data || data.summary.totalCount === 0 ? (
                         <Card className="p-12 text-center text-muted-foreground">
                             No payment transactions found for the selected criteria.
@@ -380,6 +385,12 @@ export default function PaymentTransactionsReport() {
                                         <TableRow>
                                             <TableCell colSpan={6} className="h-24 text-center">
                                                 <Spinner className="size-6 mx-auto" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : isError ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-24 text-center text-destructive">
+                                                Failed to load transactions: {error?.message || "An error occurred"}
                                             </TableCell>
                                         </TableRow>
                                     ) : data?.transactions.length === 0 ? (
@@ -463,6 +474,10 @@ export default function PaymentTransactionsReport() {
 
                         {isLoading ? (
                             <div className="text-center py-10"><Spinner className="size-6 mx-auto" /></div>
+                        ) : isError ? (
+                            <div className="text-center py-10 text-destructive text-sm">
+                                Failed to load transactions: {error?.message}
+                            </div>
                         ) : data?.transactions.length === 0 ? (
                             <div className="text-center py-10">No transactions found.</div>
                         ) : (
